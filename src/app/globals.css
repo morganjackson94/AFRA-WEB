@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   AFRA design system — ONE dark periwinkle world.
+   Ground: periwinkle dusk. Text: warm cream. Accent: candlelit amber — a lit
+   window in the dark, ONE moment per view. Secondary: dusty rose, one rule per
+   view. Tertiary: aged gold, fine detail only. No pure black, no green.
+   Flho warmth (soft grounds, serif display) + Betak rigor (letter-spaced
+   labels, numbered sections, negative space). All surfaces reference these
+   tokens — no one-off hex in components.
+
+   Contrast (WCAG AA) on periwinkle #2D2D4A: cream 12.7:1, ink-soft 8.1:1,
+   aged-gold faint 6.9:1, dusty rose 6.5:1. Amber is accent/large/fill only
+   (~3:1 as text on ground) — body text is always cream/rose/gold, never amber.
+   =========================================================================== */
+@theme inline {
+  /* --- Periwinkle world palette --- */
+  --color-bg: #2d2d4a; /* periwinkle dusk — flat ground (fast first paint) */
+  --color-card: #3a3a5c; /* lifted periwinkle — cards/panels (never white) */
+  --color-cream: #353554; /* faint lifted panel / hover / inset tiles */
+  --color-ink: #f0e8d8; /* warm cream — primary text (12.7:1 on ground) */
+  --color-ink-soft: #c2bbaa; /* muted cream — secondary text (8.1:1) */
+  --color-soft: #c2bbaa; /* legacy alias → muted cream (back-compat) */
+  --color-faint: #c9a876; /* aged gold (AA-tuned) — tertiary, fine detail (6.9:1) */
+  --color-line: rgba(240, 232, 216, 0.12); /* warm hairline — cream @12% */
+  --color-line-strong: rgba(240, 232, 216, 0.22); /* warm strong line */
+  --color-accent: #c47628; /* candlelit amber — single accent per view */
+  --color-accent-ink: #1e1e33; /* deep periwinkle — text on amber (4.9:1) */
+  --color-accent-soft: rgba(196, 118, 40, 0.13); /* amber-tinted periwinkle — honesty fill */
+  --color-rose: #c4a09a; /* dusty rose — secondary, one rule per view (6.5:1) */
+  --color-green: #c47628; /* back-compat alias → amber (green removed) */
+  --color-green-soft: rgba(196, 118, 40, 0.13); /* back-compat → amber-soft */
+
+  /* --- Threshold (onboarding) — SAME periwinkle world, one system --- */
+  --color-threshold: #2d2d4a; /* same ground as the rest of the app */
+  --color-threshold-soft: #3a3a5c; /* lifted periwinkle surface */
+  --color-threshold-line: rgba(240, 232, 216, 0.14); /* warm hairline */
+  --color-threshold-ink: #f0e8d8; /* warm cream */
+  --color-threshold-ink-soft: #c2bbaa; /* muted cream */
+
+  /* --- Type --- */
+  --font-sans: var(--font-inter), system-ui, sans-serif; /* body / UI / data */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif; /* headings */
+
+  /* --- Motion (restrained, editorial) --- */
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  color-scheme: dark;
+  /* One intentional dark world: paint the root canvas periwinkle so UA chrome
+     and any near-transparent children sit on the same ground, never white. */
+  background: var(--color-bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(196, 118, 40, 0.32); /* warm amber-tinted highlight on periwinkle */
+}
+
+/* ---------------------------------------------------------------------------
+   Type scale (centralized). Display = serif (Fraunces); body/UI = Inter.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* Hero — display serif, magazine-spread scale. Dominates the screen. */
+  .t-display {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 7vw, 5.5rem); /* 48px → 88px */
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  /* Page titles (@handle, "What are you hiring for?", "Edit hiring post"). */
+  .t-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 4vw, 3.5rem); /* 36px → 56px */
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  /* Section sub-headings (how-it-works step titles, readiness headline). */
+  .t-heading {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 560;
+  }
+  /* The founding price — display serif, large. */
+  .t-price {
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 6vw, 4.5rem); /* 56px → 72px */
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  /* The Betak structural signpost: uppercase, EXTREME letter-spacing, quiet. */
+  .t-label {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-weight: 600;
+    color: var(--color-ink-soft);
+  }
+  /* Pipeline counts / data numerals — INTER (sans), tabular. Not serif. */
+  .t-numeral {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion: scroll-reveal (fade-up) + calm load. Fully disabled for users who
+   prefer reduced motion (the styles only exist inside no-preference).
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Standard slow fade-up. Stagger comes from per-element transition-delay set
+     in JS (Stagger/Reveal), so children arrive in sequence, not together. */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 900ms var(--ease-editorial),
+      transform 900ms var(--ease-editorial);
+    will-change: opacity, transform;
+  }
+  [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+  }
+  /* Hero / display headlines — a more pronounced, slower settle with a faint
+     blur-in. No word-by-word, no clip-mask: just an elegant arrival. */
+  [data-reveal-hero] {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(8px);
+    transition:
+      opacity 1100ms var(--ease-editorial),
+      transform 1100ms var(--ease-editorial),
+      filter 1100ms var(--ease-editorial);
+    will-change: opacity, transform, filter;
+  }
+  [data-reveal-hero].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* Reduced motion: show the final state instantly (no reveal, no blur). */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal-hero] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Hero line-art draw-on + proof-card arrival (src/components/HeroLineBand.tsx).
+   Both are gated by the SAME [data-reveal].is-visible toggle the rest of the
+   site's Reveal system uses, so they fire once, on scroll-into-view, in step
+   with the section's own soft fade-up.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-line-path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  [data-reveal].is-visible .hero-line-path {
+    animation: hero-line-draw var(--hero-line-duration) var(--hero-line-delay) cubic-bezier(0.4, 0, 0.2, 1)
+      forwards;
+  }
+  @keyframes hero-line-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .result-card {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  [data-reveal].is-visible .result-card {
+    animation: hero-card-in 1000ms 500ms var(--ease-editorial) forwards;
+  }
+  @keyframes hero-card-in {
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-line-path {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+  .result-card {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

@@ -1,0 +1,377 @@
+// AFRA — data model spine (Build Session 1, Step 1)
+//
+// Conventions:
+//   * SQLite (dev) has no native enums, so all state/status fields are `String`
+//     with allowed values documented inline. This also keeps the Postgres
+//     production swap painless (change datasource provider, re-migrate).
+//   * Stub integrations (ChannelConnection, CalendarConnection) carry a
+//     `status` defaulting to "stubbed". The TABLES are real now; the real
+//     provider tokens populate post-approval (Track B).
+//   * Locations are first-class: Operator -> many Location -> many Role.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Account spine
+// ---------------------------------------------------------------------------
+
+/// The customer account. One billing relationship (Stripe customer) per operator.
+model Operator {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  /// Billing lifecycle: "none" | "trial_pending" | "trialing" | "active" | "past_due" | "canceled"
+  /// "trial_pending" = provisioned but not yet paid. Monthly path advances via the
+  /// trial sub; founding-annual path advances trial_pending -> active on a
+  /// webhook-confirmed one-time payment (no "trialing" for founding).
+  billingStatus    String   @default("none")
+  /// "monthly" (recurring $199/mo trial sub) | "founding_annual" (one-time $1,990/yr prepay).
+  plan                    String  @default("monthly")
+  stripeCustomerId        String? @unique
+  stripeSubscriptionId    String? @unique
+  /// Founding-annual Checkout Session id (one-time payment, no subscription).
+  stripeCheckoutSessionId String? @unique
+  /// PaymentIntent id of a confirmed founding charge (for manual refunds/support).
+  stripePaymentIntentId   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // --- Founding-Operator qualification (soft signal, never a gate) ---------
+  // Captured in the pre-checkout qualification step. All optional/informational
+  // — nothing here ever blocks a real operator from reaching checkout. See
+  // src/lib/qualification.ts for the allowed bucket/band values and the
+  // reachFlag threshold.
+  /// "1" | "2-3" | "4-8" | "9-15" | "15+" ("0" never reaches provision() — see
+  /// the graceful non-operator redirect, which captures a Lead instead).
+  locationsBucket String?
+  /// "under_500" | "500_2k" | "2k_10k" | "10k_plus"
+  followerBand    String?
+  /// "rarely" | "occasionally" | "constantly"
+  hiringFrequency String?
+  /// true when followerBand is below LOW_REACH_FOLLOWER_BANDS (qualification.ts).
+  /// For concierge use only — never shown to the operator as a rejection.
+  reachFlag       Boolean @default(false)
+
+  // --- Legal consent (checkout) ---------------------------------------------
+  // Recorded at the moment the founding checkbox is checked and submitted.
+  // Versioned by the legal docs' "Effective Date" (see LEGAL_DOC_VERSION in
+  // src/lib/legalDocs.ts) so a later ToS/Privacy revision is distinguishable
+  // from what this operator actually agreed to.
+  /// Null until the operator checks the consent box at checkout.
+  tosAcceptedAt DateTime?
+  /// The legal-doc version (effective date) shown at the moment of consent.
+  tosVersion    String?
+
+  locations          Location[]
+  channelConnections ChannelConnection[]
+  conversations      Conversation[]
+  events             Event[]
+  sessions           Session[]
+  loginTokens        LoginToken[]
+  assignedFlow       ManychatFlow?
+}
+
+// ---------------------------------------------------------------------------
+// ManyChat flow pool — instant-connection primary path. ManyChat's API cannot
+// create flows, so the founder hand-clones a batch of ~10 generic flows in the
+// ManyChat UI upfront and captures each one's connect URL; the app's only job
+// is claiming one atomically at payment time. Personalization (role, pay,
+// location) rides along as VARIABLES at trigger time (sendFlow + context), so
+// a pooled flow stays generic until it's actually triggered for a candidate.
+// ---------------------------------------------------------------------------
+
+/// One hand-cloned, hand-captured ManyChat flow, available for assignment.
+model ManychatFlow {
+  id         String   @id @default(cuid())
+  /// The ManyChat-hosted connect URL the founder captured for this flow.
+  connectUrl String
+  /// Namespace ManyChat needs for later sendFlow() calls (Track B/B1).
+  flowNs     String?
+  /// "available" | "assigned"
+  status     String   @default("available")
+  assignedOperatorId String?   @unique
+  assignedOperator   Operator? @relation(fields: [assignedOperatorId], references: [id])
+  assignedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+}
+
+/// A visitor who indicated they're not (yet) a multi-location hospitality
+/// operator during the founding qualification step. Deliberately separate from
+/// Operator — this is a maybe-later contact, not a customer record.
+model Lead {
+  id        String   @id @default(cuid())
+  email     String
+  /// Why they were routed here, e.g. "0_locations".
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Auth — real login (magic link). Session cookie carries an opaque random
+// token; only its SHA-256 hash is stored, so a leaked DB row can't be replayed
+// as a cookie. Same pattern for LoginToken (single-use, short-lived).
+// ---------------------------------------------------------------------------
+
+/// A logged-in browser session. The cookie holds the raw token; only its hash
+/// lives here. Deleting the row (logout) or letting it expire ends the session.
+model Session {
+  id         String   @id @default(cuid())
+  operatorId String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId])
+}
+
+/// A one-time magic-link token emailed to the operator. Single-use (usedAt) and
+/// short-lived (expiresAt) — consuming it creates a Session, then it's spent.
+model LoginToken {
+  id         String    @id @default(cuid())
+  operatorId String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId])
+}
+
+/// Server-side activation event log. Source of truth for the events the Meta ad
+/// campaign optimizes on. Only two types this session — StartedSetup and WentLive
+/// — each fired at most once per operator (the @@unique enforces idempotency).
+model Event {
+  id            String   @id @default(cuid())
+  operatorId    String
+  /// "StartedSetup" | "WentLive"
+  type          String
+  /// Snapshot of why it fired (Pixel/CAPI-shaped custom_data lives here too).
+  payload       Json?
+  /// Whether forwardToMeta() has accepted this event (stubbed seam for now).
+  metaForwarded Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@unique([operatorId, type])
+  @@index([operatorId])
+}
+
+/// A physical site. First-class — routing, calendars, and roles all hang off it.
+model Location {
+  id            String   @id @default(cuid())
+  operatorId    String
+  name          String
+  address       String?
+  /// IANA timezone, e.g. "America/Chicago". Drives booking/business-hours math.
+  timezone      String   @default("America/Chicago")
+  /// JSON: per-weekday open/close windows, e.g.
+  /// { "mon": [["09:00","17:00"]], "sun": [] }
+  businessHours Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  operator            Operator             @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  roles               Role[]
+  calendarConnections CalendarConnection[]
+  candidates          Candidate[]
+  bookings            Booking[]
+
+  @@index([operatorId])
+}
+
+/// A hiring need at a Location. Carries the readiness gate state.
+model Role {
+  id         String @id @default(cuid())
+  locationId String
+  title      String
+  /// Raw pay string as the operator typed it during onboarding, e.g. "$18/hr".
+  /// Source of truth for display; payRate/payPeriod are parsed from it best-effort.
+  payText    String?
+  /// Pay value paired with its period below (kept structured for guardrail checks).
+  payRate    Float?
+  /// "hour" | "year" | "shift" | "month"
+  payPeriod  String @default("hour")
+  /// Free-text hours/employment description, e.g. "Part-time, 20-30 hrs/wk".
+  hours      String?
+
+  // --- Readiness gates (Step 2 sets these; "live" requires all met + billing) ---
+  /// Overall state: "pending" | "ready" | "live"
+  readinessState String  @default("pending")
+  gatePlatform   Boolean @default(false) // channel connected (stub-met allowed)
+  gateCalendar   Boolean @default(false) // calendar connected (stub-met allowed)
+  gateTemplate   Boolean @default(false) // screening template cloned
+  gateBilling    Boolean @default(false) // active trial/subscription
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  location          Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  screeningTemplate ScreeningTemplate?
+  candidates        Candidate[]
+  bookings          Booking[]
+
+  @@index([locationId])
+}
+
+/// The editable hiring-post content. System defaults have roleId=null and
+/// isSystemDefault=true; per-role instances are cloned from one of those.
+model ScreeningTemplate {
+  id               String  @id @default(cuid())
+  /// Null for system-default library entries; set (and unique) for role clones.
+  roleId           String? @unique
+  isSystemDefault  Boolean @default(false)
+  /// Which system default this was cloned from (audit/upgrade trail).
+  sourceTemplateId String?
+  name             String
+  /// Editable text slots = the Level-2 editableFields contract (locked shape for the
+  /// Step 5 editor). Required keys: { headline, roleLabel, payLabel }; optional: cta.
+  /// Validated by isValidTemplate() in src/lib/readiness.ts.
+  slots            Json
+  /// Photo reference (Level 3): asset path/URL of the swappable locked-frame image.
+  photoRef         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  role Role? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// External integrations — STUBBED this session (real interfaces, stub data)
+// ---------------------------------------------------------------------------
+
+/// IG/Messenger messaging connection. Real tokens land with B1 (post App Review).
+model ChannelConnection {
+  id          String   @id @default(cuid())
+  operatorId  String
+  /// "instagram" | "messenger"
+  provider    String   @default("instagram")
+  /// Operator's stated handle from onboarding, e.g. "@sandoitchi". Distinct from
+  /// pageId, which is the real Meta page id resolved post-OAuth (B1).
+  handle      String?
+  pageId      String?
+  accessToken String?
+  /// "stubbed" | "connecting" | "connected" | "error". "connecting" = operator
+  /// clicked through to ManyChat's hosted connect page but the founder hasn't
+  /// confirmed the flow is live for them yet — still honestly NOT "connected".
+  status      String   @default("stubbed")
+  /// Per-operator ManyChat-hosted connect URL (the founder sets this after
+  /// cloning the master screening flow for them). Null until the founder has
+  /// done that manual clone — the dashboard shows the concierge state until then.
+  manychatConnectUrl  String?
+  /// ManyChat's subscriber/contact id for this operator's page, once linked.
+  /// Not used to gate anything; kept for future sendFlow() calls.
+  manychatSubscriberId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  operator      Operator       @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([operatorId])
+}
+
+/// Calendar connection per Location. Real tokens land with B2 (post Google verify).
+model CalendarConnection {
+  id          String   @id @default(cuid())
+  locationId  String
+  /// "google" (only provider for now)
+  provider    String   @default("google")
+  calendarId  String?
+  accessToken String?
+  /// "stubbed" | "connected" | "error"
+  status      String   @default("stubbed")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([locationId])
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline — tables built now, populated once the conversation engine is live
+// ---------------------------------------------------------------------------
+
+/// Someone who applied via a location-scoped hiring link.
+model Candidate {
+  id         String   @id @default(cuid())
+  locationId String
+  roleId     String?
+  name       String?
+  /// IG handle or other contact reference.
+  contact    String?
+  /// Free-text availability as reported during screening, e.g. "Weekends, evenings".
+  availability String?
+  /// Pipeline stage: "applied" | "screened" | "booked" | "showed" | "rejected"
+  stage      String   @default("applied")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  location      Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  role          Role?          @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
+  bookings      Booking[]
+
+  @@index([locationId])
+  @@index([roleId])
+}
+
+/// The screening conversation with a candidate (engine logic is Track B/B1).
+model Conversation {
+  id                  String   @id @default(cuid())
+  candidateId         String
+  operatorId          String
+  channelConnectionId String?
+  /// "open" | "screening" | "passed" | "failed" | "closed"
+  state               String   @default("open")
+  /// Ordered message log (populated once B1 is live).
+  transcript          Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  candidate         Candidate          @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  operator          Operator           @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  channelConnection ChannelConnection? @relation(fields: [channelConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId])
+  @@index([operatorId])
+}
+
+/// The booked interview — THE billable value event.
+model Booking {
+  id                   String    @id @default(cuid())
+  candidateId          String
+  locationId           String
+  roleId               String?
+  calendarConnectionId String?
+  scheduledAt          DateTime?
+  /// "scheduled" | "showed" | "no_show" | "canceled"
+  status               String    @default("scheduled")
+  /// Whether this booking counts toward billing (the value metric).
+  isBillable           Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  candidate          Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  location           Location            @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  calendarConnection CalendarConnection? @relation(fields: [calendarConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId])
+  @@index([locationId])
+}

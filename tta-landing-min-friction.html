@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>AFRA — Stop losing good applicants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#FAFAF8;--card:#FFFFFF;--cream:#F1EFEA;
+    --ink:#171717;--soft:#54514B;--faint:#86827A;
+    --line:#E4E0D8;--line-strong:#D6D1C7;--green:#1C7A4A;--green-soft:#E6F1EA;
+    --r:16px;--rb:11px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;color-scheme:only light;background:#FAFAF8;}
+  body{background:#FAFAF8;color:var(--ink);font-family:"Inter",system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  ::selection{background:#E3DECF;}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;cursor:pointer;}
+  .ico{width:20px;height:20px;display:block;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+
+  nav{position:sticky;top:0;z-index:40;background:rgba(250,250,248,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .nav-in{max-width:1080px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-weight:700;font-size:18px;letter-spacing:-.02em;}
+  .btn{background:var(--ink);color:#fff;border:1px solid var(--ink);border-radius:var(--rb);padding:11px 18px;font-size:14.5px;font-weight:500;transition:opacity .15s,transform .04s;}
+  .btn:hover{opacity:.88;}.btn:active{transform:translateY(1px);}
+  .btn.lg{padding:15px 26px;font-size:16px;border-radius:12px;}
+  .btn.ghost{background:none;color:var(--ink);border-color:var(--line-strong);}
+  .btn.ghost:hover{border-color:var(--ink);opacity:1;}
+  .btn.full{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;}
+
+  .hero{max-width:1080px;margin:0 auto;padding:64px 24px 36px;display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--soft);background:var(--card);border:1px solid var(--line-strong);border-radius:30px;padding:6px 13px;margin-bottom:22px;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  h1{font-size:50px;line-height:1.04;letter-spacing:-.025em;font-weight:700;margin-bottom:20px;color:var(--ink);}
+  .sub{font-size:19px;color:var(--soft);margin-bottom:30px;max-width:33ch;}
+  .cta-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .micro{font-size:13.5px;color:var(--faint);margin-top:16px;}
+
+  .phone{justify-self:center;width:300px;background:var(--ink);border-radius:34px;padding:10px;box-shadow:0 30px 60px -28px rgba(0,0,0,.35);}
+  .phone-screen{background:var(--bg);border-radius:26px;overflow:hidden;}
+  .ps-top{background:var(--card);padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;}
+  .ps-top .av{width:30px;height:30px;border-radius:50%;background:var(--cream);display:grid;place-items:center;font-weight:600;font-size:13px;}
+  .ps-top b{font-size:13.5px;}.ps-top span{font-size:11px;color:var(--faint);display:block;}
+  .ps-body{padding:16px;display:flex;flex-direction:column;gap:10px;min-height:300px;}
+  .bub{max-width:80%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.4;}
+  .bub.them{background:var(--card);border:1px solid var(--line-strong);border-bottom-left-radius:4px;align-self:flex-start;}
+  .bub.us{background:var(--ink);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;}
+  .booked{margin-top:6px;background:var(--green-soft);border:1px solid #C6E1D2;border-radius:12px;padding:12px 14px;}
+  .booked .bk{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:600;font-size:13px;}
+  .booked .bt{font-size:12px;color:var(--soft);margin-top:3px;}
+
+  section{max-width:1080px;margin:0 auto;padding:52px 24px;}
+  .sec-h{text-align:center;max-width:34ch;margin:0 auto 38px;}
+  .sec-h .k{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:12px;}
+  .sec-h h2{font-size:34px;letter-spacing:-.02em;line-height:1.1;font-weight:700;}
+  .sec-h p{color:var(--soft);font-size:17px;margin-top:12px;}
+
+  /* VSL */
+  .vsl-wrap{max-width:760px;margin:0 auto;}
+  .vsl{position:relative;aspect-ratio:16/9;background:var(--ink);border-radius:20px;overflow:hidden;cursor:pointer;border:1px solid var(--line-strong);}
+  .vsl .poster{position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 30%,#2b2b2b,#141414);display:flex;align-items:center;justify-content:center;}
+  .vsl .play{width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center;transition:transform .15s;}
+  .vsl:hover .play{transform:scale(1.06);}
+  .vsl .play svg{width:26px;height:26px;margin-left:4px;fill:var(--ink);}
+  .vsl .vlabel{position:absolute;left:18px;bottom:16px;color:#fff;}
+  .vsl .vlabel b{font-weight:600;font-size:15px;}
+  .vsl .vlabel span{font-size:12.5px;color:#C9C5BD;display:block;}
+  .vsl .badge{position:absolute;right:16px;top:16px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:30px;padding:5px 11px;}
+  .vsl-note{text-align:center;font-size:13.5px;color:var(--faint);margin-top:14px;}
+
+  .prob{background:var(--ink);color:#F4F2EC;border-radius:24px;padding:48px 44px;text-align:center;}
+  .prob h2{font-size:30px;letter-spacing:-.02em;line-height:1.15;font-weight:600;max-width:24ch;margin:0 auto 14px;}
+  .prob p{color:#BDB9B0;font-size:17px;max-width:46ch;margin:0 auto;}
+  .prob .em{color:#fff;font-weight:600;}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .stepc{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r);padding:26px 24px;}
+  .stepc .n{width:32px;height:32px;border-radius:9px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:600;font-size:15px;margin-bottom:16px;}
+  .stepc h3{font-size:18px;font-weight:600;margin-bottom:7px;letter-spacing:-.01em;}
+  .stepc p{color:var(--soft);font-size:15px;}
+
+  .feats{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  .feat{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r);padding:20px 22px;}
+  .feat .chip{width:40px;height:40px;border-radius:11px;background:var(--cream);display:grid;place-items:center;flex:none;color:var(--ink);}
+  .feat b{font-weight:600;font-size:16px;display:block;margin-bottom:3px;}
+  .feat span{color:var(--soft);font-size:14.5px;}
+
+  .price-wrap{max-width:440px;margin:0 auto;}
+  .price{background:var(--card);border:1px solid var(--line-strong);border-radius:22px;padding:34px 32px;text-align:center;box-shadow:0 20px 40px -30px rgba(0,0,0,.2);}
+  .price .amt{font-size:52px;font-weight:700;letter-spacing:-.03em;line-height:1;}
+  .price .amt span{font-size:18px;font-weight:500;color:var(--soft);letter-spacing:0;}
+  .price .per{color:var(--soft);font-size:15px;margin-top:8px;}
+  .price .free{display:inline-block;margin-top:16px;background:var(--green-soft);color:var(--green);font-weight:600;font-size:13.5px;border-radius:30px;padding:7px 15px;}
+  .plist{text-align:left;margin:26px 0;display:flex;flex-direction:column;gap:12px;}
+  .plist li{display:flex;gap:11px;align-items:flex-start;list-style:none;font-size:15px;}
+  .plist .ck{color:var(--green);flex:none;margin-top:2px;}
+  .pnote{font-size:13px;color:var(--faint);margin-top:14px;}
+
+  .faq{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  .qa{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r);padding:20px 22px;}
+  .qa b{display:block;font-weight:600;font-size:16px;margin-bottom:6px;}
+  .qa p{color:var(--soft);font-size:15px;}
+
+  .final{text-align:center;}
+  .final h2{font-size:38px;letter-spacing:-.025em;font-weight:700;margin-bottom:10px;}
+  .final p{color:var(--soft);font-size:18px;margin-bottom:26px;}
+
+  footer{border-top:1px solid var(--line);}
+  .foot-in{max-width:1080px;margin:0 auto;padding:28px 24px;display:flex;justify-content:space-between;align-items:center;color:var(--faint);font-size:13.5px;flex-wrap:wrap;gap:10px;}
+
+  /* video modal */
+  .vmodal{position:fixed;inset:0;background:rgba(20,20,20,.82);z-index:70;display:none;align-items:center;justify-content:center;padding:24px;}
+  .vmodal.show{display:flex;animation:fade .2s ease;}
+  .vmodal .box{width:100%;max-width:880px;aspect-ratio:16/9;background:#000;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#9a958c;position:relative;text-align:center;}
+  .vmodal .box .ph{font-size:15px;}
+  .vmodal .close{position:absolute;top:-44px;right:0;background:none;border:0;color:#fff;display:flex;align-items:center;gap:6px;font-size:14px;}
+
+  /* ---------- onboarding ---------- */
+  .ob{position:fixed;inset:0;background:var(--bg);z-index:60;display:none;overflow-y:auto;}
+  .ob.show{display:block;animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .ob-top{position:sticky;top:0;background:var(--bg);padding:18px 20px 10px;display:flex;align-items:center;gap:14px;}
+  .ob-back,.ob-close{background:none;border:0;color:var(--soft);width:34px;height:34px;display:grid;place-items:center;border-radius:9px;}
+  .ob-back:hover,.ob-close:hover{background:var(--cream);color:var(--ink);}
+  .dots{display:flex;gap:6px;align-items:center;flex:1;justify-content:center;}
+  .dots i{height:6px;border-radius:30px;background:var(--line-strong);transition:.3s;width:6px;}
+  .dots i.on{background:var(--ink);width:22px;}
+  .dots i.done{background:var(--ink);opacity:.4;}
+
+  .ob-wrap{max-width:430px;margin:0 auto;padding:20px 24px 120px;}
+  .ob-screen{animation:rise .3s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .ob h2{font-size:30px;line-height:1.12;letter-spacing:-.02em;font-weight:700;margin-bottom:10px;color:var(--ink);}
+  .ob .lede{color:var(--soft);font-size:16px;margin-bottom:26px;}
+
+  .bigchip{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r);aspect-ratio:16/10;display:grid;place-items:center;margin-bottom:18px;}
+  .bigchip .gl{width:64px;height:64px;border-radius:16px;background:var(--cream);display:grid;place-items:center;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--soft);margin-bottom:8px;}
+  .input{width:100%;background:var(--card);border:1px solid var(--line-strong);border-radius:var(--rb);padding:14px 15px;font-size:16px;color:var(--ink);font-family:inherit;}
+  .input:focus{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+
+  .opt{width:100%;display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--line-strong);border-radius:var(--rb);padding:15px 16px;margin-bottom:11px;text-align:left;transition:border-color .15s,background .15s;}
+  .opt:hover{border-color:var(--soft);}
+  .opt.on{border-color:var(--ink);background:#FCFBF9;}
+  .opt .oc{width:34px;height:34px;border-radius:9px;background:var(--cream);display:grid;place-items:center;flex:none;}
+  .opt b{font-weight:500;font-size:15.5px;flex:1;}
+  .opt .rad{width:20px;height:20px;border-radius:50%;border:1.6px solid var(--line-strong);flex:none;display:grid;place-items:center;}
+  .opt.on .rad{border-color:var(--ink);background:var(--ink);}
+  .opt.on .rad::after{content:"";width:7px;height:7px;border-radius:50%;background:#fff;}
+
+  .popl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:6px 0 10px;}
+  .lock{display:flex;align-items:center;gap:8px;justify-content:center;color:var(--faint);font-size:13px;margin-top:14px;}
+
+  .live-c{text-align:center;padding-top:22px;}
+  .checkbig{width:92px;height:92px;border-radius:50%;background:var(--green);display:grid;place-items:center;margin:0 auto 22px;position:relative;}
+  .checkbig svg{width:44px;height:44px;stroke:#fff;stroke-width:2.4;fill:none;}
+  .live-c h2{font-size:32px;margin-bottom:8px;}
+  .live-c .lede{margin-bottom:24px;}
+  .livecard{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--r);padding:18px;text-align:left;margin-bottom:20px;}
+  .livecard .lr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;}
+  .livecard .lr+.lr{border-top:1px solid var(--line);}
+  .livecard .lr span{color:var(--soft);font-size:14px;}.livecard .lr b{font-size:14.5px;font-weight:500;}
+  .livecard .lr b.now{color:var(--green);}
+  .sharelink{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--soft);font-size:14px;margin-top:14px;background:none;border:0;width:100%;}
+  .sharelink:hover{color:var(--ink);}
+  .confetti{position:absolute;inset:-30px;pointer-events:none;}
+  .confetti i{position:absolute;width:7px;height:7px;border-radius:1px;animation:fall 1s ease-out forwards;}
+  @keyframes fall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(60px) rotate(180deg);opacity:0}}
+
+  .ob-foot{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--bg) 72%,transparent);padding:16px 24px 22px;z-index:5;}
+  .ob-foot-in{max-width:430px;margin:0 auto;}
+  .ob-foot .micro{text-align:center;margin-top:10px;}
+
+  @media(max-width:860px){
+    .hero{grid-template-columns:1fr;gap:36px;padding-top:40px;}
+    h1{font-size:38px;}.sub{font-size:17px;}
+    .steps,.feats{grid-template-columns:1fr;}
+    .phone{width:270px;}
+    .prob{padding:36px 26px;}.prob h2{font-size:24px;}
+    .final h2{font-size:30px;}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-in">
+  <div class="logo">TapTap<b>Apply</b></div>
+  <button class="btn" onclick="openOb()">Start free</button>
+</div></nav>
+
+<header class="hero">
+  <div>
+    <span class="eyebrow"><span class="dot"></span>For restaurants &amp; cafés</span>
+    <h1>Stop losing good applicants to slow follow-up.</h1>
+    <p class="sub">You already get applicants on Instagram. We answer every one in seconds and book them right into your calendar — so the good ones don't slip away.</p>
+    <div class="cta-row">
+      <button class="btn lg" onclick="openOb()">Start free</button>
+      <button class="btn lg ghost" onclick="openV()">▶ &nbsp;Watch 90-sec demo</button>
+    </div>
+    <p class="micro">2 weeks free · No ads needed · Live in about a minute</p>
+  </div>
+  <div class="phone"><div class="phone-screen">
+    <div class="ps-top"><div class="av">S</div><div><b>Sandoitchi</b><span>Instagram · now</span></div></div>
+    <div class="ps-body">
+      <div class="bub them">Hi! I saw you're hiring 👋</div>
+      <div class="bub us">Awesome — a few quick questions. How many years of experience do you have?</div>
+      <div class="bub them">About 2 years, mostly front of house.</div>
+      <div class="bub us">Perfect. Want to grab an interview time?</div>
+      <div class="booked">
+        <div class="bk"><svg class="ico" style="width:16px;height:16px;stroke:var(--green)"><use href="#i-check"/></svg>Interview booked</div>
+        <div class="bt">Thursday · 2:00 PM · with Kenji</div>
+      </div>
+    </div>
+  </div></div>
+</header>
+
+<!-- VSL -->
+<section>
+  <div class="sec-h"><div class="k">See it work</div><h2>90 seconds, start to booked.</h2></div>
+  <div class="vsl-wrap">
+    <div class="vsl" onclick="openV()">
+      <div class="poster"><div class="play"><svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg></div></div>
+      <span class="badge">Demo</span>
+      <div class="vlabel"><b>How AFRA works</b><span>From an Instagram comment to a booked interview</span></div>
+    </div>
+    <p class="vsl-note">Optional — the page tells you everything. Watch only if you want to see it move.</p>
+  </div>
+</section>
+
+<section><div class="prob">
+  <h2>Your best applicants apply to five places at once.</h2>
+  <p>Whoever answers first wins. <span class="em">Calls go to voicemail. DMs sit for hours.</span> By the time you follow up, they've already taken another job.</p>
+</div></section>
+
+<section id="how">
+  <div class="sec-h"><div class="k">How it works</div><h2>Three steps. Then it runs itself.</h2></div>
+  <div class="steps">
+    <div class="stepc"><div class="n">1</div><h3>Connect your Instagram</h3><p>It's where applicants already message you. Nothing new for them to download.</p></div>
+    <div class="stepc"><div class="n">2</div><h3>We answer &amp; screen instantly</h3><p>Every applicant gets a reply in seconds and a few smart questions — automatically.</p></div>
+    <div class="stepc"><div class="n">3</div><h3>Interviews hit your calendar</h3><p>Good applicants book a time themselves. No phone tag, no chasing.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><div class="k">What you get</div><h2>Simple, and it does the chasing for you.</h2></div>
+  <div class="feats">
+    <div class="feat"><span class="chip"><svg class="ico"><use href="#i-bolt"/></svg></span><div><b>Instant replies</b><span>Answer every applicant the moment they message — day or night.</span></div></div>
+    <div class="feat"><span class="chip"><svg class="ico"><use href="#i-filter"/></svg></span><div><b>Smart screening</b><span>A few questions sort the serious applicants from the maybes.</span></div></div>
+    <div class="feat"><span class="chip"><svg class="ico"><use href="#i-cal"/></svg></span><div><b>Auto-booked interviews</b><span>They pick a time you're actually free. It lands on your calendar.</span></div></div>
+    <div class="feat"><span class="chip"><svg class="ico"><use href="#i-bell"/></svg></span><div><b>Automatic reminders</b><span>We nudge them before the interview so fewer people no-show.</span></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><div class="k">Pricing</div><h2>One price. Cancel anytime.</h2></div>
+  <div class="price-wrap"><div class="price">
+    <div class="amt">$199<span> / month</span></div>
+    <div class="per">per location</div>
+    <div class="free">First 2 weeks free</div>
+    <ul class="plist">
+      <li><svg class="ico ck" style="width:18px;height:18px"><use href="#i-check"/></svg>Instant replies to every applicant</li>
+      <li><svg class="ico ck" style="width:18px;height:18px"><use href="#i-check"/></svg>Automatic screening questions</li>
+      <li><svg class="ico ck" style="width:18px;height:18px"><use href="#i-check"/></svg>Interviews booked on your calendar</li>
+      <li><svg class="ico ck" style="width:18px;height:18px"><use href="#i-check"/></svg>One simple dashboard</li>
+    </ul>
+    <button class="btn full lg" onclick="openOb()">Start free</button>
+    <p class="pnote">No card needed to start. We only charge after your free 2 weeks — cancel any time before.</p>
+  </div></div>
+</section>
+
+<section>
+  <div class="sec-h"><div class="k">Questions</div><h2>The short answers.</h2></div>
+  <div class="faq">
+    <div class="qa"><b>Do I need to run ads?</b><p>No. It works with the Instagram posts you already make — comment-to-apply, link in bio, or a QR in your window.</p></div>
+    <div class="qa"><b>What if it doesn't work for me?</b><p>The first 2 weeks are free and you can cancel any time. You'll see real applicants and booked interviews before you ever pay.</p></div>
+    <div class="qa"><b>How long does setup take?</b><p>About a minute. Connect Instagram, pick your role and calendar, and you're live.</p></div>
+  </div>
+</section>
+
+<section class="final">
+  <h2>Stop losing applicants.</h2>
+  <p>Set it up in a minute. See it work free.</p>
+  <button class="btn lg" onclick="openOb()">Start free</button>
+</section>
+
+<footer><div class="foot-in"><div class="logo">TapTap<b>Apply</b></div><div>© 2026 · Made for operators</div></div></footer>
+
+<!-- video modal -->
+<div class="vmodal" id="vmodal" onclick="if(event.target===this)closeV()">
+  <div class="box">
+    <button class="close" onclick="closeV()"><svg class="ico" style="width:16px;height:16px;stroke:#fff"><use href="#i-x"/></svg> Close</button>
+    <div class="ph">Your 90-second demo goes here.<br><span style="font-size:13px;color:#6b6760">(Re-cut to the flat-monthly message before publishing.)</span></div>
+  </div>
+</div>
+
+<!-- onboarding -->
+<div class="ob" id="ob">
+  <div class="ob-top">
+    <button class="ob-back" id="obBack" onclick="prev()"><svg class="ico"><use href="#i-arrow-l"/></svg></button>
+    <div class="dots" id="dots"></div>
+    <button class="ob-close" onclick="closeOb()"><svg class="ico"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="ob-wrap"><div class="ob-screen" id="obScreen"></div></div>
+  <div class="ob-foot"><div class="ob-foot-in" id="obFoot"></div></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <g id="i-check"><polyline points="4 12 9 17 20 6"/></g>
+  <g id="i-arrow-l"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></g>
+  <g id="i-arrow-r"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></g>
+  <g id="i-x"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></g>
+  <g id="i-bolt"><polygon points="13 2 4 14 11 14 10 22 20 9 13 9 13 2"/></g>
+  <g id="i-filter"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"/></g>
+  <g id="i-cal"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></g>
+  <g id="i-bell"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></g>
+  <g id="i-ig"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></g>
+  <g id="i-ms"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></g>
+  <g id="i-role"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></g>
+  <g id="i-link"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></g>
+  <g id="i-lock"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g>
+</defs></svg>
+
+<script>
+const TOTAL=3;
+let step=1;
+const S={ig:false,role:'Front of House',pay:'',cal:'Google Calendar'};
+
+function openOb(){step=1;render();document.getElementById('ob').classList.add('show');document.body.style.overflow='hidden';window.scrollTo({top:0});}
+function closeOb(){document.getElementById('ob').classList.remove('show');document.body.style.overflow='';}
+function openV(){document.getElementById('vmodal').classList.add('show');document.body.style.overflow='hidden';}
+function closeV(){document.getElementById('vmodal').classList.remove('show');document.body.style.overflow='';}
+function next(){step++;render();}
+function prev(){if(step>1){step--;render();}else closeOb();}
+
+function dots(){let h='';for(let i=1;i<=TOTAL;i++)h+=`<i class="${i===step?'on':i<step?'done':''}"></i>`;return h;}
+function chip(icon,s){return `<span class="oc"><svg class="ico" style="width:${s||18}px;height:${s||18}px"><use href="#${icon}"/></svg></span>`;}
+
+function screen(){
+  switch(step){
+    case 1: return `
+      <h2>Connect your Instagram</h2>
+      <p class="lede">This is where applicants message you to apply. We connect to the page you already use.</p>
+      <div class="bigchip"><div class="gl"><svg class="ico" style="width:30px;height:30px"><use href="#i-ig"/></svg></div></div>
+      ${ S.ig
+        ? `<div class="opt on"><span class="oc">@</span><b>@sando.itchi connected</b><svg class="ico" style="width:18px;height:18px;stroke:var(--green)"><use href="#i-check"/></svg></div>`
+        : `<button class="btn full lg" onclick="S.ig=true;render()"><svg class="ico" style="width:18px;height:18px;stroke:#fff"><use href="#i-ig"/></svg>Connect Instagram</button>` }
+      <div class="lock"><svg class="ico" style="width:14px;height:14px"><use href="#i-lock"/></svg>We'll never post without permission.</div>`;
+    case 2: return `
+      <h2>What are you hiring for?</h2>
+      <p class="lede">Pick the role. We already wrote the questions to ask — you can set the pay.</p>
+      <div class="popl">Popular roles</div>
+      ${['Front of House','Back of House','Barista','Line Cook'].map(roleOpt).join('')}
+      <div class="field" style="margin-top:18px;"><label>Pay (optional)</label><input class="input" placeholder="$16–18 / hr" value="${S.pay}" oninput="S.pay=this.value"></div>`;
+    case 3: return `
+      <h2>When can people interview?</h2>
+      <p class="lede">Connect your calendar. We only offer times you're free — and remind people before they come.</p>
+      ${calOpt('Google Calendar','i-cal')}
+      ${calOpt('Microsoft 365','i-ms')}
+      ${calOpt('Other calendar','i-cal')}
+      <div class="lock"><svg class="ico" style="width:14px;height:14px"><use href="#i-lock"/></svg>We only read your availability.</div>`;
+    case 4: return `
+      <div class="live-c">
+        <div class="checkbig"><div class="confetti" id="conf"></div><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 6"/></svg></div>
+        <h2>You're live!</h2>
+        <p class="lede">Your hiring system is accepting applicants. Share your link to start getting them.</p>
+        <div class="livecard">
+          <div class="lr"><span>Live on Instagram</span><b>@sando.itchi</b></div>
+          <div class="lr"><span>Role</span><b>${S.role}</b></div>
+          <div class="lr"><span>Accepting applications</span><b class="now">Now</b></div>
+        </div>
+        <button class="sharelink" onclick="ping(this)"><svg class="ico" style="width:16px;height:16px"><use href="#i-link"/></svg>Copy your hiring link</button>
+      </div>`;
+  }
+}
+function roleOpt(r){const on=S.role===r;return `<button class="opt ${on?'on':''}" onclick="S.role='${r}';render()">${chip('i-role')}<b>${r}</b><span class="rad"></span></button>`;}
+function calOpt(name,icon){const on=S.cal===name;return `<button class="opt ${on?'on':''}" onclick="S.cal='${name}';render()">${chip(icon)}<b>${name}</b><span class="rad"></span></button>`;}
+
+function foot(){
+  if(step===4) return `<button class="btn full lg" onclick="closeOb()">Go to dashboard</button>`;
+  const label = step===3 ? 'Launch — go live' : 'Continue';
+  return `<button class="btn full lg" onclick="next()">${label}</button>${step===1&&!S.ig?'<p class="micro">Connect to continue</p>':''}`;
+}
+
+function render(){
+  const sc=document.getElementById('obScreen');
+  sc.innerHTML=screen();
+  sc.classList.remove('ob-screen');void sc.offsetWidth;sc.classList.add('ob-screen');
+  document.getElementById('dots').innerHTML=dots();
+  document.getElementById('dots').style.visibility=step>TOTAL?'hidden':'visible';
+  document.getElementById('obFoot').innerHTML=foot();
+  document.getElementById('obBack').style.visibility=step===1?'hidden':(step>TOTAL?'hidden':'visible');
+  if(step===4)setTimeout(confetti,80);
+  document.querySelector('.ob').scrollTo({top:0,behavior:'smooth'});
+}
+function ping(btn){const t=btn.innerHTML;btn.innerHTML='✓ Copied';setTimeout(()=>btn.innerHTML=t,1400);}
+function confetti(){const c=document.getElementById('conf');if(!c)return;const cols=['#1C7A4A','#171717','#C47628','#9A958C'];let h='';for(let i=0;i<18;i++)h+=`<i style="left:${Math.random()*100}%;top:${Math.random()*30}%;background:${cols[i%cols.length]};animation-delay:${Math.random()*.3}s"></i>`;c.innerHTML=h;}
+</script>
+</body>
+</html>
