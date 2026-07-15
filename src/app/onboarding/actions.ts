@@ -30,6 +30,10 @@ export async function startOnboardingAction(
   const title = String(formData.get("role") ?? "").trim();
   const pay = String(formData.get("pay") ?? "").trim();
   const calendarChoice = String(formData.get("calendarChoice") ?? "").trim();
+  // Optional — many operators set this up together with the founder on the
+  // concierge call rather than alone at onboarding. No validation beyond the
+  // browser's native type="url" input; never blocks checkout either way.
+  const bookingLinkUrl = String(formData.get("bookingLinkUrl") ?? "").trim() || undefined;
   const email = String(formData.get("email") ?? "").trim();
   const plan = String(formData.get("plan") ?? "founding").trim(); // "founding" | "monthly"
   const tosAccepted = formData.get("tosAccepted") === "true";
@@ -66,6 +70,7 @@ export async function startOnboardingAction(
         instagramHandle,
         role: { title, pay: pay || undefined },
         calendarChoice,
+        bookingLinkUrl,
         // Always real now (required above) — the Stripe customer/checkout
         // email AND the magic-link login address.
         operatorEmail: email,

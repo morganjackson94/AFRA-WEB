@@ -59,6 +59,16 @@ model Operator {
   /// For concierge use only — never shown to the operator as a rejection.
   reachFlag       Boolean @default(false)
 
+  // --- Booking link (founding-cohort calendar workaround) -------------------
+  // Real Google Calendar integration (B2) is a deferred stub — see calendar.ts.
+  // Instead, each founding operator sets up a standard Google Calendar
+  // appointment schedule or Calendly link during their concierge onboarding
+  // call, and it gets embedded as the final step of their cloned ManyChat
+  // flow. Optional and not a checkout gate — plenty of operators set this up
+  // together with the founder on the call, not alone at onboarding.
+  /// Free-text URL, no live validation beyond "looks like a URL" (see actions.ts).
+  bookingLinkUrl String?
+
   // --- Legal consent (checkout) ---------------------------------------------
   // Recorded at the moment the founding checkbox is checked and submitted.
   // Versioned by the legal docs' "Effective Date" (see LEGAL_DOC_VERSION in

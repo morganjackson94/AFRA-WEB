@@ -52,6 +52,7 @@ export function OnboardingWizard({
   const [role, setRole] = useState("");
   const [pay, setPay] = useState("");
   const [calendarChoice, setCalendarChoice] = useState("");
+  const [bookingLinkUrl, setBookingLinkUrl] = useState("");
   const [locationsBucket, setLocationsBucket] = useState("");
   const [followerBand, setFollowerBand] = useState("");
   const [hiringFrequency, setHiringFrequency] = useState("");
@@ -84,6 +85,7 @@ export function OnboardingWizard({
       <input type="hidden" name="role" value={role} />
       <input type="hidden" name="pay" value={pay} />
       <input type="hidden" name="calendarChoice" value={calendarChoice} />
+      <input type="hidden" name="bookingLinkUrl" value={bookingLinkUrl} />
       <input type="hidden" name="locationsBucket" value={locationsBucket} />
       {/* Which Lead reason to record if the qualification step exits to the
           lead-capture form instead of checkout (see submitQualificationLeadAction). */}
@@ -243,7 +245,23 @@ export function OnboardingWizard({
                 ))}
               </div>
             </Reveal>
-            <Reveal delay={400}>
+            <Reveal delay={360}>
+              <div className="mt-7">
+                <Field label="Booking link (optional)">
+                  <input
+                    type="url"
+                    className={inputClass}
+                    placeholder="Your Google Calendar or Calendly link"
+                    value={bookingLinkUrl}
+                    onChange={(e) => setBookingLinkUrl(e.target.value)}
+                  />
+                </Field>
+                <p className="mt-2 text-[13px] leading-relaxed text-threshold-ink-soft">
+                  Don&apos;t have one yet? No problem, we&apos;ll set it up together on your setup call.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={420}>
               <Lede>
                 <Lock className="size-3.5" /> We only read your availability. Connection completes after
                 setup.

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { markCandidateBookedAction } from "../../actions";
 import { ArrowLeft } from "../../../../components/Icons";
 import { Reveal } from "../../../../components/Reveal";
 import { SectionLabel } from "../../../../components/SectionLabel";
+import { STAGE_RANK } from "../../../../lib/manychat";
 import { prisma } from "../../../../lib/prisma";
 import { resolveOperatorId } from "../../../../lib/session";
 
@@ -81,6 +83,23 @@ export default async function CandidateDetailPage({
             </span>
           </div>
         </Reveal>
+
+        {(STAGE_RANK["booked"] ?? 0) > (STAGE_RANK[candidate.stage] ?? 0) && (
+          <Reveal>
+            <form action={markCandidateBookedAction} className="mt-5">
+              <input type="hidden" name="candidateId" value={candidate.id} />
+              <button
+                type="submit"
+                className="rounded-full border border-line-strong bg-card px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-cream"
+              >
+                Mark as booked
+              </button>
+              <p className="mt-2 text-xs text-faint">
+                Once they&apos;ve booked an interview on your calendar or Calendly link.
+              </p>
+            </form>
+          </Reveal>
+        )}
 
         <Reveal>
           <div className="mt-8 space-y-5">

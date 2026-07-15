@@ -13,7 +13,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client";
 /** Stage order — a later webhook must never regress a candidate backward
  *  (e.g. a duplicate/out-of-order "screened" result after they're already
  *  "booked"). Only "applied" and "rejected" are ever set BACKWARD-safe here. */
-const STAGE_RANK: Record<string, number> = {
+export const STAGE_RANK: Record<string, number> = {
   applied: 0,
   rejected: 0, // terminal, but ranked with "applied" so a later real pass can still advance them
   screened: 1,

@@ -15,6 +15,10 @@ export type ProvisionInputs = {
   instagramHandle: string;
   role: { title: string; pay?: string; hours?: string };
   calendarChoice: string; // "google" | "microsoft" | "other"
+  // Founding-cohort calendar workaround (B2 real integration is a deferred
+  // stub — see calendar.ts). Optional; often set up together with the founder
+  // on the concierge call rather than alone at onboarding.
+  bookingLinkUrl?: string;
   // Optional overrides (real onboarding supplies these; synthesized if absent).
   operatorName?: string;
   operatorEmail?: string;
@@ -107,6 +111,7 @@ export async function provision(
         followerBand: inputs.followerBand,
         hiringFrequency: inputs.hiringFrequency,
         reachFlag: inputs.reachFlag ?? false,
+        bookingLinkUrl: inputs.bookingLinkUrl,
         tosAcceptedAt: inputs.tosAccepted ? new Date() : null,
         tosVersion: inputs.tosAccepted ? LEGAL_DOC_VERSION : null,
         channelConnections: {

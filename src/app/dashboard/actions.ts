@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cancelBilling, updateCard } from "../../lib/activation";
 import { getBillingProvider } from "../../lib/billing";
+import { STAGE_RANK } from "../../lib/manychat";
 import { prisma } from "../../lib/prisma";
 import { resolveOperatorId } from "../../lib/session";
 
@@ -50,4 +51,29 @@ export async function startManyChatConnectAction(formData: FormData): Promise<vo
   await prisma.channelConnection.update({ where: { id: conn.id }, data: { status: "connecting" } });
   revalidatePath("/dashboard");
   redirect(conn.manychatConnectUrl);
+}
+
+// Founding-cohort booking workaround: there's no Calendly/Google webhook back
+// into AFRA (see Operator.bookingLinkUrl), so the operator marks a candidate
+// "booked" by hand once they see the booking land on their own calendar. Reuses
+// the same STAGE_RANK ordering the ManyChat ingest path uses, so a candidate
+// already at "showed" can't be knocked back to "booked" by a late/duplicate click.
+export async function markCandidateBookedAction(formData: FormData): Promise<void> {
+  const operatorId = await resolveOperatorId();
+  if (!operatorId) redirect("/login");
+
+  const candidateId = String(formData.get("candidateId"));
+  const candidate = await prisma.candidate.findFirst({
+    where: { id: candidateId, location: { operatorId } },
+  });
+  if (!candidate) {
+    revalidatePath(`/dashboard/candidates/${candidateId}`);
+    return;
+  }
+
+  if ((STAGE_RANK["booked"] ?? 0) > (STAGE_RANK[candidate.stage] ?? 0)) {
+    await prisma.candidate.update({ where: { id: candidate.id }, data: { stage: "booked" } });
+  }
+  revalidatePath(`/dashboard/candidates/${candidateId}`);
+  revalidatePath("/dashboard");
 }

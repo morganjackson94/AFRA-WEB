@@ -149,7 +149,17 @@ export default async function DashboardPage({
   const GATE_ITEMS: GateItem[] = [
     { key: "template", label: "Hiring post", cta: "Finish hiring post", action: { kind: "link", href: creativeHref } },
     { key: "platform", label: "Instagram", cta: "Connect Instagram", action: platformAction },
-    { key: "calendar", label: "Calendar", cta: "Connect calendar", action: { kind: "pending", note: "We're setting this up for you." } },
+    {
+      key: "calendar",
+      label: "Calendar",
+      cta: "Connect calendar",
+      action: {
+        kind: "pending",
+        note: operator.bookingLinkUrl
+          ? "Booking link saved. We'll add it to your hiring flow."
+          : "We're setting this up for you.",
+      },
+    },
     { key: "billing", label: "Billing", cta: "Add billing", action: { kind: "pending", note: "Managed below, under Plan & billing." } },
   ];
 
@@ -358,7 +368,8 @@ export default async function DashboardPage({
 
             <p className="mt-3 text-xs leading-relaxed text-faint">
               Instagram connects through ManyChat — one tap once it&apos;s set up for you. Calendar
-              connects once Google verification is done. Your hiring post is ready to finish now.
+              is a booking link (Google Calendar or Calendly) added on your setup call. Your hiring
+              post is ready to finish now.
             </p>
 
             {/* The full gate checklist: clear, de-ghosted secondary actions. */}
