@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import {
   applyStripeStatus,
@@ -16,7 +16,7 @@ import { provision } from "../src/lib/provision";
 // StartedSetup fires once on setup start, WentLive does NOT fire on trial-start
 // and DOES fire exactly once on the true live transition. Meta forward stubbed.
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
+const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 const billing = getBillingProvider();
 

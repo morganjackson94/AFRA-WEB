@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { describeReadiness } from "../src/lib/dashboard";
 import { provision } from "../src/lib/provision";
@@ -9,7 +9,7 @@ import { provision } from "../src/lib/provision";
 // optional email). The dashboard copy SSOT must read NOT live (stubbed).
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }),
+  adapter: new PrismaPg(process.env.DATABASE_URL!),
 });
 
 function assert(cond: boolean, msg: string) {

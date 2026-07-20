@@ -3,6 +3,13 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// CLI/schema-engine commands (migrate dev/deploy, db push, studio) use
+// DIRECT_URL, the unpooled connection — migrations take advisory locks and
+// run DDL, which doesn't play well through a transaction-mode pooler like
+// PgBouncer. The app's runtime PrismaClient (src/lib/prisma.ts) uses the
+// separate pooled DATABASE_URL instead. Locally both can point at the same
+// database; in production point them at your provider's direct vs. pooled
+// connection strings respectively.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -10,6 +17,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DIRECT_URL"],
   },
 });

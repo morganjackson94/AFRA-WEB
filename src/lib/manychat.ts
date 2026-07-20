@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
+import { snapshotAnswers } from "./screeningQuestions";
 
 // ManyChat bridge — candidate ingest. ManyChat cannot create flows, but a flow's
 // "External Request" step CAN POST completed-screening data out. This is that
@@ -47,12 +48,14 @@ export async function ingestScreeningResult(
   });
   if (!location) return { ok: false, error: "unknown locationId" };
 
+  let roleTitle: string | undefined;
   if (payload.roleId) {
     const role = await prisma.role.findFirst({
       where: { id: payload.roleId, locationId: location.id },
-      select: { id: true },
+      select: { id: true, title: true },
     });
     if (!role) return { ok: false, error: "roleId does not belong to locationId" };
+    roleTitle = role.title;
   }
 
   const nextStage = payload.outcome === "passed" ? "screened" : "rejected";
@@ -106,10 +109,14 @@ export async function ingestScreeningResult(
   const conversation = await prisma.conversation.findFirst({
     where: { candidateId, operatorId: location.operatorId },
   });
+  // Snapshotted at ingest time (not decoded on read) so records stay readable
+  // even after a future edit to SCREENING_QUESTIONS changes the live copy.
+  const questionSnapshot = snapshotAnswers(roleTitle, payload.answers);
   const transcript = {
     answers: payload.answers ?? {},
     subscriberId: payload.subscriberId,
     receivedAt: new Date().toISOString(),
+    ...(questionSnapshot ? { questionSnapshot } : {}),
   } satisfies Prisma.InputJsonValue;
 
   if (conversation) {

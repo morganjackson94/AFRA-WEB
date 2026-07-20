@@ -2,12 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { DemoModal } from "./DemoModal";
 import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
+import { FaqItem } from "../components/FaqItem";
 import { Bell, Bolt, Calendar, Check, Filter } from "../components/Icons";
 import { HeroLineBand } from "../components/HeroLineBand";
 import { LegalLinks } from "../components/LegalLinks";
 import { Reveal } from "../components/Reveal";
 import { SectionLabel } from "../components/SectionLabel";
 import { Stagger } from "../components/Stagger";
+import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
 const SECTION = "mx-auto max-w-[1080px] px-6";
@@ -111,7 +113,15 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
         <div className={`${SECTION} flex items-center justify-between py-4`}>
-          <Image src="/afra-logo-mark.png" alt="AFRA" width={809} height={230} priority className="h-7 w-auto" />
+          <Image
+            src="/afra-logo-mark.png"
+            alt="AFRA"
+            width={809}
+            height={230}
+            priority
+            sizes="100px"
+            className="h-7 w-auto"
+          />
           <CTA tone="outline" />
         </div>
       </nav>
@@ -155,7 +165,7 @@ export default function LandingPage() {
         <Reveal delay={240}>
           <video
             src="/hero-phone2.mp4"
-            poster="/hero-phone.png"
+            poster="/hero-phone.webp"
             autoPlay
             loop
             muted
@@ -216,21 +226,7 @@ export default function LandingPage() {
           <Stagger className="flex flex-col gap-3" step={90}>
             <h2 className="t-title mb-4 max-w-[14ch]">The short answers.</h2>
             {FAQ.map((f) => (
-              <div key={f.q} className="rounded-2xl border border-line bg-card px-6 py-6">
-                <b className="mb-1.5 block text-[16px] font-semibold">{f.q}</b>
-                {Array.isArray(f.a) ? (
-                  <ul className="mt-1 flex flex-col gap-2">
-                    {f.a.map((item) => (
-                      <li key={item} className="flex items-start gap-2.5 text-[15px] leading-relaxed text-ink-soft">
-                        <Check className="mt-0.5 size-[16px] flex-none text-ink-soft" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-[15px] leading-relaxed text-ink-soft">{f.a}</p>
-                )}
-              </div>
+              <FaqItem key={f.q} q={f.q} a={f.a} />
             ))}
           </Stagger>
         </div>
@@ -405,7 +401,13 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-line">
         <div className={`${SECTION} flex flex-wrap items-center justify-between gap-y-3 gap-x-6 py-8 text-[13.5px] text-faint`}>
-          <LegalLinks termsContent={getLegalDocContent("terms")} privacyContent={getLegalDocContent("privacy")} />
+          <div className="flex items-center gap-3">
+            <LegalLinks termsContent={getLegalDocContent("terms")} privacyContent={getLegalDocContent("privacy")} />
+            <span aria-hidden="true" className="text-line-strong">·</span>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors duration-200 hover:text-ink">
+              Contact us
+            </a>
+          </div>
           <div>© 2026 · Made for operators</div>
         </div>
       </footer>

@@ -93,3 +93,8 @@ export const Play = ({ className }: Props) => (
     <polygon points="6 4 20 12 6 20 6 4" />
   </svg>
 );
+export const ChevronDown = (p: Props) => (
+  <Svg {...p}>
+    <polyline points="6 9 12 15 18 9" />
+  </Svg>
+);

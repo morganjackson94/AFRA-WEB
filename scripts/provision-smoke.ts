@@ -1,12 +1,12 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { provision } from "../src/lib/provision";
 
 // End-to-end proof of Step 2: provision -> read back -> confirm gates are honest.
 // Creates a throwaway operator and deletes it afterward (cascade) so it's idempotent.
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
+const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 function assert(cond: boolean, msg: string) {

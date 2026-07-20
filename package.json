@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
@@ -17,12 +18,16 @@
     "creative:smoke": "tsx scripts/creative-smoke.ts",
     "integrations:smoke": "tsx scripts/integrations-smoke.ts",
     "onboarding:smoke": "tsx scripts/onboarding-smoke.ts",
-    "founding:smoke": "tsx scripts/founding-smoke.ts"
+    "onboarding-wizard:smoke": "tsx scripts/onboarding-wizard-smoke.ts",
+    "founding:smoke": "tsx scripts/founding-smoke.ts",
+    "screening:smoke": "tsx scripts/screening-questions-smoke.ts"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@vercel/analytics": "^2.0.1",
     "next": "16.2.9",
+    "pg": "^8.22.0",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -32,6 +37,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",

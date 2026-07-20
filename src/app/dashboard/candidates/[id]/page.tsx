@@ -6,6 +6,7 @@ import { Reveal } from "../../../../components/Reveal";
 import { SectionLabel } from "../../../../components/SectionLabel";
 import { STAGE_RANK } from "../../../../lib/manychat";
 import { prisma } from "../../../../lib/prisma";
+import { decodeAnswer, getQuestionSetForRole, type DecodedAnswer } from "../../../../lib/screeningQuestions";
 import { resolveOperatorId } from "../../../../lib/session";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,9 @@ export default async function CandidateDetailPage({
     where: { id, location: { operatorId } },
     include: {
       role: true,
-      location: true,
+      // include roles so a candidate with no roleId (odd/old data) can still
+      // resolve a question set via "the location's single role" (see below).
+      location: { include: { roles: true } },
       conversations: { orderBy: { updatedAt: "desc" }, take: 1 },
       bookings: { orderBy: { scheduledAt: "desc" }, take: 1 },
     },
@@ -56,8 +59,29 @@ export default async function CandidateDetailPage({
   }
 
   const conversation = candidate.conversations[0];
-  const answers = (conversation?.transcript as { answers?: Record<string, string> } | null)?.answers ?? {};
-  const answerEntries = Object.entries(answers);
+  const transcript = conversation?.transcript as
+    | { answers?: Record<string, string>; questionSnapshot?: DecodedAnswer[] }
+    | null;
+  const rawAnswers = transcript?.answers ?? {};
+  const snapshot = transcript?.questionSnapshot;
+  // roleId first, then the location's single role (matches provision()'s
+  // one-role-per-location shape), then screeningQuestions' own generic
+  // fallback for anything odder than that.
+  const roleTitle = candidate.role?.title ?? candidate.location.roles[0]?.title;
+  const questionSet = getQuestionSetForRole(roleTitle);
+
+  // Snapshot (resolved at ingest time) wins when present so records stay
+  // decodable after future question-library edits; otherwise decode live
+  // against the current library; unresolvable entries render raw, same as
+  // before this feature existed — nothing regresses on old/odd data.
+  const displayAnswers = Object.entries(rawAnswers).map(([key, rawAnswer]) => {
+    const snapshotted = snapshot?.find((s) => s.key === key);
+    const decoded = snapshotted ?? decodeAnswer(questionSet, key, rawAnswer);
+    if (decoded) {
+      return { key, question: decoded.question, answer: decoded.answerLabel, disqualifying: decoded.disqualifying };
+    }
+    return { key, question: key, answer: rawAnswer, disqualifying: false };
+  });
   const booking = candidate.bookings[0];
 
   return (
@@ -130,7 +154,7 @@ export default async function CandidateDetailPage({
 
             <div className="rounded-2xl border border-line bg-card p-6">
               <SectionLabel>Screening answers</SectionLabel>
-              {answerEntries.length === 0 ? (
+              {displayAnswers.length === 0 ? (
                 <p className="mt-3 text-sm text-faint">
                   {candidate.stage === "applied"
                     ? "Screening hasn't completed yet."
@@ -138,10 +162,17 @@ export default async function CandidateDetailPage({
                 </p>
               ) : (
                 <dl className="mt-3 space-y-3">
-                  {answerEntries.map(([question, answer]) => (
-                    <div key={question}>
-                      <dt className="text-xs uppercase tracking-[0.1em] text-faint">{question}</dt>
-                      <dd className="mt-0.5 text-sm text-ink">{answer}</dd>
+                  {displayAnswers.map((a) => (
+                    <div key={a.key}>
+                      <dt className="text-xs uppercase tracking-[0.1em] text-faint">{a.question}</dt>
+                      <dd className="mt-0.5 text-sm text-ink">
+                        {a.answer}
+                        {a.disqualifying && (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-faint">
+                            screened out
+                          </span>
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

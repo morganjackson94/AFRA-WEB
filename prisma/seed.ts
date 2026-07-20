@@ -1,11 +1,11 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { DEFAULT_BUSINESS_HOURS } from "../src/lib/constants";
 import { evaluateReadiness } from "../src/lib/readiness";
 import { ensureSystemDefaultTemplate, SYSTEM_DEFAULT_TEMPLATE } from "../src/lib/templates";
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
+const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

@@ -1,7 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { LegalModal } from "./LegalModal";
+
+// react-markdown (~29KB unused-on-load per Lighthouse) only matters once
+// someone actually opens Terms/Privacy — code-split it out of the initial
+// homepage bundle instead of shipping it to every visitor who never clicks
+// the footer.
+const LegalModal = dynamic(() => import("./LegalModal").then((m) => m.LegalModal));
 
 // Terms of Service + Privacy Policy trigger links, backed by the ONE shared
 // LegalModal. Reused as-is in the footer (marketing + dashboard) and inline

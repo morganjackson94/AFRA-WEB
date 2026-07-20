@@ -11,7 +11,9 @@ import { Play, X } from "../components/Icons";
 
 export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" }) {
   const [open, setOpen] = useState(false);
+  const [previewInView, setPreviewInView] = useState(false);
   const previewRef = useRef<HTMLVideoElement>(null);
+  const posterRef = useRef<HTMLButtonElement>(null);
 
   // Lock background scroll while open.
   useEffect(() => {
@@ -22,6 +24,33 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  // The poster preview loads/plays real video the moment it's mounted — fine
+  // for the modal (opened deliberately), wasteful for the "poster" thumbnail,
+  // which used to autoplay ~600KB of video on every page load regardless of
+  // whether it was ever scrolled to. Gate it behind IntersectionObserver so
+  // the <video> (and its network request) doesn't exist in the DOM until the
+  // section is actually visible.
+  useEffect(() => {
+    if (variant !== "poster") return;
+    const el = posterRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const id = requestAnimationFrame(() => setPreviewInView(true));
+      return () => cancelAnimationFrame(id);
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPreviewInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [variant]);
 
   // Poster preview: starts from the video's midpoint (computed from actual
   // duration, not a hardcoded timestamp, so it stays correct if the file
@@ -74,21 +103,24 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
         </button>
       ) : (
         <button
+          ref={posterRef}
           onClick={() => setOpen(true)}
           className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-2xl border border-line-strong bg-[#1e1e33]"
         >
-          <video
-            ref={previewRef}
-            src="/AFRA-VSL.mp4"
-            muted
-            autoPlay
-            loop={false}
-            playsInline
-            preload="auto"
-            onLoadedMetadata={seekToMiddle}
-            onEnded={loopFromMiddle}
-            className="absolute inset-0 size-full object-cover"
-          />
+          {previewInView && (
+            <video
+              ref={previewRef}
+              src="/AFRA-VSL.mp4"
+              muted
+              autoPlay
+              loop={false}
+              playsInline
+              preload="auto"
+              onLoadedMetadata={seekToMiddle}
+              onEnded={loopFromMiddle}
+              className="absolute inset-0 size-full object-cover"
+            />
+          )}
           {/* Scrim keeps the play button + text legible over live footage. */}
           <div className="absolute inset-0 grid place-items-center bg-[#1e1e33]/45">
             {/* The lit amber play button — this poster's single accent moment. */}

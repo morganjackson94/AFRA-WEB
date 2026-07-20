@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { validateCreativeText } from "../src/lib/creative";
 import { provision } from "../src/lib/provision";
@@ -10,7 +10,7 @@ import { isValidTemplate } from "../src/lib/readiness";
 // contract and isValidTemplate() still holds.
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }),
+  adapter: new PrismaPg(process.env.DATABASE_URL!),
 });
 
 function assert(cond: boolean, msg: string) {

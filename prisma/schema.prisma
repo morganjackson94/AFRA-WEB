@@ -1,9 +1,11 @@
 // AFRA — data model spine (Build Session 1, Step 1)
 //
 // Conventions:
-//   * SQLite (dev) has no native enums, so all state/status fields are `String`
-//     with allowed values documented inline. This also keeps the Postgres
-//     production swap painless (change datasource provider, re-migrate).
+//   * Status/state fields are `String` with allowed values documented inline
+//     rather than native Postgres enums — this dates back to when dev ran on
+//     SQLite (no enum support) and was kept on the Postgres switch to avoid
+//     touching schema/app code this close to launch. Revisit post-launch if
+//     DB-level enforcement is wanted; app-level validation covers it for now.
 //   * Stub integrations (ChannelConnection, CalendarConnection) carry a
 //     `status` defaulting to "stubbed". The TABLES are real now; the real
 //     provider tokens populate post-approval (Track B).
@@ -15,7 +17,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +60,29 @@ model Operator {
   /// true when followerBand is below LOW_REACH_FOLLOWER_BANDS (qualification.ts).
   /// For concierge use only — never shown to the operator as a rejection.
   reachFlag       Boolean @default(false)
+
+  // --- Jurisdiction restriction (HARD gate, unlike the soft signals above) --
+  // Captured in the same qualification step, but this data feeds a real
+  // checkout block, not just concierge context — see src/lib/jurisdiction.ts.
+  // Only ever populated for operators who proceeded past the gate (restricted
+  // operators exit to Lead instead of provision() — see reason
+  // "restricted_jurisdiction").
+  /// Two-letter US state codes the operator selected, e.g. ["TX","NY"].
+  locationStates  String[] @default([])
+  /// Whether any NY location is specifically in NYC (irrelevant if "NY" isn't
+  /// in locationStates). Only NYC needs city-level resolution — see
+  /// RESTRICTED_JURISDICTIONS in jurisdiction.ts.
+  hasNycLocation  Boolean  @default(false)
+
+  // --- Screener input (Onboarding Wizard step 5) -----------------------------
+  // Raw capture only — parsing badHireText into screener questions is a
+  // separate, not-yet-built pass (no AI integration exists in this repo yet).
+  // Both survive checkout so they're queryable later by that future pass; see
+  // src/lib/provision.ts.
+  /// Slugs from a fixed knockout list, e.g. ["no_weekends","no_food_handler_cert"].
+  disqualifiers String[] @default([])
+  /// Free-text answer to "describe someone you hired recently and regretted."
+  badHireText   String?
 
   // --- Booking link (founding-cohort calendar workaround) -------------------
   // Real Google Calendar integration (B2) is a deferred stub — see calendar.ts.
@@ -120,9 +145,33 @@ model ManychatFlow {
 model Lead {
   id        String   @id @default(cuid())
   email     String
-  /// Why they were routed here, e.g. "0_locations".
+  /// Why they were routed here, e.g. "0_locations" | "over_capacity" | "restricted_jurisdiction".
   reason    String
+  /// Optional free-text context for the reason. For restricted_jurisdiction:
+  /// which state(s)/law(s) matched, e.g. "IL (Illinois HB 3773), NY/NYC (NYC
+  /// Local Law 144)" — the future partial-serve pipeline reads this.
+  detail    String?
   createdAt DateTime @default(now())
+}
+
+/// Progressive-save state for an in-flight onboarding wizard session, keyed by
+/// email (no auth needed to resume — same trust level as Lead). Deliberately
+/// independent of Operator/Session/LoginToken, which all require a real
+/// Operator to exist first; this lets an abandoned wizard stay recoverable
+/// without inventing a parallel pre-purchase auth path. Deleted once
+/// provision() successfully turns it into a real Operator.
+model OnboardingDraft {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  /// Which step the wizard was on when last saved (1-7). Drives resume.
+  step      Int      @default(1)
+  /// Free-form accumulated answers for every step reached so far. Shape
+  /// mirrors OnboardingWizard's client-side state; not schema-validated here
+  /// since it's a resilience mirror, not the source of truth for the final
+  /// submission (see startOnboardingAction).
+  answers   Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

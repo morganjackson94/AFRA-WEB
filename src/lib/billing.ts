@@ -65,6 +65,15 @@ export interface BillingProvider {
     successUrl: string;
     cancelUrl: string;
   }): Promise<{ checkoutUrl: string; sessionId: string; customerId: string }>;
+
+  /**
+   * Read-only lookup of what a completed Checkout Session actually charged,
+   * for the Purchase pixel event on /welcome (real amount over a hardcoded
+   * constant — avoids drift if founding pricing ever changes). Returns null
+   * if the session can't be found/read; callers fall back to
+   * FOUNDING_PRICE_CENTS in that case. Never mutates anything.
+   */
+  getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
 }
 
 // --- Real Stripe (test mode) -------------------------------------------------
@@ -204,6 +213,19 @@ export class StripeBillingProvider implements BillingProvider {
     if (!session.url) throw new Error("Stripe did not return a Checkout URL");
     return { checkoutUrl: session.url, sessionId: session.id, customerId: customer.id };
   }
+
+  async getCheckoutSessionAmount(sessionId: string) {
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+      if (session.amount_total == null || !session.currency) return null;
+      return { amountTotal: session.amount_total, currency: session.currency };
+    } catch {
+      // Bad/unknown session id (e.g. a stale or tampered query param) — the
+      // caller falls back to the known founding price rather than erroring
+      // the page a real paying operator just landed on.
+      return null;
+    }
+  }
 }
 
 // --- Offline fake ------------------------------------------------------------
@@ -253,9 +275,20 @@ export class FakeBillingProvider implements BillingProvider {
     const url = new URL(`${origin}/api/dev/founding-checkout`);
     url.searchParams.set("session_id", sessionId);
     url.searchParams.set("operator_id", args.operatorId);
-    url.searchParams.set("success", args.successUrl);
+    // Real Stripe substitutes the literal "{CHECKOUT_SESSION_ID}" placeholder
+    // in success_url with the real session id before redirecting — this fake
+    // stand-in has to do the same substitution itself, or callers relying on
+    // that placeholder (see /welcome) get the literal unsubstituted string.
+    url.searchParams.set("success", args.successUrl.replace("{CHECKOUT_SESSION_ID}", sessionId));
     url.searchParams.set("cancel", args.cancelUrl);
     return { checkoutUrl: url.toString(), sessionId, customerId };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature must match BillingProvider
+  async getCheckoutSessionAmount(_sessionId: string) {
+    // No real Checkout Session object exists in fake mode — the dev stand-in
+    // always charges the same founding price, so that's the honest answer.
+    return { amountTotal: FOUNDING_PRICE_CENTS, currency: "usd" };
   }
 }
 

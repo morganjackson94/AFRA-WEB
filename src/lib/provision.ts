@@ -14,6 +14,19 @@ import { ensureSystemDefaultTemplate, SYSTEM_DEFAULT_TEMPLATE } from "./template
 export type ProvisionInputs = {
   instagramHandle: string;
   role: { title: string; pay?: string; hours?: string };
+  // Multi-role support (Onboarding Wizard redesign). When present and
+  // non-empty, takes precedence over the singular `role` above for what
+  // actually gets created — `role` stays required for existing single-role
+  // callers (real-launch-operator script, older smoke tests) and doubles as
+  // the default when `roles` is omitted. Every entry is created under EVERY
+  // Location provisioned (see `locationCount`) — multi-location operators are
+  // assumed to hire for the same role set everywhere; per-location role
+  // assignment isn't part of this pass.
+  roles?: { title: string; pay?: string; hours?: string }[];
+  // How many Location rows to create (default 1, matching prior behavior).
+  // All created Locations share the same timezone/business-hours defaults —
+  // per-location naming/address detail is set later in the dashboard.
+  locationCount?: number;
   calendarChoice: string; // "google" | "microsoft" | "other"
   // Founding-cohort calendar workaround (B2 real integration is a deferred
   // stub — see calendar.ts). Optional; often set up together with the founder
@@ -31,11 +44,25 @@ export type ProvisionInputs = {
   followerBand?: string;
   hiringFrequency?: string;
   reachFlag?: boolean;
+  // Jurisdiction restriction (HARD gate, unlike the soft signals above — see
+  // src/lib/jurisdiction.ts). By the time provision() runs, startOnboardingAction
+  // has already rejected any restricted combination, so these are just the
+  // confirmed-clear answers being persisted for the record.
+  locationStates?: string[];
+  hasNycLocation?: boolean;
+  // Screener input (Onboarding Wizard step 5) — raw capture only, purely
+  // informational like the qualification fields above. Parsing badHireText
+  // into screener questions is a separate, not-yet-built pass.
+  disqualifiers?: string[];
+  badHireText?: string;
   // Checkout consent (Tier 2). Unlike the qualification fields above, this
   // one IS enforced — startOnboardingAction rejects the submission server-side
   // if the operator didn't check the consent box. See tosAcceptedAt/tosVersion
   // on Operator and LEGAL_DOC_VERSION in legalDocs.ts.
   tosAccepted?: boolean;
+  // Optional second stubbed ChannelConnection, mirroring the Instagram one
+  // below exactly. Real tokens land with B1, same as Instagram.
+  facebookHandle?: string;
 };
 
 /** Normalize an IG handle to a lowercase slug usable in emails/ids. */
@@ -74,9 +101,11 @@ export type ProvisionOptions = {
 export type ProvisionResult = Awaited<ReturnType<typeof provision>>;
 
 /**
- * Turn the 3 onboarding inputs into a complete, queryable operator instance:
- * Operator -> Location -> Role -> ScreeningTemplate (cloned from the system
- * default) + a stubbed ChannelConnection and a stubbed CalendarConnection.
+ * Turn the onboarding inputs into a complete, queryable operator instance:
+ * Operator -> Location(s) -> Role(s) -> ScreeningTemplate (cloned from the
+ * system default) + stubbed ChannelConnection(s) and CalendarConnection(s).
+ * `locationCount`/`roles` are optional and default to one Location with the
+ * single `role` — existing single-role/single-location callers are unaffected.
  *
  * Readiness gates are set HONESTLY via evaluateReadiness(): with the channel and
  * calendar stubbed and billing not yet wired, a freshly provisioned instance
@@ -94,14 +123,15 @@ export async function provision(
   const operatorName = inputs.operatorName ?? displayHandle;
   const email = inputs.operatorEmail ?? `${slug}@pending.afra.local`;
   const timezone = inputs.timezone ?? DEFAULT_TIMEZONE;
-  const pay = parsePay(inputs.role.pay);
+  const roleEntries = inputs.roles && inputs.roles.length > 0 ? inputs.roles : [inputs.role];
+  const locationCount = Math.max(1, inputs.locationCount ?? 1);
 
   // System-default template to clone from (created on first provision; idempotent).
   const systemDefault = await ensureSystemDefaultTemplate(prisma);
 
   const result = await prisma.$transaction(async (tx) => {
     // Operator — billing not yet wired. "trial_pending" until Step 3 (Stripe).
-    // Stubbed messaging channel: real token/pageId land with B1 (post App Review).
+    // Stubbed messaging channels: real token/pageId land with B1 (post App Review).
     const operator = await tx.operator.create({
       data: {
         name: operatorName,
@@ -111,73 +141,94 @@ export async function provision(
         followerBand: inputs.followerBand,
         hiringFrequency: inputs.hiringFrequency,
         reachFlag: inputs.reachFlag ?? false,
+        locationStates: inputs.locationStates ?? [],
+        hasNycLocation: inputs.hasNycLocation ?? false,
+        disqualifiers: inputs.disqualifiers ?? [],
+        badHireText: inputs.badHireText,
         bookingLinkUrl: inputs.bookingLinkUrl,
         tosAcceptedAt: inputs.tosAccepted ? new Date() : null,
         tosVersion: inputs.tosAccepted ? LEGAL_DOC_VERSION : null,
         channelConnections: {
-          create: [{ provider: "instagram", handle: displayHandle, status: "stubbed" }],
+          create: [
+            { provider: "instagram", handle: displayHandle, status: "stubbed" },
+            ...(inputs.facebookHandle
+              ? [{ provider: "facebook", handle: inputs.facebookHandle, status: "stubbed" }]
+              : []),
+          ],
         },
       },
     });
 
-    // One default Location (first-class; multi-location is a later additive step).
-    // Stubbed calendar: real token lands with B2 (post Google verify).
-    const location = await tx.location.create({
-      data: {
-        operatorId: operator.id,
-        name: `${operatorName} — Main`,
-        timezone,
-        businessHours: DEFAULT_BUSINESS_HOURS,
-        calendarConnections: {
-          create: [{ provider: inputs.calendarChoice || "other", status: "stubbed" }],
+    // `locationCount` Locations (default 1, matching prior single-Location
+    // behavior exactly — same name, "— Main" — when count is 1). Every entry
+    // in `roleEntries` is created under every Location.
+    const locations = [];
+    for (let i = 0; i < locationCount; i++) {
+      const location = await tx.location.create({
+        data: {
+          operatorId: operator.id,
+          name: locationCount === 1 ? `${operatorName} — Main` : `${operatorName} — Location ${i + 1}`,
+          timezone,
+          businessHours: DEFAULT_BUSINESS_HOURS,
+          calendarConnections: {
+            create: [{ provider: inputs.calendarChoice || "other", status: "stubbed" }],
+          },
         },
-      },
-    });
+      });
 
-    // Role under that Location.
-    const role = await tx.role.create({
-      data: {
-        locationId: location.id,
-        title: inputs.role.title,
-        payText: pay.payText,
-        payRate: pay.payRate,
-        payPeriod: pay.payPeriod,
-        hours: inputs.role.hours ?? null,
-      },
-    });
+      const roles = [];
+      for (const roleInput of roleEntries) {
+        const pay = parsePay(roleInput.pay);
 
-    // ScreeningTemplate cloned from the system default, with role-specific slots.
-    const template = await tx.screeningTemplate.create({
-      data: {
-        roleId: role.id,
-        isSystemDefault: false,
-        sourceTemplateId: systemDefault.id,
-        name: `${inputs.role.title} — ${operatorName}`,
-        slots: {
-          ...SYSTEM_DEFAULT_TEMPLATE.slots,
-          roleLabel: inputs.role.title,
-          payLabel: pay.payText ?? "Competitive pay",
-        },
-        photoRef: systemDefault.photoRef,
-      },
-    });
+        const role = await tx.role.create({
+          data: {
+            locationId: location.id,
+            title: roleInput.title,
+            payText: pay.payText,
+            payRate: pay.payRate,
+            payPeriod: pay.payPeriod,
+            hours: roleInput.hours ?? null,
+          },
+        });
 
-    // HONEST initial readiness via the single source of truth. Channel + calendar
-    // stubbed (=> false), template is a valid clone (=> true), billing not yet
-    // wired (=> false). Net: "ready", never "live".
-    const readiness = evaluateReadiness({
-      channelStatus: "stubbed",
-      calendarStatus: "stubbed",
-      template,
-      billingStatus: "trial_pending",
-    });
+        // ScreeningTemplate cloned from the system default, with role-specific slots.
+        const template = await tx.screeningTemplate.create({
+          data: {
+            roleId: role.id,
+            isSystemDefault: false,
+            sourceTemplateId: systemDefault.id,
+            name: `${roleInput.title} — ${operatorName}`,
+            slots: {
+              ...SYSTEM_DEFAULT_TEMPLATE.slots,
+              roleLabel: roleInput.title,
+              payLabel: pay.payText ?? "Competitive pay",
+            },
+            photoRef: systemDefault.photoRef,
+          },
+        });
 
-    const updatedRole = await tx.role.update({
-      where: { id: role.id },
-      data: readiness,
-    });
+        // HONEST initial readiness via the single source of truth. Channel and
+        // calendar stubbed (=> false), template is a valid clone (=> true),
+        // billing not yet wired (=> false). Net: "ready", never "live".
+        const readiness = evaluateReadiness({
+          channelStatus: "stubbed",
+          calendarStatus: "stubbed",
+          template,
+          billingStatus: "trial_pending",
+        });
 
-    return { operator, location, role: updatedRole, template, readiness };
+        const updatedRole = await tx.role.update({
+          where: { id: role.id },
+          data: readiness,
+        });
+
+        roles.push({ role: updatedRole, template, readiness });
+      }
+
+      locations.push({ location, roles });
+    }
+
+    return { operator, locations };
   });
 
   const operatorId = result.operator.id;
@@ -187,7 +238,7 @@ export async function provision(
   const startedSetup = await emitEvent(prisma, {
     operatorId,
     type: "StartedSetup",
-    payload: { instagramHandle: displayHandle, roleTitle: inputs.role.title },
+    payload: { instagramHandle: displayHandle, roleTitle: roleEntries.map((r) => r.title).join(", ") },
   });
 
   // Start the 2-week trial ($199/mo per location). This advances billingStatus

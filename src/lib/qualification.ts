@@ -3,19 +3,17 @@
 // (OnboardingWizard) and the server action that persists it, so the two never
 // drift on what a valid bucket/band/frequency value is.
 //
-// The one hard rule this file encodes: nothing in here can stop a real
-// operator from reaching checkout. The "0" locations bucket is the sole
-// exception — it's not a disqualifying ANSWER, it's a signal they're not
-// actually a hospitality operator yet, and even that redirects gracefully
-// (see the Lead capture) rather than blocking a form submission.
-
+// Onboarding Wizard redesign: location count no longer redirects ANYONE away
+// from checkout — even the extremes (1-2, 16+) just get a soft note and
+// proceed. isNonOperator()/isOverCapacity() below are kept only so historical
+// Operator rows written under the old "0"/"15+" buckets still label/read
+// correctly; the wizard no longer calls them.
 export const LOCATION_BUCKETS = [
-  { value: "0", label: "I don't have a location yet" },
-  { value: "1", label: "1" },
-  { value: "2-3", label: "2-3" },
-  { value: "4-8", label: "4-8" },
-  { value: "9-15", label: "9-15" },
-  { value: "15+", label: "15+" },
+  { value: "1-2", label: "1-2" },
+  { value: "3-5", label: "3-5" },
+  { value: "6-10", label: "6-10" },
+  { value: "11-15", label: "11-15" },
+  { value: "16+", label: "16+" },
 ] as const;
 
 export const FOLLOWER_BANDS = [
@@ -31,22 +29,68 @@ export const HIRING_FREQUENCIES = [
   { value: "constantly", label: "Constantly" },
 ] as const;
 
+// US states (+ DC) for the "which states are your locations in?" question.
+// Two-letter codes, matching RESTRICTED_JURISDICTIONS in jurisdiction.ts —
+// that file cross-references these codes, so don't rename them independently.
+export const US_STATES = [
+  { value: "AL", label: "Alabama" }, { value: "AK", label: "Alaska" },
+  { value: "AZ", label: "Arizona" }, { value: "AR", label: "Arkansas" },
+  { value: "CA", label: "California" }, { value: "CO", label: "Colorado" },
+  { value: "CT", label: "Connecticut" }, { value: "DE", label: "Delaware" },
+  { value: "DC", label: "District of Columbia" }, { value: "FL", label: "Florida" },
+  { value: "GA", label: "Georgia" }, { value: "HI", label: "Hawaii" },
+  { value: "ID", label: "Idaho" }, { value: "IL", label: "Illinois" },
+  { value: "IN", label: "Indiana" }, { value: "IA", label: "Iowa" },
+  { value: "KS", label: "Kansas" }, { value: "KY", label: "Kentucky" },
+  { value: "LA", label: "Louisiana" }, { value: "ME", label: "Maine" },
+  { value: "MD", label: "Maryland" }, { value: "MA", label: "Massachusetts" },
+  { value: "MI", label: "Michigan" }, { value: "MN", label: "Minnesota" },
+  { value: "MS", label: "Mississippi" }, { value: "MO", label: "Missouri" },
+  { value: "MT", label: "Montana" }, { value: "NE", label: "Nebraska" },
+  { value: "NV", label: "Nevada" }, { value: "NH", label: "New Hampshire" },
+  { value: "NJ", label: "New Jersey" }, { value: "NM", label: "New Mexico" },
+  { value: "NY", label: "New York" }, { value: "NC", label: "North Carolina" },
+  { value: "ND", label: "North Dakota" }, { value: "OH", label: "Ohio" },
+  { value: "OK", label: "Oklahoma" }, { value: "OR", label: "Oregon" },
+  { value: "PA", label: "Pennsylvania" }, { value: "RI", label: "Rhode Island" },
+  { value: "SC", label: "South Carolina" }, { value: "SD", label: "South Dakota" },
+  { value: "TN", label: "Tennessee" }, { value: "TX", label: "Texas" },
+  { value: "UT", label: "Utah" }, { value: "VT", label: "Vermont" },
+  { value: "VA", label: "Virginia" }, { value: "WA", label: "Washington" },
+  { value: "WV", label: "West Virginia" }, { value: "WI", label: "Wisconsin" },
+  { value: "WY", label: "Wyoming" },
+] as const;
+
+// Buckets are ranges, but provision() needs one concrete number. Uses the
+// LOWER bound of each bucket so provision() never creates more blank,
+// unconfigured Location shells than the operator has actually confirmed —
+// they add more later (dashboard) rather than starting with clutter.
+const LOCATION_COUNT_BY_BUCKET: Record<string, number> = {
+  "1-2": 1,
+  "3-5": 3,
+  "6-10": 6,
+  "11-15": 11,
+  "16+": 16,
+};
+
+export function locationCountForBucket(bucket: string): number {
+  return LOCATION_COUNT_BY_BUCKET[bucket] ?? 1;
+}
+
 export type LocationBucket = (typeof LOCATION_BUCKETS)[number]["value"];
 export type FollowerBand = (typeof FOLLOWER_BANDS)[number]["value"];
 export type HiringFrequency = (typeof HIRING_FREQUENCIES)[number]["value"];
 
-/** The "0 locations" answer is the ONLY thing that redirects instead of
- *  proceeding to checkout — it means "not a hospitality operator yet", not
- *  "disqualified". Every other combination of answers proceeds normally. */
+/** Legacy predicate — the pre-redesign "0 locations" bucket redirected to Lead
+ *  capture instead of checkout. New LOCATION_BUCKETS values never satisfy
+ *  this; kept for reading/labeling historical Operator rows only. */
 export function isNonOperator(locationsBucket: string): boolean {
   return locationsBucket === "0";
 }
 
-/** Flat founding pricing ($1,990 covers every location) means a large chain
- *  claiming a founding spot could swamp manual fulfillment capacity. "15+"
- *  is the other redirect-instead-of-checkout answer — same graceful Lead
- *  capture pattern as isNonOperator, not a disqualification. Buckets 1
- *  through "9-15" all proceed normally. */
+/** Legacy predicate — the pre-redesign "15+" bucket redirected to Lead
+ *  capture instead of checkout. New LOCATION_BUCKETS values never satisfy
+ *  this; kept for reading/labeling historical Operator rows only. */
 export function isOverCapacity(locationsBucket: string): boolean {
   return locationsBucket === "15+";
 }

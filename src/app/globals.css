@@ -178,6 +178,10 @@ body {
   .hero-line-path {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
+    /* Hints the compositor ahead of the 34-path draw-on so it isn't caught
+       promoting layers mid-animation on a slow device. Same technique, just
+       a browser hint — no visual change. */
+    will-change: stroke-dashoffset;
   }
   [data-reveal].is-visible .hero-line-path {
     animation: hero-line-draw var(--hero-line-duration) var(--hero-line-delay) cubic-bezier(0.4, 0, 0.2, 1)

@@ -13,6 +13,7 @@ import { Stagger } from "../../components/Stagger";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { describeBilling, describeReadiness, hiringLinkFor } from "../../lib/dashboard";
 import { prisma } from "../../lib/prisma";
+import { getQuestionSetForRole } from "../../lib/screeningQuestions";
 import { appBaseUrl, resolveOperatorId } from "../../lib/session";
 
 export const dynamic = "force-dynamic";
@@ -396,6 +397,42 @@ export default async function DashboardPage({
     </section>
   );
 
+  // Read-only preview of the bot's screening conversation — most valuable
+  // before the operator is live, since it's the concrete answer to "wait,
+  // what does it actually ask people?" Same library the onboarding preview
+  // and candidate-detail decode both read from (src/lib/screeningQuestions.ts).
+  const questionsCard = (
+    <section className="border-t border-line py-12">
+      <div className={RAIL}>
+        <SectionLabel index="02">What your assistant asks</SectionLabel>
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-line bg-card p-6">
+            <div className="space-y-5">
+              {getQuestionSetForRole(roles[0]?.role.title).questions.map((q) => (
+                <div key={q.key}>
+                  <p className="text-sm font-medium text-ink">{q.question}</p>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {q.options.map((o) => (
+                      <li key={o.letter} className="text-xs text-ink-soft">
+                        {o.letter}. {o.label}
+                        {q.disqualifyingLetters.includes(o.letter) && (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-faint">
+                            screens out
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-faint">Finalized together on your setup call.</p>
+        </div>
+      </div>
+    </section>
+  );
+
   const pipelineFull = (
     <section className="border-t border-line py-14 md:py-16">
       <div className={RAIL}>
@@ -481,7 +518,7 @@ export default async function DashboardPage({
   const pipelineQuiet = (
     <section className="border-t border-line py-12">
       <div className={RAIL}>
-        <SectionLabel index={state === "not_live" ? "02" : "03"}>Pipeline</SectionLabel>
+        <SectionLabel index="03">Pipeline</SectionLabel>
         <div className="rounded-2xl border border-line bg-card p-6">
           <div className="flex flex-wrap gap-x-8 gap-y-3">
             {STAGES.map((stage) => {
@@ -537,7 +574,7 @@ export default async function DashboardPage({
   const hiringLinksQuiet = (
     <section className="border-t border-line py-12">
       <div className={RAIL}>
-        <SectionLabel index={state === "not_live" ? "03" : "04"}>Hiring links</SectionLabel>
+        <SectionLabel index="04">Hiring links</SectionLabel>
         <Stagger className="space-y-3" step={80}>
           {links.map(({ location, url }) => (
             <div key={location.id} className="rounded-2xl border border-line bg-card p-5">
@@ -662,6 +699,7 @@ export default async function DashboardPage({
         {state === "not_live" && (
           <>
             {setupHero}
+            {questionsCard}
             {pipelineQuiet}
             {hiringLinksQuiet}
             {billingSection}
