@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_BASE_URL ?? "http://localhost:3000"),
   title: "AFRA — Stop losing good applicants",
   description:
-    "You already get applicants on Instagram. We answer every one in seconds and book them right into your calendar.",
+    "You already get applicants on Instagram. We answer every one in seconds, and candidates book their interview straight into your calendar.",
   // Meta Business Settings -> Brand Safety -> Domains (meta-tag verification
   // method for afravisibility.com). Static value, not env-driven — it's a
   // one-time domain claim, not a per-environment secret.

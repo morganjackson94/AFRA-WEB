@@ -20,7 +20,9 @@
     "onboarding:smoke": "tsx scripts/onboarding-smoke.ts",
     "onboarding-wizard:smoke": "tsx scripts/onboarding-wizard-smoke.ts",
     "founding:smoke": "tsx scripts/founding-smoke.ts",
-    "screening:smoke": "tsx scripts/screening-questions-smoke.ts"
+    "screening:smoke": "tsx scripts/screening-questions-smoke.ts",
+    "knockout:smoke": "tsx scripts/knockout-smoke.ts",
+    "founding-cap:smoke": "tsx scripts/founding-cap-smoke.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

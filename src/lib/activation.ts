@@ -127,6 +127,32 @@ export async function startTrial(
 // --- Founding annual ($1,990 one-time, paid from day one, no trial) ----------
 
 /**
+ * Real count of founding operators who have actually paid — the single
+ * source of truth for both the landing page's scarcity counter (read-only)
+ * and the checkout-time cap (src/app/onboarding/actions.ts). Only counts
+ * `billingStatus: "active"` (webhook-confirmed payment), never
+ * `trial_pending` — an abandoned Stripe session must not eat a real seat.
+ * Requires `stripeLivemode: true` — a webhook-confirmed payment made with a
+ * Stripe TEST key must not eat a real seat either. This is structural (every
+ * confirmed payment is stamped with Stripe's own event.livemode at
+ * confirmation time, see confirmFoundingPayment below) rather than relying on
+ * remembering to purge test signups — manual cleanup already failed once.
+ * Also excludes synthetic test emails as defense-in-depth so any record
+ * created outside confirmFoundingPayment (e.g. a smoke script) can't skew a
+ * number that gates a real public promise ("first 10 only").
+ */
+export async function countActiveFoundingOperators(prisma: PrismaClient): Promise<number> {
+  return prisma.operator.count({
+    where: {
+      plan: "founding_annual",
+      billingStatus: "active",
+      stripeLivemode: true,
+      NOT: [{ email: { endsWith: "@pending.afra.local" } }, { email: { endsWith: "@smoke.test" } }],
+    },
+  });
+}
+
+/**
  * Create the Stripe-hosted Checkout Session for the founding charge and persist
  * the session/customer ids. Marks plan="founding_annual" but DOES NOT touch
  * billingStatus — it stays "trial_pending" (unpaid) until a webhook-confirmed
@@ -170,7 +196,16 @@ export async function startFoundingCheckout(
 export async function confirmFoundingPayment(
   prisma: PrismaClient,
   operatorId: string,
-  ids: { customerId?: string | null; paymentIntentId?: string | null; checkoutSessionId?: string | null } = {},
+  ids: {
+    customerId?: string | null;
+    paymentIntentId?: string | null;
+    checkoutSessionId?: string | null;
+    /** Stripe's own event.livemode from the verified webhook event. Required
+     * to feed countActiveFoundingOperators()'s cap-enforcing filter — every
+     * caller must pass a real boolean, not omit it, so a confirmed payment is
+     * never silently left ambiguous between test and live. */
+    livemode: boolean;
+  },
 ) {
   const op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   await prisma.operator.update({
@@ -181,6 +216,7 @@ export async function confirmFoundingPayment(
       stripeCustomerId: ids.customerId ?? op.stripeCustomerId,
       stripePaymentIntentId: ids.paymentIntentId ?? op.stripePaymentIntentId,
       stripeCheckoutSessionId: ids.checkoutSessionId ?? op.stripeCheckoutSessionId,
+      stripeLivemode: ids.livemode,
     },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);

@@ -52,15 +52,17 @@ const TOTAL_DRAW = 4.5;
 const PATH_DURATION = 0.25;
 const count = HERO_LINE_PATHS.length;
 
-// The single real result from Sandoitchi's first week — do not fabricate or
-// alter these numbers; if more proof arrives later it becomes its own honest
-// component, not more content jammed into this card.
+// The single real result from Sandoitchi's pilot — do not fabricate or alter
+// these numbers; if more proof arrives later it becomes its own honest
+// component, not more content jammed into this card. Source + methodology:
+// docs/CLAIMS.md. Deliberately never rendered as a percentage — "58" here is
+// a raw candidate count, not a rate, and the two must never be conflated.
 const PROOF = {
   eyebrow: "Proof · sandoitchi, Dallas",
-  stat: "58%",
-  statSub: "application completion, vs ~10% on job boards",
-  line: "10 qualified candidates in 7 days.",
-  meta: "sandoitchi · one location, one week",
+  stat: "58",
+  statSub: "candidates in 3 days, from one story post",
+  line: "Zero ad spend.",
+  meta: "sandoitchi · one location, Dallas",
 };
 
 export function HeroLineBand() {

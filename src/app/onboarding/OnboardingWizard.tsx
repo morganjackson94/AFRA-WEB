@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import { ArrowLeft, Calendar, Check, ChevronDown, Instagram, Lock, Microsoft, X } from "../../components/Icons";
 import { LegalLinks } from "../../components/LegalLinks";
+import { FOUNDING_RENEWAL_DISCOUNT_RATE } from "../../lib/billing";
 import { matchedRestrictedJurisdictions } from "../../lib/jurisdiction";
 import {
   computeReachFlag,
@@ -204,7 +205,7 @@ export function OnboardingWizard({
               ? true
               : step === 6
                 ? handle.trim() !== ""
-                : calendarChoice !== "" && tosAccepted;
+                : calendarChoice !== "" && bookingLinkUrl.trim() !== "" && tosAccepted;
 
   return (
     // Flex column so the footer sits BELOW the content (no fixed-overlap bug).
@@ -475,7 +476,7 @@ export function OnboardingWizard({
                       "Flat $1,990/year — every location covered",
                       "Paid from day one, no trial",
                       "30-day money-back guarantee",
-                      "Founding rate locked at renewal",
+                      `Standing ${Math.round(FOUNDING_RENEWAL_DISCOUNT_RATE * 100)}% discount off renewal pricing, for as long as you stay`,
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
                         <Check className="mt-0.5 size-[16px] flex-none text-accent" />
@@ -509,6 +510,16 @@ export function OnboardingWizard({
                       setDisqualifiers((prev) => (prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v]))
                     }
                   />
+                  <p className="mt-3 text-[13px] leading-relaxed text-threshold-ink-soft">
+                    Pick your genuine dealbreakers — not your preferences. Every one you select adds a question to
+                    the conversation, and longer screeners lose good candidates.
+                  </p>
+                  {disqualifiers.length > 5 && (
+                    <p className="mt-2 text-[13px] leading-relaxed text-threshold-ink-soft">
+                      That&apos;s a long screener — every question past this point costs completion. You&apos;re
+                      welcome to be strict, just know the tradeoff.
+                    </p>
+                  )}
                 </Reveal>
                 <Reveal delay={380}>
                   <div className="mt-7">
@@ -624,17 +635,20 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={360}>
                   <div className="mt-7">
-                    <Field label="Booking link (optional)">
+                    <Field label="Booking link">
                       <input
                         type="url"
                         className={inputClass}
                         placeholder="Your Google Calendar or Calendly link"
                         value={bookingLinkUrl}
                         onChange={(e) => setBookingLinkUrl(e.target.value)}
+                        required
                       />
                     </Field>
                     <p className="mt-2 text-[13px] leading-relaxed text-threshold-ink-soft">
-                      Don&apos;t have one yet? No problem, we&apos;ll set it up together on your setup call.
+                      This is what lets candidates book their own interview straight into your calendar,
+                      so it&apos;s required. Don&apos;t have one yet? A free Calendly link takes about 2 minutes
+                      to set up — grab one, paste it here, and you&apos;re done.
                     </p>
                   </div>
                 </Reveal>
@@ -845,18 +859,22 @@ function QuestionsPreview({ roleTitle }: { roleTitle: string }) {
           {set.questions.map((q) => (
             <div key={q.key}>
               <p className="text-[14px] font-medium text-threshold-ink">{q.question}</p>
-              <ul className="mt-1.5 space-y-0.5">
-                {q.options.map((o) => (
-                  <li key={o.letter} className="text-[13px] text-threshold-ink-soft">
-                    {o.letter}. {o.label}
-                    {q.disqualifyingLetters.includes(o.letter) && (
-                      <span className="ml-1.5 text-[11px] uppercase tracking-[0.08em] text-threshold-ink-soft/70">
-                        screens out
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              {q.kind === "choice" ? (
+                <ul className="mt-1.5 space-y-0.5">
+                  {q.options.map((o) => (
+                    <li key={o.letter} className="text-[13px] text-threshold-ink-soft">
+                      {o.letter}. {o.label}
+                      {q.disqualifyingLetters.includes(o.letter) && (
+                        <span className="ml-1.5 text-[11px] uppercase tracking-[0.08em] text-threshold-ink-soft/70">
+                          screens out
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1.5 text-[13px] text-threshold-ink-soft">Free response — in the candidate&apos;s own words.</p>
+              )}
             </div>
           ))}
         </div>

@@ -72,6 +72,7 @@ async function main() {
     customerId: `cus_test_${operatorId}`,
     paymentIntentId: `pi_test_${operatorId}`,
     checkoutSessionId: checkout.sessionId,
+    livemode: false,
   });
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   r = await role(operatorId);
@@ -105,7 +106,7 @@ async function main() {
 
   // ---- 6) Idempotent re-confirm ----
   const before = await prisma.event.count({ where: { operatorId, type: "WentLive" } });
-  await confirmFoundingPayment(prisma, operatorId, {});
+  await confirmFoundingPayment(prisma, operatorId, { livemode: false });
   const after = await prisma.event.count({ where: { operatorId, type: "WentLive" } });
   assert(before === after, "re-confirming payment does not double-fire WentLive (idempotent)");
 

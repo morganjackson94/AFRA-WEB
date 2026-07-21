@@ -7,9 +7,27 @@ import Stripe from "stripe";
 export const PRICE_PER_LOCATION_CENTS = 19900; // $199/mo per location (monthly path)
 export const TRIAL_DAYS = 14; // 2-week free trial (monthly path only)
 export const FOUNDING_PRICE_CENTS = 199000; // $1,990 one-time, first year (founding path)
+export const FOUNDING_RENEWAL_PRICE_CENTS = 478800; // $4,788/yr then-current price after the founding year (see docs/CLAIMS.md)
+// Founding operators' standing discount off then-current pricing (25% —
+// decided against a 50%-forever discount specifically to avoid recreating the
+// grandfather-clause trap: a flat percentage compounds if AFRA's price rises
+// later, e.g. at $10K then-current, 50% off is $5K forever). Conditional on
+// continuous subscription — cancel-and-return does not retain founding
+// pricing. See content/legal/terms.md §7(a).
+export const FOUNDING_RENEWAL_DISCOUNT_RATE = 0.25;
+export const FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS = Math.round(
+  FOUNDING_RENEWAL_PRICE_CENTS * (1 - FOUNDING_RENEWAL_DISCOUNT_RATE),
+); // $3,591/yr — what a continuous founding operator actually pays at renewal
+// Cohort cap — see countActiveFoundingOperators() in activation.ts, which
+// enforces this against real billingStatus="active" data (src/app/onboarding/
+// actions.ts blocks checkout once it's reached; src/app/page.tsx's scarcity
+// counter reads the same count). Single source of truth for the number "10."
+export const FOUNDING_SPOTS_TOTAL = 10;
 
-// TODO(billing): Founding purchase is a ONE-TIME charge. Grandfathered renewal
-// at $1,990/yr is promised but NOT automated. Build either (a) an annual
+// TODO(billing): Founding purchase is a ONE-TIME charge. Renewal at the
+// then-current price ($4,788/yr as of docs/CLAIMS.md) minus the founding
+// operator's 25% standing discount ($3,591/yr), conditional on continuous
+// subscription, is promised but NOT automated. Build either (a) an annual
 // Stripe subscription, or (b) a renewal reminder + invoice flow, before the
 // first cohort's year ends.
 

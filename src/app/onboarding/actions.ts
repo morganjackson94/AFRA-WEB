@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { startFoundingCheckout } from "../../lib/activation";
-import { getBillingProvider } from "../../lib/billing";
+import { countActiveFoundingOperators, startFoundingCheckout } from "../../lib/activation";
+import { FOUNDING_SPOTS_TOTAL, getBillingProvider } from "../../lib/billing";
+import { CONTACT_EMAIL } from "../../lib/constants";
 import { isRestrictedJurisdiction } from "../../lib/jurisdiction";
 import { type DraftAnswers, deleteDraft, loadDraft, saveDraft } from "../../lib/onboardingDraft";
 import { prisma } from "../../lib/prisma";
@@ -51,9 +52,11 @@ export async function startOnboardingAction(
   const facebookHandle = String(formData.get("facebookHandle") ?? "").trim() || undefined;
   const pay = String(formData.get("pay") ?? "").trim();
   const calendarChoice = String(formData.get("calendarChoice") ?? "").trim();
-  // Optional — many operators set this up together with the founder on the
-  // concierge call rather than alone at onboarding. No validation beyond the
-  // browser's native type="url" input; never blocks checkout either way.
+  // Required (see docs/CLAIMS.md 2.5) — this is what makes "candidates book
+  // straight into your calendar" true. Without it there's no booking node to
+  // add to the operator's cloned ManyChat flow, and the claim breaks for them
+  // specifically. Presence re-validated below; no format check beyond the
+  // client's native type="url" hint.
   const bookingLinkUrl = String(formData.get("bookingLinkUrl") ?? "").trim() || undefined;
   const email = String(formData.get("email") ?? "").trim();
   const plan = String(formData.get("plan") ?? "founding").trim(); // "founding" | "monthly"
@@ -103,6 +106,7 @@ export async function startOnboardingAction(
 
   if (roleTitles.length === 0) return { error: "Pick at least one role you're hiring for." };
   if (!CALENDAR_CHOICES.includes(calendarChoice)) return { error: "Choose a calendar." };
+  if (!bookingLinkUrl) return { error: "Add your booking link — it's what lets candidates book their interview." };
   if (!instagramHandle) return { error: "Add the Instagram handle you use for hiring." };
   // Required: it's how you log back in. No email, no way to send a magic
   // link, no way back into your own dashboard after closing the tab.
@@ -126,6 +130,30 @@ export async function startOnboardingAction(
   let operatorId: string;
   let checkoutUrl: string | undefined;
   try {
+    // Hard gate — "first 10 only" is a public promise (see docs/CLAIMS.md); it
+    // must not be breakable by a race or an oversight. Checked here, right
+    // before provision()/Stripe, same spot as the other hard gates above.
+    // Real-money confirmed seats only (billingStatus: "active") — an abandoned
+    // Stripe session must not eat a seat from someone who actually pays.
+    // Inside this try/catch (not before it) so a failure in the count query
+    // itself returns the same graceful error as a provision() failure,
+    // instead of an uncaught exception.
+    if (isFounding) {
+      const activeFoundingCount = await countActiveFoundingOperators(prisma);
+      if (activeFoundingCount >= FOUNDING_SPOTS_TOTAL) {
+        // Logged deliberately: this blocks a real signup with no other
+        // trace. An incorrectly-tripped gate is otherwise indistinguishable
+        // from "nobody bought today" — see Vercel function logs for
+        // "[foundingCap]" if the cap ever looks wrong.
+        console.error(
+          `[foundingCap] blocked signup: count=${activeFoundingCount} cap=${FOUNDING_SPOTS_TOTAL} email=${email}`,
+        );
+        return {
+          error: `Founding pricing has reached its cap of ${FOUNDING_SPOTS_TOTAL}. Email ${CONTACT_EMAIL} and we'll let you know if a spot opens up.`,
+        };
+      }
+    }
+
     const result = await provision(
       prisma,
       {
@@ -173,7 +201,8 @@ export async function startOnboardingAction(
       });
       checkoutUrl = checkout.checkoutUrl;
     }
-  } catch {
+  } catch (err) {
+    console.error("[onboarding] startOnboardingAction failed:", err);
     return { error: "Something went wrong creating your account. Please try again." };
   }
 

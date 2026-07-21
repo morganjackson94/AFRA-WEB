@@ -86,10 +86,12 @@ export async function POST(request: Request): Promise<Response> {
   const success = String(form.get("success") || "/dashboard");
 
   // Simulate the webhook server-side (same function the real webhook calls).
+  // Never livemode — this route only exists in fake billing mode at all.
   await confirmFoundingPayment(prisma, operatorId, {
     checkoutSessionId: sessionId,
     paymentIntentId: `pi_fake_${operatorId}`,
     customerId: `cus_fake_${operatorId}`,
+    livemode: false,
   });
 
   return Response.redirect(success, 303);

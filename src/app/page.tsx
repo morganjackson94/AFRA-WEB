@@ -9,8 +9,16 @@ import { LegalLinks } from "../components/LegalLinks";
 import { Reveal } from "../components/Reveal";
 import { SectionLabel } from "../components/SectionLabel";
 import { Stagger } from "../components/Stagger";
+import { countActiveFoundingOperators } from "../lib/activation";
+import {
+  FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS,
+  FOUNDING_RENEWAL_DISCOUNT_RATE,
+  FOUNDING_RENEWAL_PRICE_CENTS,
+  FOUNDING_SPOTS_TOTAL,
+} from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
+import { prisma } from "../lib/prisma";
 
 const SECTION = "mx-auto max-w-[1080px] px-6";
 // Major-section rhythm: a warm hairline divider + generous vertical air.
@@ -18,15 +26,24 @@ const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 // Asymmetric editorial grid: narrow label rail (left) + wide content (right).
 const RAIL = "grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-[200px_1fr]";
 
+// Real seat count (see countActiveFoundingOperators — same source of truth
+// startOnboardingAction's checkout-time cap reads). This page takes paid Meta
+// traffic at volume, so it's ISR (see `revalidate` below), not fetched fresh
+// on every single request.
+export const revalidate = 60;
+
 // Founding-Operator offer config. Cap + deadline are REAL commitments — honor
-// them (don't claim 10 and sell 50). Simple consts for now; real seat-tracking
-// (decrementing FOUNDING_SPOTS_TOTAL as accounts activate) is a later step.
+// them (don't claim 10 and sell 50). priceAfter is the then-current renewal
+// price (docs/CLAIMS.md); priceFounding is what a continuous founding
+// operator actually pays after the 25% standing discount — not a locked
+// rate; see content/legal/terms.md §7a.
 const FOUNDING = {
   priceFirstYear: "$1,990", // annual prepay, billed once, FLAT — covers every location
   monthlyEquivalent: "$166", // light math: 1990 / 12, reassurance only (not billed monthly)
-  priceAfter: "$2,388/yr", // anchor = the $199/mo equivalent, after founding
-  spotsTotal: 10,
-  spotsLeft: 7, // config value; not live seat-tracking yet
+  priceAfter: `$${(FOUNDING_RENEWAL_PRICE_CENTS / 100).toLocaleString("en-US")}/yr`,
+  priceFounding: `$${(FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS / 100).toLocaleString("en-US")}/yr`,
+  discountPercent: Math.round(FOUNDING_RENEWAL_DISCOUNT_RATE * 100),
+  spotsTotal: FOUNDING_SPOTS_TOTAL,
   deadline: "July 31, 2026",
 };
 
@@ -68,43 +85,45 @@ function CTA({
 const FEATURES = [
   { icon: Bolt, title: "Instant replies", body: "Answer every applicant the moment they message, day or night. Reliable, so no one waits." },
   { icon: Filter, title: "Smart screening", body: "A few questions sort the serious applicants from the maybes." },
-  { icon: Calendar, title: "Auto-booked interviews", body: "They pick a time you're actually free. It lands on your calendar." },
+  { icon: Calendar, title: "Candidates book their own interview", body: "They pick a time you're actually free. It lands on your calendar." },
   { icon: Bell, title: "One-tap reminders", body: "Follow up in one tap, in the same chat. Fewer people ghost, more people show." },
 ];
 
 const STEPS = [
   { n: "01", h: "Connect your Instagram", p: "It's where applicants already message you. Nothing new for them to download." },
   { n: "02", h: "We answer & screen instantly", p: "Every applicant gets a reply in seconds and a few smart questions, automatically." },
-  { n: "03", h: "Interviews hit your calendar", p: "Good applicants book a time themselves. No phone tag, no chasing." },
+  { n: "03", h: "Candidates book their interview", p: "Good applicants book a time themselves. No phone tag, no chasing." },
 ];
 
 const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
-  { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly and books interviews the same day, so you're not waiting days to fill the floor." },
-  { q: "What if it doesn't work for me?", a: "You're covered by a 30-day money-back guarantee. Try it for 30 days. If it doesn't book you interviews, ask for a full refund." },
+  { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
+  { q: "What if it doesn't work for me?", a: "You're covered by a 30-day money-back guarantee. Try it for 30 days. If candidates aren't booking interviews with you, ask for a full refund." },
   { q: "How does follow-up work?", a: "Within the first 24 hours the bot replies instantly on its own. After that, following up is one tap: you send the reminder in the same chat. No autopilot chasing, no phone tag." },
-  { q: "How long does setup take?", a: "About a minute. Connect Instagram, pick your role and calendar, and you're set up." },
+  { q: "How long does setup take?", a: "Setup takes about a minute — connect Instagram, pick your role and calendar. You're live and receiving candidates within 7 days, or you don't pay." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
   { q: "I run several locations. How does that work?", a: "Your founding spot covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What if I want a refund?", a: "Full refund within 30 days, no questions asked. After that, your year is yours and you are free not to renew." },
-  { q: "What happens after the first year?", a: "Your founding rate stays locked at $1,990 a year for as long as you stay. We will reach out before your year is up so you can renew at that rate. No surprise charges." },
+  { q: "What happens after the first year?", a: `Your founding year is $1,990. After that, renewal is at our then-current rate — ${FOUNDING.priceAfter} today — but as a founding operator you keep a standing ${FOUNDING.discountPercent}% discount off that price for as long as you stay (that's ${FOUNDING.priceFounding} today), as long as your subscription stays continuous. Never a surprise: we give at least 30 days' notice before any price change, and reach out before your year is up so you can decide.` },
   {
     q: "What exactly do I get as a Founding Operator?",
     a: [
       "Instant replies to every applicant, day or night",
       "Automatic screening, so you only see people worth your time",
-      "Interviews booked straight to your calendar",
+      "Candidates book their interview straight into your calendar",
       "One-tap follow-up reminders",
       "One simple dashboard for every location",
       "Personal setup. We build and connect your flow for you.",
-      "Your founding rate locked for as long as you stay",
+      `A standing ${FOUNDING.discountPercent}% discount off then-current pricing, for as long as you stay`,
       "30-day money-back guarantee",
     ],
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const activeFoundingCount = await countActiveFoundingOperators(prisma);
+  const spotsLeft = Math.max(0, FOUNDING.spotsTotal - activeFoundingCount);
   return (
     // overflow-x-clip lets the enlarged hero phone bleed into the right gutter
     // without producing a horizontal scrollbar. `clip` (not `hidden`) doesn't
@@ -140,8 +159,8 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={240}>
             <p className="mb-3 max-w-[40ch] text-[19px] leading-relaxed text-ink-soft">
-              Answer every applicant in seconds. Book interviews straight to your calendar. Follow up
-              in one tap. No more phone tag.
+              Answer every applicant in seconds. Candidates book their interview straight into your
+              calendar. Follow up in one tap. No more phone tag.
             </p>
           </Reveal>
           <Reveal delay={360}>
@@ -155,7 +174,8 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={600}>
             <p className="mt-5 text-[13.5px] text-faint">
-              30-day money-back guarantee. No ads needed. Live in about a minute.
+              30-day money-back guarantee. No ads needed. Setup takes about a minute — live within 7
+              days, or you don&apos;t pay.
             </p>
           </Reveal>
         </div>
@@ -186,7 +206,7 @@ export default function LandingPage() {
             <SectionLabel index="01">See it work</SectionLabel>
           </Reveal>
           <Stagger step={110}>
-            <h2 className="t-title mb-8 max-w-[16ch]">90 seconds, start to booked.</h2>
+            <h2 className="t-title mb-8 max-w-[16ch]">See it in 90 seconds.</h2>
             <div>
               <DemoModal variant="poster" />
             </div>
@@ -275,8 +295,8 @@ export default function LandingPage() {
             </Reveal>
             <Reveal>
               <p className="mb-8 max-w-[52ch] text-[15px] leading-relaxed text-ink-soft">
-                Instant replies, automatic screening, interviews booked. All from the Instagram you
-                already use.
+                Instant replies, automatic screening, candidates booking their own interviews. All
+                from the Instagram you already use.
               </p>
             </Reveal>
             <Stagger className="grid grid-cols-1 gap-3.5 sm:grid-cols-2" step={90}>
@@ -294,7 +314,7 @@ export default function LandingPage() {
             </Stagger>
             <Reveal>
               <p className="mt-6 text-[15px] font-medium text-ink">
-                It&apos;s not just booked interviews. It&apos;s people who actually show up.
+                It&apos;s not just candidates booking interviews. It&apos;s people who actually show up.
               </p>
             </Reveal>
           </div>
@@ -321,7 +341,7 @@ export default function LandingPage() {
                   Founding Operator · first {FOUNDING.spotsTotal}
                 </span>
                 <span className="rounded-full border border-rose/40 bg-cream px-3 py-1.5 text-[12.5px] font-semibold text-rose">
-                  {FOUNDING.spotsLeft} of {FOUNDING.spotsTotal} spots left
+                  {spotsLeft} of {FOUNDING.spotsTotal} spots left
                 </span>
               </div>
 
@@ -352,7 +372,7 @@ export default function LandingPage() {
                 {[
                   "Instant replies to every applicant",
                   "Automatic screening questions",
-                  "Interviews booked on your calendar",
+                  "Candidates book straight into your calendar",
                   "One-tap follow-up reminders",
                   "One simple dashboard",
                   "Every location you run, one price",
@@ -370,7 +390,7 @@ export default function LandingPage() {
               <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
                 <p className="text-[14px] font-semibold text-ink">30-day money-back guarantee</p>
                 <p className="mt-1 text-[13px] text-ink-soft">
-                  Try it for 30 days. If it doesn&apos;t book you interviews, full refund, no questions.
+                  Try it for 30 days. If candidates aren&apos;t booking interviews with you, full refund, no questions.
                 </p>
               </div>
               <p className="mt-3 text-[13px] text-faint">
@@ -389,7 +409,7 @@ export default function LandingPage() {
           <Stagger step={110}>
             <h2 className="t-title mx-auto max-w-[18ch]">Stop losing applicants.</h2>
             <p className="mx-auto mt-5 mb-8 text-[18px] text-ink-soft">
-              Founding pricing ends {FOUNDING.deadline}. {FOUNDING.spotsLeft} of {FOUNDING.spotsTotal} spots left.
+              Founding pricing ends {FOUNDING.deadline}. {spotsLeft} of {FOUNDING.spotsTotal} spots left.
             </p>
             <div>
               <CTA size="lg" />

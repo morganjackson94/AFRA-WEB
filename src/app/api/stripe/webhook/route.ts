@@ -76,6 +76,11 @@ export async function POST(request: Request): Promise<Response> {
             customerId: idOf(session.customer),
             paymentIntentId: idOf(session.payment_intent),
             checkoutSessionId: session.id,
+            // Real Stripe's own signal, off the signature-verified event —
+            // not inferred from which secret key is configured. Test-mode
+            // checkouts (including the founding live-mode E2E test) must
+            // never count toward the "first 10 only" seat cap.
+            livemode: event.livemode,
           });
         }
       }

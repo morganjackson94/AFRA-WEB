@@ -6,7 +6,7 @@ import { Reveal } from "../../../../components/Reveal";
 import { SectionLabel } from "../../../../components/SectionLabel";
 import { STAGE_RANK } from "../../../../lib/manychat";
 import { prisma } from "../../../../lib/prisma";
-import { decodeAnswer, getQuestionSetForRole, type DecodedAnswer } from "../../../../lib/screeningQuestions";
+import { buildAssembledQuestions, decodeAnswer, type DecodedAnswer } from "../../../../lib/screeningQuestions";
 import { resolveOperatorId } from "../../../../lib/session";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +68,26 @@ export default async function CandidateDetailPage({
   // one-role-per-location shape), then screeningQuestions' own generic
   // fallback for anything odder than that.
   const roleTitle = candidate.role?.title ?? candidate.location.roles[0]?.title;
-  const questionSet = getQuestionSetForRole(roleTitle);
+
+  // Ownership check above already scoped the candidate to this operator, so
+  // this is the same operator — fetched separately since it's not on the
+  // candidate/location include above. Passed into buildAssembledQuestions()/
+  // decodeAnswer() so "disqualifying" reflects this operator's actual
+  // configuration, and the question set matches what this candidate was
+  // actually asked (universal + selected knockouts + competency).
+  const operator = await prisma.operator.findUnique({
+    where: { id: operatorId },
+    select: { disqualifiers: true },
+  });
+  const operatorRoles = await prisma.role.findMany({
+    where: { location: { operatorId } },
+    select: { title: true },
+    distinct: ["title"],
+  });
+  const questionSet = {
+    roleTitle: roleTitle ?? "",
+    questions: buildAssembledQuestions(roleTitle, operator?.disqualifiers ?? [], operatorRoles.map((r) => r.title)),
+  };
 
   // Snapshot (resolved at ingest time) wins when present so records stay
   // decodable after future question-library edits; otherwise decode live
@@ -76,7 +95,7 @@ export default async function CandidateDetailPage({
   // before this feature existed — nothing regresses on old/odd data.
   const displayAnswers = Object.entries(rawAnswers).map(([key, rawAnswer]) => {
     const snapshotted = snapshot?.find((s) => s.key === key);
-    const decoded = snapshotted ?? decodeAnswer(questionSet, key, rawAnswer);
+    const decoded = snapshotted ?? decodeAnswer(questionSet, key, rawAnswer, operator?.disqualifiers);
     if (decoded) {
       return { key, question: decoded.question, answer: decoded.answerLabel, disqualifying: decoded.disqualifying };
     }

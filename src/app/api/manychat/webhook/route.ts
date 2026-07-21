@@ -8,17 +8,25 @@ import { prisma } from "../../../../lib/prisma";
 // Requires MANYCHAT_WEBHOOK_SECRET in env. Unset => the route stays disabled
 // (503), same "won't silently pretend to work" pattern as the Stripe webhook.
 
-function isValidPayload(body: unknown): body is ManyChatScreeningPayload {
+// Exported for scripts/knockout-smoke.ts — Next.js only treats the uppercase
+// HTTP-verb exports (GET/POST/etc.) and a few reserved config names
+// specially, so an extra named export here is inert for routing purposes.
+export function isValidPayload(body: unknown): body is ManyChatScreeningPayload {
   if (!body || typeof body !== "object") return false;
   const b = body as Record<string, unknown>;
   if (typeof b.locationId !== "string" || !b.locationId) return false;
-  if (b.outcome !== "passed" && b.outcome !== "failed") return false;
+  // outcome is optional (computed server-side when absent — see manychat.ts),
+  // but reject it outright if present-and-invalid.
+  if (b.outcome !== undefined && b.outcome !== "passed" && b.outcome !== "failed") return false;
   if (b.roleId !== undefined && typeof b.roleId !== "string") return false;
   if (b.contact !== undefined && typeof b.contact !== "string") return false;
   if (b.name !== undefined && typeof b.name !== "string") return false;
   if (b.availability !== undefined && typeof b.availability !== "string") return false;
   if (b.subscriberId !== undefined && typeof b.subscriberId !== "string") return false;
   if (b.answers !== undefined && (typeof b.answers !== "object" || b.answers === null)) return false;
+  // At least one of outcome/answers must be present — otherwise there's
+  // nothing to score and nothing to trust.
+  if (b.outcome === undefined && b.answers === undefined) return false;
   return true;
 }
 

@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
-import { snapshotAnswers } from "./screeningQuestions";
+import { buildAssembledQuestions, evaluateDisqualification, snapshotAnswers } from "./screeningQuestions";
 
 // ManyChat bridge — candidate ingest. ManyChat cannot create flows, but a flow's
 // "External Request" step CAN POST completed-screening data out. This is that
@@ -31,7 +31,13 @@ export type ManyChatScreeningPayload = {
   contact?: string;
   availability?: string;
   answers?: Record<string, string>;
-  outcome: "passed" | "failed";
+  /** Trusted as-is when present (backward compat with the live ManyChat flow,
+   *  which still self-computes this via its own Condition node today). When
+   *  absent, computed server-side from `answers` + the operator's configured
+   *  disqualifiers — see evaluateDisqualification() in screeningQuestions.ts.
+   *  At least one of `outcome`/`answers` must be present (enforced by the
+   *  webhook route's isValidPayload) — otherwise there's nothing to score. */
+  outcome?: "passed" | "failed";
 };
 
 export type IngestResult =
@@ -44,7 +50,7 @@ export async function ingestScreeningResult(
 ): Promise<IngestResult> {
   const location = await prisma.location.findUnique({
     where: { id: payload.locationId },
-    select: { id: true, operatorId: true },
+    select: { id: true, operatorId: true, operator: { select: { disqualifiers: true } } },
   });
   if (!location) return { ok: false, error: "unknown locationId" };
 
@@ -58,7 +64,33 @@ export async function ingestScreeningResult(
     roleTitle = role.title;
   }
 
-  const nextStage = payload.outcome === "passed" ? "screened" : "rejected";
+  // Distinct role titles across every one of this operator's locations —
+  // drives whether the assembled flow includes the role-interest question
+  // (only asked when the operator hires for more than one role).
+  const operatorRoles = await prisma.role.findMany({
+    where: { location: { operatorId: location.operatorId } },
+    select: { title: true },
+    distinct: ["title"],
+  });
+  const assembledSet = {
+    roleTitle: roleTitle ?? "",
+    questions: buildAssembledQuestions(
+      roleTitle,
+      location.operator.disqualifiers,
+      operatorRoles.map((r) => r.title),
+    ),
+  };
+
+  // Explicit outcome always wins (backward compat — see the type comment
+  // above). Only computed when absent, and only computable when answers
+  // exist; the webhook route already rejects payloads with neither.
+  const outcome: "passed" | "failed" =
+    payload.outcome ??
+    (evaluateDisqualification(assembledSet, payload.answers ?? {}, location.operator.disqualifiers)
+      ? "failed"
+      : "passed");
+
+  const nextStage = outcome === "passed" ? "screened" : "rejected";
 
   // De-dupe by (locationId, contact) when contact is given; otherwise always
   // create (no reliable key to match on).
@@ -111,7 +143,9 @@ export async function ingestScreeningResult(
   });
   // Snapshotted at ingest time (not decoded on read) so records stay readable
   // even after a future edit to SCREENING_QUESTIONS changes the live copy.
-  const questionSnapshot = snapshotAnswers(roleTitle, payload.answers);
+  // Uses this operator's real disqualifiers so the snapshot's "screens out"
+  // flags match what actually happened, not a generic/universal-only view.
+  const questionSnapshot = snapshotAnswers(assembledSet, payload.answers, location.operator.disqualifiers);
   const transcript = {
     answers: payload.answers ?? {},
     subscriberId: payload.subscriberId,
@@ -122,14 +156,14 @@ export async function ingestScreeningResult(
   if (conversation) {
     await prisma.conversation.update({
       where: { id: conversation.id },
-      data: { state: payload.outcome === "passed" ? "passed" : "failed", transcript },
+      data: { state: outcome === "passed" ? "passed" : "failed", transcript },
     });
   } else {
     await prisma.conversation.create({
       data: {
         candidateId,
         operatorId: location.operatorId,
-        state: payload.outcome === "passed" ? "passed" : "failed",
+        state: outcome === "passed" ? "passed" : "failed",
         transcript,
       },
     });

@@ -411,18 +411,22 @@ export default async function DashboardPage({
               {getQuestionSetForRole(roles[0]?.role.title).questions.map((q) => (
                 <div key={q.key}>
                   <p className="text-sm font-medium text-ink">{q.question}</p>
-                  <ul className="mt-1.5 space-y-0.5">
-                    {q.options.map((o) => (
-                      <li key={o.letter} className="text-xs text-ink-soft">
-                        {o.letter}. {o.label}
-                        {q.disqualifyingLetters.includes(o.letter) && (
-                          <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-faint">
-                            screens out
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  {q.kind === "choice" ? (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {q.options.map((o) => (
+                        <li key={o.letter} className="text-xs text-ink-soft">
+                          {o.letter}. {o.label}
+                          {q.disqualifyingLetters.includes(o.letter) && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-[0.08em] text-faint">
+                              screens out
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-ink-soft">Free response — in the candidate&apos;s own words.</p>
+                  )}
                 </div>
               ))}
             </div>

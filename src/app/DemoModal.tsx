@@ -134,7 +134,7 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
           <span className="absolute bottom-4 left-4 text-left text-ink">
             <b className="block text-[15px] font-semibold">How AFRA works</b>
             <span className="text-[12.5px] text-ink-soft">
-              From an Instagram comment to a booked interview
+              From an Instagram comment to a candidate booking their interview
             </span>
           </span>
         </button>

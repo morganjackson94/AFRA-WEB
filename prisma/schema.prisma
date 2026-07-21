@@ -42,6 +42,13 @@ model Operator {
   stripeCheckoutSessionId String? @unique
   /// PaymentIntent id of a confirmed founding charge (for manual refunds/support).
   stripePaymentIntentId   String?
+  /// Stripe's own event.livemode at the moment billingStatus was confirmed
+  /// "active" (see confirmFoundingPayment in activation.ts). Null until a
+  /// payment is confirmed. countActiveFoundingOperators() requires this to be
+  /// true — structurally excludes test-mode checkouts from the "first 10
+  /// only" seat cap, so testing in Stripe test mode can never consume a real
+  /// founding seat, without relying on remembering to purge test records.
+  stripeLivemode   Boolean?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
