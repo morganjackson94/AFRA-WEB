@@ -1,6 +1,6 @@
 # AFRA Terms of Service
 
-**Effective Date:** July 28, 2026
+**Effective Date:** July 21, 2026
 
 These Terms of Service ("Terms") govern your access to and use of the AFRA software-as-a-service ("SaaS") platform and related services (collectively, the "Service") provided by AFRA Visibility, LLC ("AFRA," "we," "us," or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Service.
 

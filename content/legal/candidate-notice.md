@@ -1,6 +1,6 @@
 # AFRA Candidate Data Notice
 
-**Effective Date:** July 28, 2026
+**Effective Date:** July 21, 2026
 
 **To Job Applicants:**
 

@@ -1,6 +1,6 @@
 # AFRA Privacy Policy
 
-**Effective Date:** July 28, 2026
+**Effective Date:** July 21, 2026
 
 This Privacy Policy describes how AFRA Visibility, LLC ("AFRA," "we," "us," or "our") collects, uses, processes, and discloses personal data when you use our software-as-a-service (SaaS) platform (the "Service"). This policy applies to both our business customers ("Operators") and job applicants ("Candidates") whose data is processed through our Service.
 
