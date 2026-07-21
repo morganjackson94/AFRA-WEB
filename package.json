@@ -22,7 +22,8 @@
     "founding:smoke": "tsx scripts/founding-smoke.ts",
     "screening:smoke": "tsx scripts/screening-questions-smoke.ts",
     "knockout:smoke": "tsx scripts/knockout-smoke.ts",
-    "founding-cap:smoke": "tsx scripts/founding-cap-smoke.ts"
+    "founding-cap:smoke": "tsx scripts/founding-cap-smoke.ts",
+    "purchase-email:smoke": "tsx scripts/purchase-email-smoke.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

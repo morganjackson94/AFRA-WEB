@@ -1,9 +1,10 @@
 # AFRA Claims — canonical source of truth
 
-Every customer-facing claim (landing page, wizard, checkout, dashboard, legal docs, ad creative) must
-match this table word-for-word or be a faithful shortening. Nothing may contradict it. **Update this
-file first** when a claim needs to change — then propagate to the surfaces below, not the other way
-around. Approved as of the July 2026 claims-audit pass (Phase 1 report + Phase 2 sign-off).
+Every customer-facing claim (landing page, wizard, checkout, dashboard, legal docs, ad creative,
+transactional email) must match this table word-for-word or be a faithful shortening. Nothing may
+contradict it. **Update this file first** when a claim needs to change — then propagate to the surfaces
+below, not the other way around. Approved as of the July 2026 claims-audit pass (Phase 1 report + Phase
+2 sign-off).
 
 ## Canonical claims
 
@@ -30,6 +31,15 @@ around. Approved as of the July 2026 claims-audit pass (Phase 1 report + Phase 2
   date range or backing data becomes available, add it here rather than in any customer-facing copy.
 - Implemented in `src/components/HeroLineBand.tsx`'s `PROOF` constant — that component's own comment
   repeats the "do not fabricate or alter these numbers" rule.
+
+## Founding purchase confirmation email
+
+`sendFoundingPurchaseConfirmationEmail()` (`src/lib/mail.ts`), sent from `confirmFoundingPayment()`
+(`src/lib/activation.ts`) on the verified-webhook path only — the operator's first owned touch after
+payment. Repeats the 7-day promise, the guarantee/refund terms, and the renewal + 25% standing discount
+language verbatim from this file. If those claims change here, that email's copy must be updated in the
+same pass. Approved final copy — see the git history for the exact text; don't paraphrase it further
+without re-checking against this table.
 
 ## ToS backing
 

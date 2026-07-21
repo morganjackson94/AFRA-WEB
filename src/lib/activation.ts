@@ -4,8 +4,17 @@ import { mapStripeStatus } from "./billing";
 import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
 import { emitEvent } from "./events";
+import { sendFoundingPurchaseConfirmationEmail } from "./mail";
 import { claimAvailableFlow } from "./manychatPool";
 import { CONNECTED, evaluateReadiness } from "./readiness";
+
+// Duplicated from session.ts's appBaseUrl() rather than imported: session.ts
+// pulls in next/headers (cookies()), which this module can't depend on — it's
+// imported by plain-tsx smoke scripts (founding-smoke.ts etc.) that run
+// outside the Next.js request runtime, not just by app routes.
+function appBaseUrl(): string {
+  return process.env.APP_BASE_URL ?? "http://localhost:3000";
+}
 
 // Orchestration that touches the DB: recompute readiness across an operator's
 // roles using the single source of truth, persist gate state, and fire WentLive
@@ -228,12 +237,66 @@ export async function confirmFoundingPayment(
   // payment error; the operator has already paid and is already "active".
   const assignment = await tryAssignFlow(prisma, operatorId);
 
-  return { billingStatus: "active", recompute, flowAssignment: assignment };
+  // Purchase confirmation email — the operator's first owned touch after
+  // payment. Same non-blocking guarantee as tryAssignFlow above: nothing in
+  // here may throw across this function or affect billingStatus.
+  const purchaseEmail = await sendPurchaseConfirmationOnce(prisma, operatorId, ids.livemode);
+
+  return { billingStatus: "active", recompute, flowAssignment: assignment, purchaseEmail };
 }
 
 export type FlowAssignmentOutcome =
   | { assigned: true }
   | { assigned: false; reason: "already-assigned" | "no-channel" | "pool-empty" | "error" };
+
+export type PurchaseEmailOutcome =
+  | { sent: true }
+  | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" };
+
+/**
+ * Fires the founding "you're in" email exactly once per operator, never
+ * blocking payment confirmation. Two independent guards:
+ *   1. livemode — a Stripe TEST-mode confirmation (including the founding
+ *      live-mode E2E test) never sends by default. SEND_TEST_PURCHASE_EMAIL=1
+ *      is an explicit, unset-by-default opt-in for deliberately testing the
+ *      email itself in dev; production never sets it.
+ *   2. purchaseConfirmationEmailSentAt — claimed atomically via updateMany
+ *      guarded on it still being null (same idiom as claimAvailableFlow in
+ *      manychatPool.ts), set BEFORE the send itself, so a webhook retry (or a
+ *      race between retries) can never trigger a second send.
+ */
+async function sendPurchaseConfirmationOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+  livemode: boolean,
+): Promise<PurchaseEmailOutcome> {
+  if (!livemode && process.env.SEND_TEST_PURCHASE_EMAIL !== "1") {
+    return { sent: false, reason: "not-livemode" };
+  }
+
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, purchaseConfirmationEmailSentAt: null },
+    data: { purchaseConfirmationEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return { sent: false, reason: "already-sent" };
+
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    // operator.name is the Instagram handle (see provision.ts's
+    // operatorName ?? displayHandle) — there is no real-name field anywhere
+    // in onboarding, so firstName is deliberately omitted here rather than
+    // greeting someone by their @handle. sendFoundingPurchaseConfirmationEmail
+    // falls back to "Hi there," when firstName is absent.
+    const result = await sendFoundingPurchaseConfirmationEmail({
+      to: operator.email,
+      dashboardUrl: `${appBaseUrl()}/login`,
+    });
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] purchase confirmation send failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
+}
 
 /**
  * Idempotent: re-confirming an already-paid operator (webhook retries do

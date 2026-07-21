@@ -111,6 +111,14 @@ model Operator {
   /// The legal-doc version (effective date) shown at the moment of consent.
   tosVersion    String?
 
+  // --- Purchase confirmation email (founding path) ---------------------------
+  // Set atomically (updateMany guarded on this being null — same claim idiom as
+  // ManychatFlow pool assignment in manychatPool.ts) the moment the send is
+  // attempted, BEFORE the send itself, so a webhook retry can never trigger a
+  // second send even if the first attempt is still in flight or failed.
+  /// Null until the founding purchase confirmation email has been attempted.
+  purchaseConfirmationEmailSentAt DateTime?
+
   locations          Location[]
   channelConnections ChannelConnection[]
   conversations      Conversation[]
