@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { countActiveFoundingOperators, startFoundingCheckout } from "../../lib/activation";
 import { FOUNDING_SPOTS_TOTAL, getBillingProvider } from "../../lib/billing";
-import { CONTACT_EMAIL } from "../../lib/constants";
+import { CONTACT_EMAIL, normalizeEmail } from "../../lib/constants";
 import { isRestrictedJurisdiction } from "../../lib/jurisdiction";
 import { type DraftAnswers, deleteDraft, loadDraft, saveDraft } from "../../lib/onboardingDraft";
 import { prisma } from "../../lib/prisma";
@@ -58,7 +58,11 @@ export async function startOnboardingAction(
   // specifically. Presence re-validated below; no format check beyond the
   // client's native type="url" hint.
   const bookingLinkUrl = String(formData.get("bookingLinkUrl") ?? "").trim() || undefined;
-  const email = String(formData.get("email") ?? "").trim();
+  // Normalized here, not just at login-time comparison — Operator.email has
+  // no case-insensitive constraint, so storing whatever case a mobile
+  // keyboard's auto-capitalize produced (the default on a bare email field)
+  // would silently desync from a later, correctly-lowercased login lookup.
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const plan = String(formData.get("plan") ?? "founding").trim(); // "founding" | "monthly"
   const tosAccepted = formData.get("tosAccepted") === "true";
 
@@ -226,7 +230,7 @@ export async function startOnboardingAction(
 const LEAD_REASONS = new Set(["0_locations", "over_capacity", "restricted_jurisdiction"]);
 
 export async function submitQualificationLeadAction(_prev: LeadState, formData: FormData): Promise<LeadState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   if (!email || !email.includes("@")) return { error: "That email doesn't look right." };
 
   const reasonInput = String(formData.get("reason") ?? "").trim();

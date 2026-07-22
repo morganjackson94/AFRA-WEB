@@ -39,6 +39,7 @@ async function sendViaResend(
     console.error(`[mail:ERROR] Resend send failed (${res.status}): ${body}`);
     return { sent: false };
   }
+  console.log(`[mail:SENT] "${args.subject}" to ${args.to}`);
   return { sent: true };
 }
 

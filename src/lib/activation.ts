@@ -287,10 +287,16 @@ async function sendPurchaseConfirmationOnce(
     // in onboarding, so firstName is deliberately omitted here rather than
     // greeting someone by their @handle. sendFoundingPurchaseConfirmationEmail
     // falls back to "Hi there," when firstName is absent.
+    console.log(`[purchase-email] attempting send to operator ${operatorId}`);
     const result = await sendFoundingPurchaseConfirmationEmail({
       to: operator.email,
       dashboardUrl: `${appBaseUrl()}/login`,
     });
+    if (result.sent) {
+      console.log(`[purchase-email] sent to operator ${operatorId}`);
+    } else {
+      console.error(`[purchase-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
+    }
     return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
   } catch (err) {
     console.error(`[mail] purchase confirmation send failed for operator ${operatorId}:`, err);
