@@ -1,4 +1,9 @@
-import { ingestScreeningResult, type ManyChatScreeningPayload } from "../../../../lib/manychat";
+import {
+  ingestScreeningResult,
+  isCleanManyChatPayload,
+  translateCleanManyChatPayload,
+  type ManyChatScreeningPayload,
+} from "../../../../lib/manychat";
 import { prisma } from "../../../../lib/prisma";
 
 // ManyChat's flow "External Request" step lands completed screenings here.
@@ -7,6 +12,13 @@ import { prisma } from "../../../../lib/prisma";
 //
 // Requires MANYCHAT_WEBHOOK_SECRET in env. Unset => the route stays disabled
 // (503), same "won't silently pretend to work" pattern as the Stripe webhook.
+//
+// Accepts two payload shapes: the older internal-shaped one (isValidPayload,
+// below — locationId/roleId/answers keyed by internal slugs) and the rebuilt
+// flow's clean shape (isCleanManyChatPayload/translateCleanManyChatPayload,
+// in manychat.ts — human-readable field names, translated to the internal
+// shape before anything downstream ever sees it). Both end up calling the
+// same ingestScreeningResult() and returning the same response shape.
 
 // Exported for scripts/knockout-smoke.ts — Next.js only treats the uppercase
 // HTTP-verb exports (GET/POST/etc.) and a few reserved config names
@@ -48,14 +60,33 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "invalid JSON" }, { status: 400 });
   }
 
-  if (!isValidPayload(body)) {
-    return Response.json({ error: "malformed payload" }, { status: 400 });
+  let payload: ManyChatScreeningPayload;
+  if (isCleanManyChatPayload(body)) {
+    const translated = await translateCleanManyChatPayload(prisma, body);
+    if (!translated.ok) {
+      return Response.json({ error: translated.error }, { status: 400 });
+    }
+    payload = translated.payload;
+  } else {
+    if (!isValidPayload(body)) {
+      return Response.json({ error: "malformed payload" }, { status: 400 });
+    }
+    payload = body;
   }
 
-  const result = await ingestScreeningResult(prisma, body);
+  const result = await ingestScreeningResult(prisma, payload);
   if (!result.ok) {
     return Response.json({ error: result.error }, { status: 422 });
   }
 
-  return Response.json({ received: true, candidateId: result.candidateId, stage: result.stage });
+  // outcome is the field ManyChat's condition node (N16) branches on — see
+  // docs/CLAIMS.md-adjacent screening-question library (screeningQuestions.ts)
+  // for what actually decides it. "qualified"/"unqualified", lowercase,
+  // stable — do not rename without updating the live ManyChat flow.
+  return Response.json({
+    received: true,
+    candidateId: result.candidateId,
+    stage: result.stage,
+    outcome: result.outcome,
+  });
 }
