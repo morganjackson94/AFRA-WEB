@@ -206,7 +206,7 @@ export default async function LandingPage() {
             <SectionLabel index="01">See it work</SectionLabel>
           </Reveal>
           <Stagger step={110}>
-            <h2 className="t-title mb-8 max-w-[16ch]">See it in 90 seconds.</h2>
+            <h2 className="t-title mb-8 max-w-[16ch]">Watch it in action.</h2>
             <div>
               <DemoModal variant="poster" />
             </div>

@@ -81,7 +81,7 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
         </button>
         {open && (
           <video
-            src="/AFRA-VSL.mp4"
+            src="/AFRA-VSL-b.mp4"
             controls
             autoPlay
             playsInline
@@ -99,7 +99,7 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
           onClick={() => setOpen(true)}
           className="inline-flex items-center gap-2 rounded-xl border border-line-strong px-6 py-3.5 text-base font-medium hover:border-ink"
         >
-          <Play className="size-4" /> Watch 90-sec demo
+          <Play className="size-4" /> Watch the demo
         </button>
       ) : (
         <button
@@ -110,7 +110,7 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
           {previewInView && (
             <video
               ref={previewRef}
-              src="/AFRA-VSL.mp4"
+              src="/AFRA-VSL-b.mp4"
               muted
               autoPlay
               loop={false}
