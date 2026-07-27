@@ -11,6 +11,7 @@ import { provision } from "../../lib/provision";
 import { computeReachFlag, locationCountForBucket } from "../../lib/qualification";
 import { appBaseUrl, createSession } from "../../lib/session";
 import { validateOtherRoleText } from "../../lib/textSanitize";
+import { logWizardFunnelEvent, type WizardFunnelEventType } from "../../lib/wizardFunnel";
 
 export type OnboardingState = { error?: string };
 export type LeadState = { submitted?: boolean; error?: string };
@@ -34,6 +35,19 @@ export async function loadOnboardingDraftAction(
   email: string,
 ): Promise<{ step: number; answers: DraftAnswers } | null> {
   return loadDraft(prisma, email);
+}
+
+// Funnel diagnostic, fired fire-and-forget from the client (never awaited in
+// a way that could delay a step transition or checkout) — see
+// OnboardingWizard.tsx's calls to this and wizardFunnel.ts for why it never
+// throws back to the caller either.
+export async function logWizardFunnelEventAction(
+  wizardSessionId: string,
+  eventType: WizardFunnelEventType,
+  step: number,
+  email?: string,
+): Promise<void> {
+  await logWizardFunnelEvent(prisma, { wizardSessionId, eventType, step, email });
 }
 
 // Completes onboarding. Two paths, both: validate -> provision() the instance ->

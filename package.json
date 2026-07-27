@@ -24,7 +24,9 @@
     "knockout:smoke": "tsx scripts/knockout-smoke.ts",
     "founding-cap:smoke": "tsx scripts/founding-cap-smoke.ts",
     "purchase-email:smoke": "tsx scripts/purchase-email-smoke.ts",
-    "email-normalization:smoke": "tsx scripts/email-normalization-smoke.ts"
+    "email-normalization:smoke": "tsx scripts/email-normalization-smoke.ts",
+    "wizard-funnel:smoke": "tsx scripts/wizard-funnel-smoke.ts",
+    "wizard-funnel:report": "tsx scripts/wizard-funnel-report.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

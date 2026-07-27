@@ -28,3 +28,25 @@ export function trackMetaEvent(
     window.fbq("track", eventName);
   }
 }
+
+/**
+ * Fires a Meta Pixel *custom* event (`fbq('trackCustom', ...)`) — for
+ * non-standard event names, e.g. wizard funnel checkpoints. `track` is
+ * reserved for Meta's standard events (InitiateCheckout, Purchase — see
+ * trackMetaEvent above, unchanged); a custom name sent via `track` won't
+ * reliably show up as its own event in Events Manager / Custom Conversions.
+ */
+export function trackMetaCustomEvent(
+  eventName: string,
+  customData?: Record<string, unknown>,
+  eventId?: string,
+): void {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  if (eventId) {
+    window.fbq("trackCustom", eventName, customData ?? {}, { eventID: eventId });
+  } else if (customData) {
+    window.fbq("trackCustom", eventName, customData);
+  } else {
+    window.fbq("trackCustom", eventName);
+  }
+}

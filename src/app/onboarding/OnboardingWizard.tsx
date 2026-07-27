@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   type LeadState,
   loadOnboardingDraftAction,
+  logWizardFunnelEventAction,
   type OnboardingState,
   saveOnboardingDraftAction,
   startOnboardingAction,
@@ -22,7 +23,7 @@ import {
   US_STATES,
 } from "../../lib/qualification";
 import { Reveal } from "../../components/Reveal";
-import { trackMetaEvent } from "../../lib/metaPixel";
+import { trackMetaCustomEvent, trackMetaEvent } from "../../lib/metaPixel";
 import { getQuestionSetForRole } from "../../lib/screeningQuestions";
 import { validateOtherRoleText } from "../../lib/textSanitize";
 import { SectionLabel } from "../../components/SectionLabel";
@@ -69,6 +70,17 @@ const TOTAL = 7;
 const INITIAL: OnboardingState = {};
 const LEAD_INITIAL: LeadState = {};
 
+// Funnel-diagnostic step names, index 0 = step 1 (see logStepCompleted below).
+const STEP_NAMES = [
+  "locations",
+  "market",
+  "roles",
+  "price_checkpoint",
+  "disqualifiers",
+  "social_handles",
+  "checkout",
+];
+
 const inputClass =
   "w-full rounded-xl border border-threshold-line bg-threshold-soft px-3.5 py-3.5 text-[16px] text-threshold-ink placeholder:text-threshold-ink-soft/60 focus:border-threshold-ink focus:outline-2 focus:outline-threshold-ink";
 
@@ -114,6 +126,37 @@ export function OnboardingWizard({
 
   const [state, formAction, pending] = useActionState(startOnboardingAction, INITIAL);
   const [leadState, leadFormAction, leadPending] = useActionState(submitQualificationLeadAction, LEAD_INITIAL);
+
+  // Funnel diagnostic (see WizardFunnelEvent in schema.prisma). wizardSessionId
+  // is a random per-visit correlation key, not an auth/security token — it's
+  // generated once on mount and persisted in sessionStorage purely so a
+  // refresh mid-wizard doesn't fragment one visit into two "sessions". Silent
+  // background telemetry only: no UI, and every call site below is
+  // fire-and-forget (never awaited), so a slow or failed write can't delay
+  // step transitions or checkout.
+  const wizardSessionIdRef = useRef("");
+  const startedFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (startedFiredRef.current) return;
+    startedFiredRef.current = true;
+    let id = window.sessionStorage.getItem("wizardSessionId") ?? "";
+    if (!id) {
+      id = crypto.randomUUID();
+      window.sessionStorage.setItem("wizardSessionId", id);
+    }
+    wizardSessionIdRef.current = id;
+    trackMetaCustomEvent("WizardStarted", { step: 1 }, `${id}-started`);
+    void logWizardFunnelEventAction(id, "started", 1);
+  }, []);
+
+  function logStepCompleted(completedStep: number) {
+    const id = wizardSessionIdRef.current;
+    if (!id) return;
+    const stepName = STEP_NAMES[completedStep - 1];
+    trackMetaCustomEvent("WizardStepCompleted", { step: completedStep, stepName }, `${id}-step${completedStep}`);
+    void logWizardFunnelEventAction(id, "step_completed", completedStep, email.trim() || undefined);
+  }
 
   const nycNeedsAnswer = primaryState === "NY" && hasNycLocation === null;
   const isLowReach = computeReachFlag(followerBand);
@@ -189,6 +232,7 @@ export function OnboardingWizard({
       setRestricted(true);
       return;
     }
+    logStepCompleted(step);
     setStep((s) => s + 1);
   }
 
@@ -718,7 +762,12 @@ export function OnboardingWizard({
               // Diagnostic signal only, fired at click intent — not gated on
               // provision()/checkout actually succeeding, and never awaited,
               // so it can't delay the real submit/redirect that follows.
-              onClick={() => trackMetaEvent("InitiateCheckout")}
+              // logStepCompleted(7) is additive funnel telemetry alongside the
+              // untouched InitiateCheckout call — same non-blocking contract.
+              onClick={() => {
+                logStepCompleted(7);
+                trackMetaEvent("InitiateCheckout");
+              }}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-threshold-ink px-6 py-3.5 text-base font-medium text-threshold transition duration-300 ease-editorial hover:opacity-90 disabled:opacity-40"
             >
               {pending ? "Setting up your account…" : "Finish setup"}

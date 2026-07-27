@@ -169,6 +169,29 @@ model Lead {
   createdAt DateTime @default(now())
 }
 
+/// Best-effort funnel diagnostic for the onboarding wizard (landing-page-view
+/// -> InitiateCheckout is currently a black box — this fills it in). Deliberately
+/// NOT tied to Operator: most of the funnel happens before provision() creates
+/// one, so wizardSessionId (a random id the client generates on mount and
+/// persists in sessionStorage) is the only reliable correlation key across a
+/// single visit. Never gates or blocks anything — see logWizardFunnelEvent in
+/// wizardFunnel.ts. Read path: scripts/wizard-funnel-report.ts.
+model WizardFunnelEvent {
+  id              String   @id @default(cuid())
+  wizardSessionId String
+  /// "started" | "step_completed"
+  eventType       String
+  /// 1-7. For "started" this is always 1 (the step the visitor landed on).
+  step            Int
+  /// Best-effort — only present once the visitor has typed a valid email
+  /// (from step 1 onward); null on "started", which fires before that.
+  email           String?
+  createdAt       DateTime @default(now())
+
+  @@index([eventType, step])
+  @@index([wizardSessionId])
+}
+
 /// Progressive-save state for an in-flight onboarding wizard session, keyed by
 /// email (no auth needed to resume — same trust level as Lead). Deliberately
 /// independent of Operator/Session/LoginToken, which all require a real
