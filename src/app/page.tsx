@@ -9,7 +9,6 @@ import { LegalLinks } from "../components/LegalLinks";
 import { Reveal } from "../components/Reveal";
 import { SectionLabel } from "../components/SectionLabel";
 import { Stagger } from "../components/Stagger";
-import { countActiveFoundingOperators } from "../lib/activation";
 import {
   FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS,
   FOUNDING_RENEWAL_DISCOUNT_RATE,
@@ -18,7 +17,6 @@ import {
 } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
-import { prisma } from "../lib/prisma";
 
 const SECTION = "mx-auto max-w-[1080px] px-6";
 // Major-section rhythm: a warm hairline divider + generous vertical air.
@@ -26,17 +24,11 @@ const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 // Asymmetric editorial grid: narrow label rail (left) + wide content (right).
 const RAIL = "grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-[200px_1fr]";
 
-// Real seat count (see countActiveFoundingOperators — same source of truth
-// startOnboardingAction's checkout-time cap reads). This page takes paid Meta
-// traffic at volume, so it's ISR (see `revalidate` below), not fetched fresh
-// on every single request.
-export const revalidate = 60;
-
-// Founding-Operator offer config. Cap + deadline are REAL commitments — honor
-// them (don't claim 10 and sell 50). priceAfter is the then-current renewal
-// price (docs/CLAIMS.md); priceFounding is what a continuous founding
-// operator actually pays after the 25% standing discount — not a locked
-// rate; see content/legal/terms.md §7a.
+// Founding-Operator offer config. Cap is a REAL commitment — honor it (don't
+// claim 10 and sell 50). priceAfter is the then-current renewal price
+// (docs/CLAIMS.md); priceFounding is what a continuous founding operator
+// actually pays after the 25% standing discount — not a locked rate; see
+// content/legal/terms.md §7a.
 const FOUNDING = {
   priceFirstYear: "$1,990", // annual prepay, billed once, FLAT — covers every location
   monthlyEquivalent: "$166", // light math: 1990 / 12, reassurance only (not billed monthly)
@@ -44,7 +36,6 @@ const FOUNDING = {
   priceFounding: `$${(FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS / 100).toLocaleString("en-US")}/yr`,
   discountPercent: Math.round(FOUNDING_RENEWAL_DISCOUNT_RATE * 100),
   spotsTotal: FOUNDING_SPOTS_TOTAL,
-  deadline: "July 31, 2026",
 };
 
 // TODO(billing): The Founding-Operator offer is an ANNUAL PREPAY (one-time
@@ -121,9 +112,7 @@ const FAQ: { q: string; a: string | string[] }[] = [
   },
 ];
 
-export default async function LandingPage() {
-  const activeFoundingCount = await countActiveFoundingOperators(prisma);
-  const spotsLeft = Math.max(0, FOUNDING.spotsTotal - activeFoundingCount);
+export default function LandingPage() {
   return (
     // overflow-x-clip lets the enlarged hero phone bleed into the right gutter
     // without producing a horizontal scrollbar. `clip` (not `hidden`) doesn't
@@ -360,11 +349,6 @@ export default async function LandingPage() {
                 <s>{FOUNDING.priceAfter}</s> after founding pricing
               </div>
 
-              {/* Deadline */}
-              <div className="mt-5 inline-block rounded-full bg-cream px-3.5 py-1.5 text-[13.5px] font-semibold text-ink">
-                Founding pricing ends {FOUNDING.deadline}
-              </div>
-
               <ul className="my-7 flex flex-col gap-3 text-left">
                 {[
                   "Instant replies to every applicant",
@@ -405,10 +389,7 @@ export default async function LandingPage() {
         <div className={`${SECTION} relative`}>
           <Stagger step={110}>
             <h2 className="t-title mx-auto max-w-[18ch]">Stop losing applicants.</h2>
-            <p className="mx-auto mt-5 mb-8 text-[18px] text-ink-soft">
-              Founding pricing ends {FOUNDING.deadline}. {spotsLeft} of {FOUNDING.spotsTotal} spots left.
-            </p>
-            <div>
+            <div className="mt-8">
               <CTA size="lg" />
             </div>
           </Stagger>
