@@ -340,9 +340,6 @@ export default async function LandingPage() {
                 <span className="rounded-full border border-line-strong px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft">
                   Founding Operator · first {FOUNDING.spotsTotal}
                 </span>
-                <span className="rounded-full border border-rose/40 bg-cream px-3 py-1.5 text-[12.5px] font-semibold text-rose">
-                  {spotsLeft} of {FOUNDING.spotsTotal} spots left
-                </span>
               </div>
 
               <div className="t-price">{FOUNDING.priceFirstYear}</div>

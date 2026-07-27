@@ -59,7 +59,7 @@ const count = HERO_LINE_PATHS.length;
 // a raw candidate count, not a rate, and the two must never be conflated.
 const PROOF = {
   eyebrow: "Proof · sandoitchi, Dallas",
-  stat: "58",
+  stat: "58 Candidates",
   statSub: "candidates in 3 days, from one story post",
   line: "Zero ad spend.",
   meta: "sandoitchi · one location, Dallas",
