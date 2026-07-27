@@ -59,8 +59,9 @@ const count = HERO_LINE_PATHS.length;
 // a raw candidate count, not a rate, and the two must never be conflated.
 const PROOF = {
   eyebrow: "Proof · sandoitchi, Dallas",
-  stat: "58 Candidates",
-  statSub: "candidates in 3 days, from one story post",
+  stat: "58",
+  statLabel: "Candidates",
+  statSub: "in 3 days, from one story post",
   line: "Zero ad spend.",
   meta: "sandoitchi · one location, Dallas",
 };
@@ -121,7 +122,10 @@ export function HeroLineBand() {
         </div>
         <div className="px-8 pb-9 pt-7">
           <p className="t-label mb-4">{PROOF.eyebrow}</p>
-          <div className="t-price text-accent">{PROOF.stat}</div>
+          <div className="flex items-baseline gap-2.5">
+            <span className="t-price text-accent">{PROOF.stat}</span>
+            <span className="t-label">{PROOF.statLabel}</span>
+          </div>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{PROOF.statSub}</p>
           <p className="t-heading mt-6">{PROOF.line}</p>
           <p className="mt-4 text-[13.5px] text-rose">{PROOF.meta}</p>
