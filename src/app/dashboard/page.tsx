@@ -602,7 +602,7 @@ export default async function DashboardPage({
           </p>
           {isFounding ? (
             <p className="mt-3 text-xs text-faint">
-              Founding plan is a one-time annual charge — nothing recurring to manage. Within 30 days of
+              Your annual plan is a one-time charge — nothing recurring to manage. Within 30 days of
               payment, contact support for the money-back guarantee.
             </p>
           ) : (
@@ -664,12 +664,12 @@ export default async function DashboardPage({
           <div className="mb-8 rounded-2xl border border-accent bg-accent-soft p-5 text-sm leading-relaxed text-ink">
             {channel?.manychatConnectUrl ? (
               <>
-                <span className="font-medium">You&apos;re in. Welcome, Founding Operator.</span>{" "}
+                <span className="font-medium">You&apos;re in. Welcome to AFRA.</span>{" "}
                 Connect your Instagram below to go live.
               </>
             ) : (
               <>
-                <span className="font-medium">You&apos;re in. Welcome, Founding Operator.</span>{" "}
+                <span className="font-medium">You&apos;re in. Welcome to AFRA.</span>{" "}
                 We&apos;re personally setting up your account now. You&apos;ll get an email the moment
                 your Instagram is ready to connect, usually within a few hours.
               </>

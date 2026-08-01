@@ -9,12 +9,7 @@ import { LegalLinks } from "../components/LegalLinks";
 import { Reveal } from "../components/Reveal";
 import { SectionLabel } from "../components/SectionLabel";
 import { Stagger } from "../components/Stagger";
-import {
-  FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS,
-  FOUNDING_RENEWAL_DISCOUNT_RATE,
-  FOUNDING_RENEWAL_PRICE_CENTS,
-  FOUNDING_SPOTS_TOTAL,
-} from "../lib/billing";
+import { ANNUAL_PRICE_CENTS } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
@@ -24,24 +19,19 @@ const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 // Asymmetric editorial grid: narrow label rail (left) + wide content (right).
 const RAIL = "grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-[200px_1fr]";
 
-// Founding-Operator offer config. Cap is a REAL commitment — honor it (don't
-// claim 10 and sell 50). priceAfter is the then-current renewal price
-// (docs/CLAIMS.md); priceFounding is what a continuous founding operator
-// actually pays after the 25% standing discount — not a locked rate; see
-// content/legal/terms.md §7a.
-const FOUNDING = {
-  priceFirstYear: "$1,990", // annual prepay, billed once, FLAT — covers every location
-  monthlyEquivalent: "$166", // light math: 1990 / 12, reassurance only (not billed monthly)
-  priceAfter: `$${(FOUNDING_RENEWAL_PRICE_CENTS / 100).toLocaleString("en-US")}/yr`,
-  priceFounding: `$${(FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS / 100).toLocaleString("en-US")}/yr`,
-  discountPercent: Math.round(FOUNDING_RENEWAL_DISCOUNT_RATE * 100),
-  spotsTotal: FOUNDING_SPOTS_TOTAL,
+// Standing annual price (see docs/CLAIMS.md). Repriced August 2026 — the
+// founding cohort deadline passed with zero sales, so this replaced the old
+// two-tier $1,990-then-$4,788 framing. One price, not an introductory rate.
+const PRICING = {
+  price: `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $4,788
+  monthlyEquivalent: `$${Math.round(ANNUAL_PRICE_CENTS / 100 / 12)}`, // ~$399/mo, framing only — not billed monthly
 };
 
-// TODO(billing): The Founding-Operator offer is an ANNUAL PREPAY (one-time
-// ~$1,990 charge), but Step 3's Stripe integration was built MONTHLY ($199/mo
+// TODO(billing): The annual plan (Operator.plan = "founding_annual" — an
+// internal identifier, not customer-facing) is an ANNUAL PREPAY (one-time
+// ~$4,788 charge), but Step 3's Stripe integration was built MONTHLY ($199/mo
 // recurring). This copy ships now; the billing wiring is a SEPARATE change:
-// add an annual Stripe product/price and route founding signups to a one-time
+// add an annual Stripe product/price and route annual signups to a one-time
 // annual charge instead of the monthly subscription. Do NOT treat monthly as
 // annual — provision() currently still starts a monthly trial sub.
 
@@ -93,12 +83,12 @@ const FAQ: { q: string; a: string | string[] }[] = [
   { q: "How does follow-up work?", a: "Within the first 24 hours the bot replies instantly on its own. After that, following up is one tap: you send the reminder in the same chat. No autopilot chasing, no phone tag." },
   { q: "How long does setup take?", a: "Setup takes about a minute — connect Instagram, pick your role and calendar. You're live and receiving candidates within 7 days, or you don't pay." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
-  { q: "I run several locations. How does that work?", a: "Your founding spot covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
+  { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What if I want a refund?", a: "Full refund within 30 days, no questions asked. After that, your year is yours and you are free not to renew." },
-  { q: "What happens after the first year?", a: `Your founding year is $1,990. After that, renewal is at our then-current rate — ${FOUNDING.priceAfter} today — but as a founding operator you keep a standing ${FOUNDING.discountPercent}% discount off that price for as long as you stay (that's ${FOUNDING.priceFounding} today), as long as your subscription stays continuous. Never a surprise: we give at least 30 days' notice before any price change, and reach out before your year is up so you can decide.` },
+  { q: "How does billing work?", a: "One annual charge of $4,788, covering every location. It's not a subscription that silently auto-renews — before your year is up, we'll reach out to arrange renewal at the same rate. You'll always get at least 30 days' notice before any future price change." },
   {
-    q: "What exactly do I get as a Founding Operator?",
+    q: "What exactly do I get?",
     a: [
       "Instant replies to every applicant, day or night",
       "Automatic screening, so you only see people worth your time",
@@ -106,7 +96,6 @@ const FAQ: { q: string; a: string | string[] }[] = [
       "One-tap follow-up reminders",
       "One simple dashboard for every location",
       "Personal setup. We build and connect your flow for you.",
-      `A standing ${FOUNDING.discountPercent}% discount off then-current pricing, for as long as you stay`,
       "30-day money-back guarantee",
     ],
   },
@@ -310,43 +299,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing — Founding-Operator annual prepay */}
+      {/* Pricing — flat annual prepay */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
           <Reveal>
-            <SectionLabel index="05">Founding pricing</SectionLabel>
+            <SectionLabel index="05">Pricing</SectionLabel>
           </Reveal>
           <div>
             <Reveal>
-              <h2 className="t-title mb-8 max-w-[18ch]">Founding Operator: first 10 only.</h2>
+              <h2 className="t-title mb-8 max-w-[18ch]">Simple, flat pricing.</h2>
             </Reveal>
             <Reveal>
             <div className="max-w-[460px] rounded-[28px] border border-line-strong bg-card px-9 py-10 text-center shadow-[0_30px_60px_-40px_rgba(0,0,0,.28)]">
-              {/* Scarcity + deadline. Amber is reserved for the CTA below (this view's
-                  one amber moment); the scarcity badge carries the dusty-rose
-                  secondary, the label chip stays a quiet outline. */}
-              <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
-                <span className="rounded-full border border-line-strong px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft">
-                  Founding Operator · first {FOUNDING.spotsTotal}
-                </span>
-              </div>
-
-              <div className="t-price">{FOUNDING.priceFirstYear}</div>
+              <div className="t-price">{PRICING.price}</div>
               <div className="mt-2.5 text-[15px] text-ink-soft">
-                First year. All your locations. Billed once.
+                Per year. All your locations. Billed once.
               </div>
 
               {/* Reassurance framing, not a billing plan: prominent so a cold
-                  operator gets the "oh, that's only ~$166/mo" reframe, but
-                  visibly secondary to the $1,990 headline they're actually
+                  operator gets the "oh, that's only ~$399/mo" reframe, but
+                  visibly secondary to the $4,788 headline they're actually
                   charged (they can't pay monthly — no monthly Stripe path). */}
               <div className="mt-3 text-[18px] font-semibold text-ink">
-                That works out to about {FOUNDING.monthlyEquivalent} a month.
-              </div>
-
-              {/* Anchor: rises after founding */}
-              <div className="mt-3 text-[14px] text-faint">
-                <s>{FOUNDING.priceAfter}</s> after founding pricing
+                That works out to about {PRICING.monthlyEquivalent} a month.
               </div>
 
               <ul className="my-7 flex flex-col gap-3 text-left">

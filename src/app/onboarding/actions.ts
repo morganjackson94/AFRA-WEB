@@ -53,7 +53,7 @@ export async function logWizardFunnelEventAction(
 // Completes onboarding. Two paths, both: validate -> provision() the instance ->
 // set a session. Then:
 //   founding (default — what the landing sells): provision WITHOUT a trial, then
-//     redirect to Stripe-hosted Checkout for the one-time $1,990 charge. Billing
+//     redirect to Stripe-hosted Checkout for the one-time $4,788 charge. Billing
 //     flips to "active" only on the webhook-confirmed payment (gateBilling honest).
 //   monthly (kept intact): provision starts the $199/mo trial, land on dashboard.
 // Either way the dashboard reads "finishing setup / not live" (channel/calendar
@@ -148,8 +148,9 @@ export async function startOnboardingAction(
   let operatorId: string;
   let checkoutUrl: string | undefined;
   try {
-    // Hard gate — "first 10 only" is a public promise (see docs/CLAIMS.md); it
-    // must not be breakable by a race or an oversight. Checked here, right
+    // Internal capacity gate (see docs/CLAIMS.md — retired as a public claim
+    // in the August 2026 repricing; kept silently as an operational safety
+    // valve, not marketed as "first N only" anymore). Checked here, right
     // before provision()/Stripe, same spot as the other hard gates above.
     // Real-money confirmed seats only (billingStatus: "active") — an abandoned
     // Stripe session must not eat a seat from someone who actually pays.
@@ -167,7 +168,7 @@ export async function startOnboardingAction(
           `[foundingCap] blocked signup: count=${activeFoundingCount} cap=${FOUNDING_SPOTS_TOTAL} email=${email}`,
         );
         return {
-          error: `Founding pricing has reached its cap of ${FOUNDING_SPOTS_TOTAL}. Email ${CONTACT_EMAIL} and we'll let you know if a spot opens up.`,
+          error: `We're at capacity right now. Email ${CONTACT_EMAIL} and we'll let you know as soon as we can take you on.`,
         };
       }
     }

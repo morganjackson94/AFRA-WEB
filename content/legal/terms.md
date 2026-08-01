@@ -1,6 +1,6 @@
 # AFRA Terms of Service
 
-**Effective Date:** July 21, 2026
+**Effective Date:** August 1, 2026
 
 These Terms of Service ("Terms") govern your access to and use of the AFRA software-as-a-service ("SaaS") platform and related services (collectively, the "Service") provided by AFRA Visibility, LLC ("AFRA," "we," "us," or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Service.
 
@@ -34,7 +34,7 @@ You acknowledge and agree that for the purposes of data protection laws, you are
 
 ## 5. Fees and Payment
 
-a. **Founding Offer:** If you subscribed under our founding offer, you will be charged a one-time fee of $1,990, covering the first 12 months of the Service across all of your locations. See Section 7(a) for renewal terms.
+a. **Annual Plan:** You will be charged a one-time fee of $4,788, covering the first 12 months of the Service across all of your locations. See Section 7(a) for renewal terms.
 
 b. **Standard Plan:** For standard subscriptions, you will be charged $199 per month per location.
 
@@ -44,17 +44,17 @@ d. **Taxes:** You are responsible for all applicable taxes associated with your 
 
 ## 6. Money-Back Guarantee
 
-We offer a 30-day full money-back guarantee for our founding offer, no questions asked. To request a refund, you must email morgan@afravisibility.com within 30 days from the date of your initial payment. Upon processing your refund, your access to the Service will be immediately terminated, and all your data associated with the Service will be deleted.
+We offer a 30-day full money-back guarantee, no questions asked. To request a refund, you must email morgan@afravisibility.com within 30 days from the date of your initial payment. Upon processing your refund, your access to the Service will be immediately terminated, and all your data associated with the Service will be deleted.
 
-We aim to have every founding operator fully live — Instagram connected, screening questions active, and able to receive candidates — within 7 days of payment. Missing that 7-day timeline is, on its own, sufficient grounds to invoke this guarantee: email morgan@afravisibility.com and you will receive a full refund, no questions asked.
+We aim to have every operator fully live — Instagram connected, screening questions active, and able to receive candidates — within 7 days of payment. Missing that 7-day timeline is, on its own, sufficient grounds to invoke this guarantee: email morgan@afravisibility.com and you will receive a full refund, no questions asked.
 
 ## 7. Renewal and Termination
 
-a. **Founding Offer Renewal:** Your founding-offer payment is a **one-time charge** covering a 12-month period from your initial payment date at the founding rate of $1,990. It does **not** automatically renew, and you will **not** be charged again automatically at the end of the 12 months. Renewal after your founding year is at our then-current founding renewal rate (currently $4,788/year, flat across all your locations) — as a founding operator, however, you retain a standing discount of **25% off that then-current rate**, for as long as you remain a **continuous** subscriber to the Service (at the current then-current rate, this discount is $1,197/year, making your renewal price $3,591/year). This is a permanent benefit, but it is a discount off our prevailing price, not a lifetime price freeze: we may change our then-current pricing over time, and will give you at least 30 days' written notice (by email) before any such change takes effect; your 25% discount continues to apply to whatever the then-current rate becomes. If your subscription lapses or is canceled for any period, this discount does not carry over if you resubscribe later — you would resubscribe at whatever rate is then generally available. Before your 12-month period ends, we will contact you directly (by email or phone) with your specific renewal price so you can decide. If you wish to continue the Service, you will need to affirmatively authorize a new charge at that time. If we are unable to reach you or you do not authorize renewal, your access to the Service will lapse at the end of your 12-month period, and no further charges will occur.
+a. **Annual Plan Renewal:** Your payment is a **one-time charge** covering a 12-month period from your initial payment date, at a flat rate of $4,788/year across all of your locations. It does **not** automatically renew, and you will **not** be charged again automatically at the end of the 12 months. Renewal after your first year is at our then-current rate (currently the same $4,788/year, flat across all your locations) — we may change our then-current pricing over time, and will give you at least 30 days' written notice (by email) before any such change takes effect. Before your 12-month period ends, we will contact you directly (by email or phone) with your specific renewal price so you can decide. If you wish to continue the Service, you will need to affirmatively authorize a new charge at that time. If we are unable to reach you or you do not authorize renewal, your access to the Service will lapse at the end of your 12-month period, and no further charges will occur.
 
 b. **Standard Plan Renewal:** If you are on the standard monthly plan ($199/month per location), your subscription renews monthly and will be automatically charged to your payment method on file each month until canceled, in accordance with applicable state auto-renewal notice requirements.
 
-c. **Cancellation:** You may cancel your subscription at any time by contacting morgan@afravisibility.com. For the standard monthly plan, cancellation will take effect at the end of your current billing period. For the founding offer, since there is no automatic renewal, no cancellation action is required to avoid future charges — but you're welcome to let us know at any time.
+c. **Cancellation:** You may cancel your subscription at any time by contacting morgan@afravisibility.com. For the standard monthly plan, cancellation will take effect at the end of your current billing period. For the annual plan, since there is no automatic renewal, no cancellation action is required to avoid future charges — but you're welcome to let us know at any time.
 
 d. **Termination by AFRA:** We may terminate or suspend your access to the Service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms.
 

@@ -92,9 +92,9 @@ export async function sendFoundingPurchaseConfirmationEmail(
 
   const text = `${greeting}
 
-You're in — one of ten founding operators on AFRA.
+You're in.
 
-What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $1,990 flat for the year. No per-location fees, no per-candidate charges.
+What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $4,788 flat for the year. No per-location fees, no per-candidate charges.
 
 I'm building your screener now
 
@@ -116,7 +116,7 @@ That's the whole loop. The only part that needs you is the posting.
 
 Renewal, so there are no surprises
 
-Your $1,990 covers your first year. After that, renewal is at then-current pricing — founding operators keep a standing 25% discount for as long as you stay subscribed, and you'll get 30 days' notice before any change.
+Your $4,788 covers your first year. After that, renewal is at the same rate — we'll reach out before your year is up, and you'll get 30 days' notice before any future price change.
 
 If you change your mind
 
@@ -130,8 +130,8 @@ Dallas, TX`;
 
   const html = `
     <p>${escapeHtml(greeting)}</p>
-    <p>You're in — one of ten founding operators on AFRA.</p>
-    <p>What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $1,990 flat for the year. No per-location fees, no per-candidate charges.</p>
+    <p>You're in.</p>
+    <p>What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $4,788 flat for the year. No per-location fees, no per-candidate charges.</p>
     <p><strong>I'm building your screener now</strong></p>
     <p>You already told me what I needed — your roles, your locations, and what makes a candidate an automatic no. I'm turning that into your screener this week. You'll be live within seven days, and if you're not, you don't pay.</p>
     <p><strong>One thing to do today</strong></p>
@@ -142,7 +142,7 @@ Dallas, TX`;
     <p>You post — a story or feed post with a comment-to-apply prompt. I'll send you three ready-made templates, so you're not writing anything. People who respond get screened against your criteria automatically. Anyone who doesn't meet your bar gets filtered out before they reach you. The ones who do land in your dashboard with their answers — and qualified candidates can book an interview straight into your calendar.</p>
     <p>That's the whole loop. The only part that needs you is the posting.</p>
     <p><strong>Renewal, so there are no surprises</strong></p>
-    <p>Your $1,990 covers your first year. After that, renewal is at then-current pricing — founding operators keep a standing 25% discount for as long as you stay subscribed, and you'll get 30 days' notice before any change.</p>
+    <p>Your $4,788 covers your first year. After that, renewal is at the same rate — we'll reach out before your year is up, and you'll get 30 days' notice before any future price change.</p>
     <p><strong>If you change your mind</strong></p>
     <p>You have 30 days. Reply to this email and I'll refund you in full. No forms, no process.</p>
     <p>Reply any time — this comes straight to me.</p>

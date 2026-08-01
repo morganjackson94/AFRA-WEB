@@ -49,15 +49,15 @@ export async function GET(request: Request): Promise<Response> {
 </style></head><body>
   <div class="card">
     <div class="badge">Test mode · dev stand-in</div>
-    <h1>AFRA — Founding Operator</h1>
-    <div class="amt">$1,990</div>
+    <h1>AFRA — Annual Plan</h1>
+    <div class="amt">$4,788</div>
     <div class="sub">First year · annual prepay, billed once</div>
     <form method="post">
       <input type="hidden" name="action" value="pay"/>
       <input type="hidden" name="session_id" value="${sessionId}"/>
       <input type="hidden" name="operator_id" value="${operatorId}"/>
       <input type="hidden" name="success" value="${success}"/>
-      <button class="pay" type="submit">Pay $1,990 (simulate confirmed payment)</button>
+      <button class="pay" type="submit">Pay $4,788 (simulate confirmed payment)</button>
     </form>
     <form method="post">
       <input type="hidden" name="action" value="cancel"/>

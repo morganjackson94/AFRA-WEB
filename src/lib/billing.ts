@@ -6,30 +6,24 @@ import Stripe from "stripe";
 
 export const PRICE_PER_LOCATION_CENTS = 19900; // $199/mo per location (monthly path)
 export const TRIAL_DAYS = 14; // 2-week free trial (monthly path only)
-export const FOUNDING_PRICE_CENTS = 199000; // $1,990 one-time, first year (founding path)
-export const FOUNDING_RENEWAL_PRICE_CENTS = 478800; // $4,788/yr then-current price after the founding year (see docs/CLAIMS.md)
-// Founding operators' standing discount off then-current pricing (25% —
-// decided against a 50%-forever discount specifically to avoid recreating the
-// grandfather-clause trap: a flat percentage compounds if AFRA's price rises
-// later, e.g. at $10K then-current, 50% off is $5K forever). Conditional on
-// continuous subscription — cancel-and-return does not retain founding
-// pricing. See content/legal/terms.md §7(a).
-export const FOUNDING_RENEWAL_DISCOUNT_RATE = 0.25;
-export const FOUNDING_OPERATOR_RENEWAL_PRICE_CENTS = Math.round(
-  FOUNDING_RENEWAL_PRICE_CENTS * (1 - FOUNDING_RENEWAL_DISCOUNT_RATE),
-); // $3,591/yr — what a continuous founding operator actually pays at renewal
-// Cohort cap — see countActiveFoundingOperators() in activation.ts, which
+// $4,788/yr flat, all locations, one standing price (see docs/CLAIMS.md).
+// Repriced August 2026 — the founding cohort deadline (July 31, 2026) passed
+// with zero sales; this replaced the old $1,990 founding-year price with no
+// separate renewal figure, since entry and renewal are now the same number.
+export const ANNUAL_PRICE_CENTS = 478800;
+// Internal capacity gate only — no longer a marketed "first N only" cohort
+// (that ended with the August 2026 repricing above). Kept as an operational
+// safety valve; see countActiveFoundingOperators() in activation.ts, which
 // enforces this against real billingStatus="active" data (src/app/onboarding/
-// actions.ts blocks checkout once it's reached; src/app/page.tsx's scarcity
-// counter reads the same count). Single source of truth for the number "10."
+// actions.ts blocks checkout once it's reached). If it ever fires, the
+// decline message must read as generic capacity/waitlist language — nothing
+// customer-facing should reference this number.
 export const FOUNDING_SPOTS_TOTAL = 10;
 
-// TODO(billing): Founding purchase is a ONE-TIME charge. Renewal at the
-// then-current price ($4,788/yr as of docs/CLAIMS.md) minus the founding
-// operator's 25% standing discount ($3,591/yr), conditional on continuous
-// subscription, is promised but NOT automated. Build either (a) an annual
-// Stripe subscription, or (b) a renewal reminder + invoice flow, before the
-// first cohort's year ends.
+// TODO(billing): The annual charge is a ONE-TIME payment, not a subscription.
+// Renewal at the same $4,788/yr rate is promised but NOT automated. Build
+// either (a) an annual Stripe subscription, or (b) a renewal reminder +
+// invoice flow, before the first cohort's year ends.
 
 /** Maps a raw Stripe subscription status to our Operator.billingStatus vocabulary. */
 export function mapStripeStatus(stripeStatus: string): string {
@@ -70,7 +64,7 @@ export interface BillingProvider {
   getSubscriptionStatus(subscriptionId: string): Promise<{ stripeStatus: string }>;
 
   /**
-   * Create a Stripe-HOSTED Checkout Session for the one-time $1,990 founding
+   * Create a Stripe-HOSTED Checkout Session for the one-time $4,788 annual
    * charge. The operator enters their card on Stripe's page — our code never
    * sees raw card data. Returns the hosted URL to redirect to, plus the session
    * + customer ids we persist for webhook matching. mode = "payment" (one-time),
@@ -87,9 +81,9 @@ export interface BillingProvider {
   /**
    * Read-only lookup of what a completed Checkout Session actually charged,
    * for the Purchase pixel event on /welcome (real amount over a hardcoded
-   * constant — avoids drift if founding pricing ever changes). Returns null
+   * constant — avoids drift if pricing ever changes). Returns null
    * if the session can't be found/read; callers fall back to
-   * FOUNDING_PRICE_CENTS in that case. Never mutates anything.
+   * ANNUAL_PRICE_CENTS in that case. Never mutates anything.
    */
   getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
 }
@@ -182,7 +176,7 @@ export class StripeBillingProvider implements BillingProvider {
       return this.foundingProductId;
     }
     const product = await this.stripe.products.create({
-      name: "AFRA — Founding Operator (first year)",
+      name: "AFRA — Annual Plan",
     });
     this.foundingProductId = product.id;
     return this.foundingProductId;
@@ -211,7 +205,7 @@ export class StripeBillingProvider implements BillingProvider {
           quantity: 1,
           price_data: {
             currency: "usd",
-            unit_amount: FOUNDING_PRICE_CENTS,
+            unit_amount: ANNUAL_PRICE_CENTS,
             product: await this.ensureFoundingProductId(),
           },
         };
@@ -305,8 +299,8 @@ export class FakeBillingProvider implements BillingProvider {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature must match BillingProvider
   async getCheckoutSessionAmount(_sessionId: string) {
     // No real Checkout Session object exists in fake mode — the dev stand-in
-    // always charges the same founding price, so that's the honest answer.
-    return { amountTotal: FOUNDING_PRICE_CENTS, currency: "usd" };
+    // always charges the same price, so that's the honest answer.
+    return { amountTotal: ANNUAL_PRICE_CENTS, currency: "usd" };
   }
 }
 

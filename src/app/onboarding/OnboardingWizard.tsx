@@ -13,7 +13,6 @@ import {
 } from "./actions";
 import { ArrowLeft, Calendar, Check, ChevronDown, Instagram, Lock, Microsoft, X } from "../../components/Icons";
 import { LegalLinks } from "../../components/LegalLinks";
-import { FOUNDING_RENEWAL_DISCOUNT_RATE } from "../../lib/billing";
 import { matchedRestrictedJurisdictions } from "../../lib/jurisdiction";
 import {
   computeReachFlag,
@@ -373,7 +372,7 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
-                    We&apos;ll tailor your account to your size. Flat $1,990/year covers every location either way.
+                    We&apos;ll tailor your account to your size. Flat $4,788/year covers every location either way.
                   </p>
                 </Reveal>
                 <Reveal delay={300}>
@@ -507,7 +506,7 @@ export function OnboardingWizard({
                   <SectionLabel index="04" tone="dark">Price</SectionLabel>
                 </Reveal>
                 <Reveal hero delay={90}>
-                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$1,990/year, every location included</h2>
+                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$4,788/year, every location included</h2>
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
@@ -517,10 +516,9 @@ export function OnboardingWizard({
                 <Reveal delay={300}>
                   <ul className="space-y-3">
                     {[
-                      "Flat $1,990/year — every location covered",
+                      "Flat $4,788/year — every location covered",
                       "Paid from day one, no trial",
                       "30-day money-back guarantee",
-                      `Standing ${Math.round(FOUNDING_RENEWAL_DISCOUNT_RATE * 100)}% discount off renewal pricing, for as long as you stay`,
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
                         <Check className="mt-0.5 size-[16px] flex-none text-accent" />

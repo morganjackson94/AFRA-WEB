@@ -88,13 +88,13 @@ export function describeBilling(
   if (plan === "founding_annual") {
     switch (billingStatus) {
       case "active":
-        return { label: "Founding Operator", detail: "$1,990/yr paid · 30-day money-back guarantee." };
+        return { label: "Active", detail: "$4,788/yr paid · 30-day money-back guarantee." };
       case "trial_pending":
-        return { label: "Payment pending", detail: "Complete checkout to activate your founding plan." };
+        return { label: "Payment pending", detail: "Complete checkout to activate your annual plan." };
       case "canceled":
-        return { label: "Canceled", detail: "Your founding plan has been canceled." };
+        return { label: "Canceled", detail: "Your annual plan has been canceled." };
       default:
-        return { label: "Founding Operator", detail: "$1,990/yr · annual prepay." };
+        return { label: "Active", detail: "$4,788/yr · annual prepay." };
     }
   }
   switch (billingStatus) {

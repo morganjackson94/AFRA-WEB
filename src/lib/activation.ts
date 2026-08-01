@@ -133,7 +133,7 @@ export async function startTrial(
   return { customerId, subscriptionId: sub.subscriptionId, billingStatus, recompute };
 }
 
-// --- Founding annual ($1,990 one-time, paid from day one, no trial) ----------
+// --- Founding annual ($4,788 one-time, paid from day one, no trial) ----------
 
 /**
  * Real count of founding operators who have actually paid — the single

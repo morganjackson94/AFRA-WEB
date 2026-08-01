@@ -44,8 +44,8 @@ export function WelcomeClient({
       <Reveal>
         <h1 className="t-title mb-3">You&apos;re in.</h1>
         <p className="mb-8 text-[15px] leading-relaxed text-ink-soft">
-          Welcome, Founding Operator. Your $1,990 first year is confirmed — head to your dashboard to
-          connect Instagram and finish setup.
+          Your $4,788 first year is confirmed — head to your dashboard to connect Instagram and finish
+          setup.
         </p>
         <Link
           href={continueHref}

@@ -34,7 +34,7 @@ model Operator {
   /// trial sub; founding-annual path advances trial_pending -> active on a
   /// webhook-confirmed one-time payment (no "trialing" for founding).
   billingStatus    String   @default("none")
-  /// "monthly" (recurring $199/mo trial sub) | "founding_annual" (one-time $1,990/yr prepay).
+  /// "monthly" (recurring $199/mo trial sub) | "founding_annual" (one-time $4,788/yr prepay).
   plan                    String  @default("monthly")
   stripeCustomerId        String? @unique
   stripeSubscriptionId    String? @unique
