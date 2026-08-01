@@ -324,6 +324,15 @@ export default function LandingPage() {
                 That works out to about {PRICING.monthlyEquivalent} a month.
               </div>
 
+              {/* Structural, location-agnostic reinforcement — no location
+                  count yet at this point in the funnel, so no personalized
+                  per-location math here (that lives in the wizard, once the
+                  operator has entered a location count — see step 4). */}
+              <div className="mt-2.5 text-[13px] text-faint">
+                One flat rate — no per-location fees, no per-seat charges. Most platforms charge per
+                location; AFRA doesn&apos;t.
+              </div>
+
               <ul className="my-7 flex flex-col gap-3 text-left">
                 {[
                   "Instant replies to every applicant",

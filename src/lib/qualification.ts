@@ -8,6 +8,8 @@
 // proceed. isNonOperator()/isOverCapacity() below are kept only so historical
 // Operator rows written under the old "0"/"15+" buckets still label/read
 // correctly; the wizard no longer calls them.
+import { ANNUAL_PRICE_CENTS } from "./billing";
+
 export const LOCATION_BUCKETS = [
   { value: "1-2", label: "1-2" },
   { value: "3-5", label: "3-5" },
@@ -75,6 +77,38 @@ const LOCATION_COUNT_BY_BUCKET: Record<string, number> = {
 
 export function locationCountForBucket(bucket: string): number {
   return LOCATION_COUNT_BY_BUCKET[bucket] ?? 1;
+}
+
+// Per-location price framing (decided 2026-08-01, see docs/CLAIMS.md) — AFRA's
+// flat $4,788/yr gets cheaper per location the more locations an operator
+// runs, unlike per-location/per-seat competitors. Reflecting that back at the
+// operator is honest arithmetic, not a fabricated stat.
+//
+// perLocationMonthlyDollars takes an EXACT count (used for the underlying
+// math/tests). The wizard only ever has a BUCKET, so
+// perLocationMonthlyDollarsForBucket uses each bucket's UPPER bound — the
+// smallest true per-location cost anyone in that bucket could be paying —
+// so the UI can honestly say "as low as ~$X/location/month" without
+// presenting a bucketed estimate as an exact figure. "16+" has no upper
+// bound; 16 (the bucket's own floor) is used as the last concrete number we
+// have, which if anything undersells operators with many more locations.
+// "1-2" is deliberately absent from the map below — per-location framing is
+// weakest exactly where it's least true, so that bucket shows the flat price
+// only (see OnboardingWizard.tsx step 4).
+export function perLocationMonthlyDollars(locationCount: number): number {
+  return Math.round(ANNUAL_PRICE_CENTS / 12 / locationCount / 100);
+}
+
+const LOCATION_BUCKET_UPPER_BOUND: Partial<Record<string, number>> = {
+  "3-5": 5,
+  "6-10": 10,
+  "11-15": 15,
+  "16+": 16,
+};
+
+export function perLocationMonthlyDollarsForBucket(bucket: string): number | null {
+  const n = LOCATION_BUCKET_UPPER_BOUND[bucket];
+  return n ? perLocationMonthlyDollars(n) : null;
 }
 
 export type LocationBucket = (typeof LOCATION_BUCKETS)[number]["value"];

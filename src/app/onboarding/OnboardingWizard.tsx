@@ -19,6 +19,7 @@ import {
   FOLLOWER_BANDS,
   HIRING_FREQUENCIES,
   LOCATION_BUCKETS,
+  perLocationMonthlyDollarsForBucket,
   US_STATES,
 } from "../../lib/qualification";
 import { Reveal } from "../../components/Reveal";
@@ -159,6 +160,9 @@ export function OnboardingWizard({
 
   const nycNeedsAnswer = primaryState === "NY" && hasNycLocation === null;
   const isLowReach = computeReachFlag(followerBand);
+  // Personalized per-location reflection for step 4 (see qualification.ts —
+  // null for the 1-2 bucket, where per-location framing is weakest).
+  const perLocationMonthly = perLocationMonthlyDollarsForBucket(locationsBucket);
   const otherValidation = roles.includes(OTHER_ROLE) ? validateOtherRoleText(otherRoleText) : null;
   const finalRoleTitles = [
     ...roles.filter((r) => r !== OTHER_ROLE),
@@ -513,6 +517,13 @@ export function OnboardingWizard({
                     One flat rate, paid annually. A few more questions and you&apos;re done.
                   </p>
                 </Reveal>
+                {perLocationMonthly !== null && (
+                  <Reveal delay={260}>
+                    <p className="mb-8 text-[15px] font-medium text-threshold-ink">
+                      {`Across your ${locationsBucket} locations, that's as low as ~$${perLocationMonthly}/location/month.`}
+                    </p>
+                  </Reveal>
+                )}
                 <Reveal delay={300}>
                   <ul className="space-y-3">
                     {[
