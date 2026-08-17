@@ -1,6 +1,3 @@
-import Image from "next/image";
-import { Reveal } from "./Reveal";
-
 // The 34 strokes of /public/hero-line-final.svg, inlined so each path can be
 // animated individually (an <img>/next/image can't drive per-path stroke
 // animation). Already ordered left-to-right by starting x — drawing them in
@@ -8,6 +5,11 @@ import { Reveal } from "./Reveal";
 // produces a "being sketched" cascade with no connecting jump-lines. Do NOT
 // merge these into one path and do NOT swap this for a clip-path wipe — the
 // separate-path sequence is what avoids the diagonal scribble artifact.
+//
+// Draw-on animation is gated by a `[data-reveal].is-visible` ANCESTOR (see
+// globals.css) — the same toggle Reveal/Stagger set on their own wrapper, so
+// this only fires once this component is nested inside one of those (it has
+// no Reveal of its own).
 const HERO_LINE_PATHS = [
   "M 417.0 230.0 L 431.0 230.0 L 437.0 227.0 L 441.0 221.0 L 443.0 213.0 L 441.0 166.0 L 444.0 151.0 L 448.0 142.0 L 452.0 138.0 L 456.0 143.0 L 464.0 143.0 L 470.0 146.0 L 483.0 164.0 L 488.0 181.0 L 487.0 190.0 L 481.0 204.0 L 483.0 212.0 L 488.0 215.0 L 495.0 216.0 L 502.0 215.0 L 503.0 213.0 L 509.0 213.0",
   "M 428.0 326.0 L 432.0 316.0 L 433.0 293.0 L 431.0 278.0 L 428.0 277.0 L 425.0 283.0 L 424.0 297.0 L 427.0 309.0 L 431.0 314.0",
@@ -52,85 +54,41 @@ const TOTAL_DRAW = 4.5;
 const PATH_DURATION = 0.25;
 const count = HERO_LINE_PATHS.length;
 
-// The single real result from Sandoitchi's pilot — do not fabricate or alter
-// these numbers; if more proof arrives later it becomes its own honest
-// component, not more content jammed into this card. Source + methodology:
-// docs/CLAIMS.md. Deliberately never rendered as a percentage — "58" here is
-// a raw candidate count, not a rate, and the two must never be conflated.
-const PROOF = {
-  eyebrow: "Proof · sandoitchi, Dallas",
-  stat: "58",
-  statLabel: "Candidates",
-  statSub: "in 3 days, from one story post",
-  line: "Zero ad spend.",
-  meta: "sandoitchi · one location, Dallas",
-};
-
-export function HeroLineBand() {
+export function HeroLineArt({ className = "" }: { className?: string }) {
   return (
-    <Reveal className="grid grid-cols-1 items-center gap-10 min-[820px]:grid-cols-[1.4fr_0.9fr] min-[820px]:gap-10">
-      <svg
-        // Cropped ~1.5x tighter than the source viewBox (0 0 1035 455), centered
-        // on the artwork's actual bounding box (x 394-980, y 43-395) with even
-        // 52-unit padding on all sides — makes the illustration bigger without
-        // touching the grid ratio (which would shrink the proof card).
-        viewBox="342 -9 690 456"
-        className="h-auto w-full"
-        role="img"
-        aria-label="Line illustration of a Dallas café counter"
-      >
-        {HERO_LINE_PATHS.map((d, i) => {
-          const delay = START_DELAY + (i / count) * (TOTAL_DRAW - PATH_DURATION);
-          return (
-            <path
-              key={i}
-              d={d}
-              pathLength={1}
-              fill="none"
-              stroke="#f0e8d8"
-              strokeWidth={2}
-              // Butt, not round: a round cap on a near-zero-length dash (the
-              // moment each stroke starts drawing) renders as a visible dot.
-              strokeLinecap="butt"
-              strokeLinejoin="round"
-              className="hero-line-path"
-              style={
-                {
-                  "--hero-line-delay": `${delay}s`,
-                  "--hero-line-duration": `${PATH_DURATION}s`,
-                } as React.CSSProperties
-              }
-            />
-          );
-        })}
-      </svg>
-
-      {/* Photo is part of the card's own reveal (fades in with the text, no
-          separate animation) — it's a full-bleed banner clipped to the card's
-          own rounded-2xl (via overflow-hidden on the card itself), so it scales
-          with the card's full width at every breakpoint instead of being boxed
-          into a small fixed-width thumbnail next to the text. */}
-      <div className="result-card overflow-hidden rounded-2xl border border-[rgba(196,118,40,0.45)] bg-[rgba(240,232,216,0.04)]">
-        <div className="relative aspect-[3/2] w-full border-b border-line">
-          <Image
-            src="/sandoitchi-storefront.jpg"
-            alt="sandoitchi storefront, Dallas"
-            fill
-            sizes="(max-width: 1080px) 100vw, 420px"
-            className="object-cover"
+    <svg
+      // Cropped ~1.5x tighter than the source viewBox (0 0 1035 455), centered
+      // on the artwork's actual bounding box (x 394-980, y 43-395) with even
+      // 52-unit padding on all sides.
+      viewBox="342 -9 690 456"
+      className={`h-auto w-full ${className}`}
+      role="img"
+      aria-label="Line illustration of a Dallas café counter"
+    >
+      {HERO_LINE_PATHS.map((d, i) => {
+        const delay = START_DELAY + (i / count) * (TOTAL_DRAW - PATH_DURATION);
+        return (
+          <path
+            key={i}
+            d={d}
+            pathLength={1}
+            fill="none"
+            stroke="#f0e8d8"
+            strokeWidth={2}
+            // Butt, not round: a round cap on a near-zero-length dash (the
+            // moment each stroke starts drawing) renders as a visible dot.
+            strokeLinecap="butt"
+            strokeLinejoin="round"
+            className="hero-line-path"
+            style={
+              {
+                "--hero-line-delay": `${delay}s`,
+                "--hero-line-duration": `${PATH_DURATION}s`,
+              } as React.CSSProperties
+            }
           />
-        </div>
-        <div className="px-8 pb-9 pt-7">
-          <p className="t-label mb-4">{PROOF.eyebrow}</p>
-          <div className="flex items-baseline gap-2.5">
-            <span className="t-price text-accent">{PROOF.stat}</span>
-            <span className="t-label">{PROOF.statLabel}</span>
-          </div>
-          <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{PROOF.statSub}</p>
-          <p className="t-heading mt-6">{PROOF.line}</p>
-          <p className="mt-4 text-[13.5px] text-rose">{PROOF.meta}</p>
-        </div>
-      </div>
-    </Reveal>
+        );
+      })}
+    </svg>
   );
 }

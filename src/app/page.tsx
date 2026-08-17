@@ -3,11 +3,10 @@ import Link from "next/link";
 import { DemoModal } from "./DemoModal";
 import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
 import { FaqItem } from "../components/FaqItem";
-import { Bell, Bolt, Calendar, Check, Filter } from "../components/Icons";
-import { HeroLineBand } from "../components/HeroLineBand";
+import { Bell, Bolt, Calendar, Check, Filter, Instagram } from "../components/Icons";
+import { HeroLineArt } from "../components/HeroLineArt";
 import { LegalLinks } from "../components/LegalLinks";
 import { Reveal } from "../components/Reveal";
-import { SectionLabel } from "../components/SectionLabel";
 import { Stagger } from "../components/Stagger";
 import { ANNUAL_PRICE_CENTS } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
@@ -16,8 +15,10 @@ import { getLegalDocContent } from "../lib/legalDocs";
 const SECTION = "mx-auto max-w-[1080px] px-6";
 // Major-section rhythm: a warm hairline divider + generous vertical air.
 const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
-// Asymmetric editorial grid: narrow label rail (left) + wide content (right).
-const RAIL = "grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-[200px_1fr]";
+// Was an asymmetric label-rail (left) + content (right) grid — the label
+// column is gone (see the section-label removal), so this is just a no-op
+// wrapper now, kept so every section's JSX shape stays unchanged.
+const RAIL = "";
 
 // Standing annual price (see docs/CLAIMS.md). Repriced August 2026 — the
 // founding cohort deadline passed with zero sales, so this replaced the old
@@ -69,6 +70,19 @@ const FEATURES = [
   { icon: Calendar, title: "Candidates book their own interview", body: "They pick a time you're actually free. It lands on your calendar." },
   { icon: Bell, title: "One-tap reminders", body: "Follow up in one tap, in the same chat. Fewer people ghost, more people show." },
 ];
+
+// The single real result from Sandoitchi's pilot — do not fabricate or alter
+// these numbers; if more proof arrives later it becomes its own honest
+// addition, not more content jammed in here. Source + methodology:
+// docs/CLAIMS.md. Deliberately never rendered as a percentage and never
+// described as "qualified" — "58" here is a raw candidate count, not a rate.
+const PROOF = {
+  stat: "58",
+  statLabel: "Candidates",
+  statSub: "in 3 days, from one story post",
+  line: "Zero ad spend.",
+  meta: "sandoitchi · Dallas · one location, 3 days",
+};
 
 const STEPS = [
   { n: "01", h: "Connect your Instagram", p: "It's where applicants already message you. Nothing new for them to download." },
@@ -126,12 +140,6 @@ export default function LandingPage() {
       {/* Hero — staggered arrival; headline gets the pronounced blur-in settle. */}
       <header className={`${SECTION} grid grid-cols-1 items-center gap-14 pb-20 pt-20 md:grid-cols-[1.05fr_.95fr] md:pt-28`}>
         <div>
-          <Reveal delay={0}>
-            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-3 py-1.5 text-[13px] font-medium text-ink-soft">
-              <span className="size-[7px] rounded-full bg-ink-soft" />
-              For restaurants &amp; cafés
-            </span>
-          </Reveal>
           <Reveal hero delay={120}>
             <h1 className="t-display mb-6">Answer applicants before they apply elsewhere.</h1>
           </Reveal>
@@ -180,9 +188,6 @@ export default function LandingPage() {
       {/* VSL */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <Reveal>
-            <SectionLabel index="01">See it work</SectionLabel>
-          </Reveal>
           <Stagger step={110}>
             <h2 className="t-title mb-8 max-w-[16ch]">Watch it in action.</h2>
             <div>
@@ -211,6 +216,27 @@ export default function LandingPage() {
               Applicants who hear back fast feel respected. The ones who feel respected are the ones
               who show up.
             </p>
+
+            {/* Abandonment framing — sourced (iCIMS 2025 State of Frontline
+                Hiring: 68% hospitality application abandonment), stated at
+                the "about two thirds" level of generality that doesn't need
+                a citation on-page. Deliberately NOT the "Gen Z attention
+                span" framing — that's a generational claim, not a fact about
+                the application experience, and it's condescending to the
+                exact people operators want to hire. Sandoitchi's own numbers
+                (PROOF below) are a separate, distinct data point — never
+                blended into this industry-wide claim. */}
+            <div className="mx-auto mt-10 max-w-[46ch] border-t border-line pt-10">
+              <h3 className="t-heading text-ink">Most applicants never finish a long application.</h3>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+                In hospitality, about two thirds of started applications are abandoned. The industry
+                with the most urgent hiring has the worst application experience.
+              </p>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+                Your applicants are on their phones, in Instagram. AFRA meets them there: a two
+                minute conversation instead of a form they will never finish.
+              </p>
+            </div>
           </div>
         </Reveal>
       </section>
@@ -218,9 +244,6 @@ export default function LandingPage() {
       {/* FAQ */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <Reveal>
-            <SectionLabel index="02">Questions</SectionLabel>
-          </Reveal>
           <Stagger className="flex flex-col gap-3" step={90}>
             <h2 className="t-title mb-4 max-w-[14ch]">The short answers.</h2>
             {FAQ.map((f) => (
@@ -230,17 +253,76 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Editorial band — cream line-art sketch-on beside the Sandoitchi proof card. */}
-      <section className={`${SECTION} pb-8`}>
-        <HeroLineBand />
+      {/* Proof — two-panel story: the operator's real numbers (Panel A) next
+          to a factual, non-quoted description of the applicant's side
+          (Panel B), plus visibly-honest testimonial placeholders below.
+          Restructured from a single unlabeled card + decorative line-art
+          sketch (visitors had to ASK whether the site had proof — it didn't
+          register as proof, it read as data) into a section that announces
+          itself the same way every other section on this page does. */}
+      <section className={SECTION_DIVIDED}>
+        <div className={RAIL}>
+          <div>
+            <Reveal>
+              <h2 className="t-title mb-8 max-w-[20ch]">What happened at Sandoitchi.</h2>
+            </Reveal>
+            <Stagger className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start" step={110}>
+              {/* Panel A — the operator side. Real numbers only, unchanged
+                  from the sourced pilot figure (see PROOF above /
+                  docs/CLAIMS.md). Amber stays reserved for this one numeral
+                  — the single accent this view carries. */}
+              <div className="overflow-hidden rounded-2xl border border-[rgba(196,118,40,0.45)] bg-[rgba(240,232,216,0.04)]">
+                <div className="relative aspect-[3/2] w-full border-b border-line">
+                  <Image
+                    src="/sandoitchi-storefront.jpg"
+                    alt="sandoitchi storefront, Dallas"
+                    fill
+                    sizes="(max-width: 1080px) 100vw, 420px"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="px-8 pb-9 pt-7">
+                  <p className="t-label mb-4">For the operator</p>
+                  <div className="flex items-baseline gap-2.5">
+                    <span className="t-price text-accent">{PROOF.stat}</span>
+                    <span className="t-label">{PROOF.statLabel}</span>
+                  </div>
+                  <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{PROOF.statSub}</p>
+                  <p className="t-heading mt-6">{PROOF.line}</p>
+                  <p className="mt-4 text-[13.5px] text-rose">{PROOF.meta}</p>
+                </div>
+              </div>
+
+              {/* Panel B's column — the line-art sketch sits above the card
+                  (both inside this single Stagger child, so the draw-on
+                  animation and the card's own fade-up arrive together, in
+                  step with the rest of this panel's reveal). */}
+              <div>
+                <HeroLineArt className="mb-6 max-w-[480px]" />
+
+                {/* Panel B — the applicant side. A FACTUAL description of the
+                    product experience — never format this as a quotation or
+                    attribute it to a person. */}
+                <div className="flex flex-col rounded-2xl border border-line bg-card px-8 pb-9 pt-7">
+                  <span className="mb-5 grid size-11 place-items-center rounded-xl bg-cream text-ink">
+                    <Instagram className="size-5" />
+                  </span>
+                  <p className="t-label mb-4">For the applicant</p>
+                  <h3 className="t-heading">Two minutes. No resume. No waiting.</h3>
+                  <p className="mt-4 text-[15px] leading-relaxed text-ink-soft">
+                    Applicants message, answer a few questions, and pick an interview time. All in
+                    the app they already have open. No forms, no logins, no silence.
+                  </p>
+                </div>
+              </div>
+            </Stagger>
+          </div>
+        </div>
       </section>
 
       {/* How it works — oversized numbers anchor hairline rows */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <Reveal>
-            <SectionLabel index="03">How it works</SectionLabel>
-          </Reveal>
           <Stagger step={120}>
             <h2 className="t-title mb-10 max-w-[18ch]">Three steps. Then it runs itself.</h2>
             {STEPS.map((s) => (
@@ -264,9 +346,6 @@ export default function LandingPage() {
       {/* Features */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <Reveal>
-            <SectionLabel index="04">What you get</SectionLabel>
-          </Reveal>
           <div>
             <Reveal>
               <h2 className="t-title mb-4 max-w-[16ch]">Simple, and follow-up is one tap.</h2>
@@ -302,9 +381,6 @@ export default function LandingPage() {
       {/* Pricing — flat annual prepay */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <Reveal>
-            <SectionLabel index="05">Pricing</SectionLabel>
-          </Reveal>
           <div>
             <Reveal>
               <h2 className="t-title mb-8 max-w-[18ch]">Simple, flat pricing.</h2>
