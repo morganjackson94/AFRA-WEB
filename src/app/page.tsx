@@ -189,7 +189,7 @@ export default function LandingPage() {
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
           <Stagger step={110}>
-            <h2 className="t-title mb-8 max-w-[16ch]">Watch it in action.</h2>
+            <h2 className="t-title mb-8 max-w-[16ch]">This is your new screener.</h2>
             <div>
               <DemoModal variant="poster" />
             </div>
