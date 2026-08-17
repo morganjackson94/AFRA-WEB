@@ -189,7 +189,7 @@ export default function LandingPage() {
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
           <Stagger step={110}>
-            <h2 className="t-title mb-8 max-w-[16ch]">This is your new screener.</h2>
+            <h2 className="t-title mb-8 max-w-[28ch]">This is your new screener.</h2>
             <div>
               <DemoModal variant="poster" />
             </div>
@@ -378,15 +378,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing — flat annual prepay */}
+      {/* Pricing — flat annual prepay. Two-panel layout (price card + what's
+          included), the same asymmetric-card idiom as the Proof section
+          above, so the price doesn't sit alone as a narrow left-aligned
+          island in a wide left-aligned section. Stacks to one column on
+          mobile — price first, then what's included. */}
       <section className={SECTION_DIVIDED}>
         <div className={RAIL}>
-          <div>
-            <Reveal>
-              <h2 className="t-title mb-8 max-w-[18ch]">Simple, flat pricing.</h2>
-            </Reveal>
-            <Reveal>
-            <div className="max-w-[460px] rounded-[28px] border border-line-strong bg-card px-9 py-10 text-center shadow-[0_30px_60px_-40px_rgba(0,0,0,.28)]">
+          <Reveal>
+            <h2 className="t-title mb-10 max-w-[18ch]">Simple, flat pricing.</h2>
+          </Reveal>
+          <Stagger className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start" step={110}>
+            <div className="rounded-[28px] border border-line-strong bg-card px-9 py-10 text-center shadow-[0_30px_60px_-40px_rgba(0,0,0,.28)]">
               <div className="t-price">{PRICING.price}</div>
               <div className="mt-2.5 text-[15px] text-ink-soft">
                 Per year. All your locations. Billed once.
@@ -409,7 +412,25 @@ export default function LandingPage() {
                 location; AFRA doesn&apos;t.
               </div>
 
-              <ul className="my-7 flex flex-col gap-3 text-left">
+              <div className="mt-7">
+                <CTA size="lg" full />
+              </div>
+
+              {/* Risk reversal replaces the free trial */}
+              <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4 text-left">
+                <p className="text-[14px] font-semibold text-ink">30-day money-back guarantee</p>
+                <p className="mt-1 text-[13px] text-ink-soft">
+                  Try it for 30 days. If candidates aren&apos;t booking interviews with you, full refund, no questions.
+                </p>
+              </div>
+              <p className="mt-3 text-[13px] text-faint">
+                Paid from day one. The guarantee is your safety net. Cancel inside 30 days for a full refund.
+              </p>
+            </div>
+
+            <div className="flex flex-col rounded-2xl border border-line bg-card px-8 pb-9 pt-7 md:h-full md:justify-center">
+              <p className="t-label mb-4">What&apos;s included</p>
+              <ul className="flex flex-col gap-3 text-left">
                 {[
                   "Instant replies to every applicant",
                   "Automatic screening questions",
@@ -424,22 +445,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-
-              <CTA size="lg" full />
-
-              {/* Risk reversal replaces the free trial */}
-              <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
-                <p className="text-[14px] font-semibold text-ink">30-day money-back guarantee</p>
-                <p className="mt-1 text-[13px] text-ink-soft">
-                  Try it for 30 days. If candidates aren&apos;t booking interviews with you, full refund, no questions.
-                </p>
-              </div>
-              <p className="mt-3 text-[13px] text-faint">
-                Paid from day one. The guarantee is your safety net. Cancel inside 30 days for a full refund.
-              </p>
             </div>
-            </Reveal>
-          </div>
+          </Stagger>
         </div>
       </section>
 
