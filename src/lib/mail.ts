@@ -70,82 +70,220 @@ export async function sendReadyToConnectEmail(args: { to: string; loginUrl: stri
   return sendViaResend({ to: args.to, subject, html, text });
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 /**
- * The founding operator's first owned touch after payment — sent from
- * confirmFoundingPayment() on the verified-webhook path only (see
- * activation.ts). Copy is approved final text (docs/CLAIMS.md-checked); do
- * not edit wording here without re-verifying against that file. dashboardUrl
- * points at /login (not a pre-generated magic-link token) because this email
- * may be opened well after the 15-minute token TTL — the copy describes the
- * sign-in flow, not a working link straight into the dashboard.
- * Reply-to is CONTACT_EMAIL — the copy promises "this comes straight to me."
+ * Welcome email, variant A — sent from confirmFoundingPayment() (activation.ts)
+ * when a ManyChat flow was assigned at payment time (pool had stock), so
+ * connecting Instagram is something the operator can do right now. Carries a
+ * magic-link straight into the dashboard — the operator's only way back in if
+ * they paid inside Instagram's in-app browser and closed it. No founding
+ * language, no $1,990 — see docs/CLAIMS.md for the approved $4,788 wording
+ * this must stay in sync with.
  */
-export async function sendFoundingPurchaseConfirmationEmail(
-  args: { to: string; firstName?: string; dashboardUrl: string },
+export async function sendWelcomeAssignedEmail(
+  args: { to: string; dashboardUrl: string },
 ): Promise<SendResult> {
-  const subject = "You're in — one thing to do today";
-  const greeting = args.firstName ? `Hi ${args.firstName},` : "Hi there,";
+  const subject = "You're in. Let's get you live.";
+  const text = `Hi there,
 
-  const text = `${greeting}
+You're in. Welcome to AFRA.
 
-You're in.
+Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.
 
-What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $4,788 flat for the year. No per-location fees, no per-candidate charges.
-
-I'm building your screener now
-
-You already told me what I needed — your roles, your locations, and what makes a candidate an automatic no. I'm turning that into your screener this week. You'll be live within seven days, and if you're not, you don't pay.
-
-One thing to do today
+One thing left to do:
 
 ${args.dashboardUrl}
 
-Sign in with this email address — you'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. It takes a click, and I can't route candidates to you until it's done.
+Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.
 
-Your dashboard will be empty until your screener goes live. That's expected, not broken.
+You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.
 
-How this works once you're live
-
-You post — a story or feed post with a comment-to-apply prompt. I'll send you three ready-made templates, so you're not writing anything. People who respond get screened against your criteria automatically. Anyone who doesn't meet your bar gets filtered out before they reach you. The ones who do land in your dashboard with their answers — and qualified candidates can book an interview straight into your calendar.
-
-That's the whole loop. The only part that needs you is the posting.
-
-Renewal, so there are no surprises
-
-Your $4,788 covers your first year. After that, renewal is at the same rate — we'll reach out before your year is up, and you'll get 30 days' notice before any future price change.
-
-If you change your mind
-
-You have 30 days. Reply to this email and I'll refund you in full. No forms, no process.
-
-Reply any time — this comes straight to me.
+Reply any time. This comes straight to me.
 
 Morgan
 AFRA Visibility
 Dallas, TX`;
 
   const html = `
-    <p>${escapeHtml(greeting)}</p>
-    <p>You're in.</p>
-    <p>What you bought: pre-screened candidates delivered to your dashboard, across all your locations, $4,788 flat for the year. No per-location fees, no per-candidate charges.</p>
-    <p><strong>I'm building your screener now</strong></p>
-    <p>You already told me what I needed — your roles, your locations, and what makes a candidate an automatic no. I'm turning that into your screener this week. You'll be live within seven days, and if you're not, you don't pay.</p>
-    <p><strong>One thing to do today</strong></p>
+    <p>Hi there,</p>
+    <p>You're in. Welcome to AFRA.</p>
+    <p>Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.</p>
+    <p><strong>One thing left to do</strong></p>
     <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
-    <p>Sign in with this email address — you'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. It takes a click, and I can't route candidates to you until it's done.</p>
-    <p>Your dashboard will be empty until your screener goes live. That's expected, not broken.</p>
-    <p><strong>How this works once you're live</strong></p>
-    <p>You post — a story or feed post with a comment-to-apply prompt. I'll send you three ready-made templates, so you're not writing anything. People who respond get screened against your criteria automatically. Anyone who doesn't meet your bar gets filtered out before they reach you. The ones who do land in your dashboard with their answers — and qualified candidates can book an interview straight into your calendar.</p>
-    <p>That's the whole loop. The only part that needs you is the posting.</p>
-    <p><strong>Renewal, so there are no surprises</strong></p>
-    <p>Your $4,788 covers your first year. After that, renewal is at the same rate — we'll reach out before your year is up, and you'll get 30 days' notice before any future price change.</p>
-    <p><strong>If you change your mind</strong></p>
-    <p>You have 30 days. Reply to this email and I'll refund you in full. No forms, no process.</p>
-    <p>Reply any time — this comes straight to me.</p>
+    <p>Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.</p>
+    <p>You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * Welcome email, variant B — sent when the ManyChat pool was empty at payment
+ * time, so there's no connect action for the operator to take yet. Deliberately
+ * does NOT tell them to connect Instagram (there's nothing to click) and does
+ * NOT duplicate sendReadyToConnectEmail's content — it only forward-references
+ * that email, which fires later once the founder (or a pool backfill) resolves
+ * the wait. Same white-glove framing as the dashboard's own awaiting-setup
+ * banner (src/app/dashboard/page.tsx).
+ */
+export async function sendWelcomeAwaitingSetupEmail(
+  args: { to: string; dashboardUrl: string },
+): Promise<SendResult> {
+  const subject = "You're in. We're setting you up now.";
+  const text = `Hi there,
+
+You're in. Welcome to AFRA.
+
+Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.
+
+We're personally setting up your account now. There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.
+
+In the meantime, here's your dashboard:
+
+${args.dashboardUrl}
+
+Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.
+
+You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>You're in. Welcome to AFRA.</p>
+    <p>Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.</p>
+    <p><strong>We're personally setting up your account now</strong></p>
+    <p>There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.</p>
+    <p><strong>In the meantime, here's your dashboard</strong></p>
+    <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
+    <p>Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.</p>
+    <p>You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * "You're live" email, variant A (normal reach) — sent from connectChannel()
+ * (activation.ts) on a genuine transition to "connected", for an operator
+ * whose followerBand isn't in LOW_REACH_FOLLOWER_BANDS (qualification.ts).
+ */
+export async function sendYoureLiveEmail(
+  args: { to: string; dashboardUrl: string },
+): Promise<SendResult> {
+  const subject = "You're live. Here's how applicants find you.";
+  const text = `Hi there,
+
+Your Instagram is connected. Applicants can reach you now.
+
+Here's the mechanic: when someone comments or messages the keyword on your hiring post, AFRA replies instantly, screens them against your criteria, and qualified candidates book straight into your calendar.
+
+Post your hiring post, then watch your dashboard for candidates coming in.
+
+${args.dashboardUrl}
+
+Sign in with this email address any time. One-time link, no password.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>Your Instagram is connected. Applicants can reach you now.</p>
+    <p>Here's the mechanic: when someone comments or messages the keyword on your hiring post, AFRA replies instantly, screens them against your criteria, and qualified candidates book straight into your calendar.</p>
+    <p>Post your hiring post, then watch your dashboard for candidates coming in.</p>
+    <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
+    <p>Sign in with this email address any time. One-time link, no password.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * "You're live" email, variant B (low reach) — same trigger as variant A, for
+ * an operator whose followerBand IS in LOW_REACH_FOLLOWER_BANDS. Adds the
+ * three real, existing traffic mechanics (QR/bio-link/keyword-everywhere —
+ * all already live in the dashboard, nothing fabricated) plus a concierge
+ * offer. reachFlag is concierge-only context (qualification.ts) — never
+ * framed to the operator as a rejection, only as extra help.
+ */
+export async function sendYoureLiveLowReachEmail(
+  args: { to: string; dashboardUrl: string },
+): Promise<SendResult> {
+  const subject = "You're live. Let's make sure applicants find you.";
+  const text = `Hi there,
+
+Your Instagram is connected. Applicants can reach you now.
+
+Here's the mechanic: when someone comments or messages the keyword on your hiring post, AFRA replies instantly, screens them against your criteria, and qualified candidates book straight into your calendar.
+
+With a smaller following, the fastest ways to get applicants in front of that mechanic are:
+
+1. Print the QR code from your dashboard and put it up in-store.
+2. Put your hiring link in your Instagram bio.
+3. Add the keyword comment prompt to every post, not just the hiring one.
+
+Reply to this email and I'll help you set any of this up, personally.
+
+${args.dashboardUrl}
+
+Sign in with this email address any time. One-time link, no password.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>Your Instagram is connected. Applicants can reach you now.</p>
+    <p>Here's the mechanic: when someone comments or messages the keyword on your hiring post, AFRA replies instantly, screens them against your criteria, and qualified candidates book straight into your calendar.</p>
+    <p>With a smaller following, the fastest ways to get applicants in front of that mechanic are:</p>
+    <ol>
+      <li>Print the QR code from your dashboard and put it up in-store.</li>
+      <li>Put your hiring link in your Instagram bio.</li>
+      <li>Add the keyword comment prompt to every post, not just the hiring one.</li>
+    </ol>
+    <p>Reply to this email and I'll help you set any of this up, personally.</p>
+    <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
+    <p>Sign in with this email address any time. One-time link, no password.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * Day-20 check-in — scheduled honesty check before the 30-day guarantee
+ * closes (see /api/jobs/run-scheduled-emails). Deliberately short: two
+ * paragraphs, no upsell, no automation claims.
+ */
+export async function sendCheckinEmail(
+  args: { to: string; dashboardUrl: string },
+): Promise<SendResult> {
+  const subject = "Three weeks in. How's it going?";
+  const text = `Hi there,
+
+You're about three weeks into AFRA. How's it going? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.
+
+The 30-day money-back guarantee still stands, no questions asked. Your dashboard is always here: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>You're about three weeks into AFRA. How's it going? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.</p>
+    <p>The 30-day money-back guarantee still stands, no questions asked. Your dashboard is always here: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
 

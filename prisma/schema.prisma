@@ -116,8 +116,28 @@ model Operator {
   // ManychatFlow pool assignment in manychatPool.ts) the moment the send is
   // attempted, BEFORE the send itself, so a webhook retry can never trigger a
   // second send even if the first attempt is still in flight or failed.
-  /// Null until the founding purchase confirmation email has been attempted.
+  /// Superseded by welcomeEmailSentAt below (see docs/CLAIMS.md) — retained
+  /// on existing rows, no longer written by any code path.
   purchaseConfirmationEmailSentAt DateTime?
+
+  // --- Lifecycle emails (welcome / live / day-20 check-in) -------------------
+  // All three reuse mail.ts (Resend + console-stub) and the same magic-link
+  // token generation as sendReadyToConnectEmail (src/lib/manychatPool.ts).
+  // Each *SentAt field is claimed atomically BEFORE its send, same idiom as
+  // purchaseConfirmationEmailSentAt above, so webhook/job retries can never
+  // double-send. See src/lib/activation.ts and src/app/api/jobs/run-scheduled-emails.
+  /// Null until the post-payment welcome email (variant A/B, branches on
+  /// whether a ManyChat flow was assigned at payment time) has been attempted.
+  welcomeEmailSentAt DateTime?
+  /// Null until the "you're live" email (fires once, on the channel's first
+  /// genuine transition to connected; variant A/B branches on reachFlag) has
+  /// been attempted.
+  liveEmailSentAt DateTime?
+  /// Set at payment confirmation to (payment time + 20 days); drives the
+  /// day-20 check-in job. Null for operators who never paid.
+  checkinEmailDueAt DateTime?
+  /// Null until the day-20 check-in email has been attempted.
+  checkinEmailSentAt DateTime?
 
   locations          Location[]
   channelConnections ChannelConnection[]

@@ -3,10 +3,14 @@ import type { BillingProvider } from "./billing";
 import { mapStripeStatus } from "./billing";
 import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
+import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
-import { sendFoundingPurchaseConfirmationEmail } from "./mail";
+import { sendWelcomeAssignedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
 import { claimAvailableFlow } from "./manychatPool";
 import { CONNECTED, evaluateReadiness } from "./readiness";
+
+// Day-20 check-in fuse (see the checkin job, /api/jobs/run-scheduled-emails).
+const CHECKIN_DELAY_MS = 20 * 24 * 60 * 60 * 1000;
 
 // Duplicated from session.ts's appBaseUrl() rather than imported: session.ts
 // pulls in next/headers (cookies()), which this module can't depend on — it's
@@ -226,6 +230,13 @@ export async function confirmFoundingPayment(
       stripePaymentIntentId: ids.paymentIntentId ?? op.stripePaymentIntentId,
       stripeCheckoutSessionId: ids.checkoutSessionId ?? op.stripeCheckoutSessionId,
       stripeLivemode: ids.livemode,
+      // Day-20 check-in fuse (see /api/jobs/run-scheduled-emails). Set once,
+      // here, at confirmed payment — never overwritten on a webhook retry
+      // since checkinEmailDueAt isn't read from `op` above (it would already
+      // be set on a retry, but re-setting it to the same ~20-days-from-now
+      // math on every retry would be harmless anyway; guarded to only set it
+      // the first time regardless, so a delayed retry can't push it out).
+      ...(op.checkinEmailDueAt ? {} : { checkinEmailDueAt: new Date(Date.now() + CHECKIN_DELAY_MS) }),
     },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
@@ -237,69 +248,72 @@ export async function confirmFoundingPayment(
   // payment error; the operator has already paid and is already "active".
   const assignment = await tryAssignFlow(prisma, operatorId);
 
-  // Purchase confirmation email — the operator's first owned touch after
-  // payment. Same non-blocking guarantee as tryAssignFlow above: nothing in
-  // here may throw across this function or affect billingStatus.
-  const purchaseEmail = await sendPurchaseConfirmationOnce(prisma, operatorId, ids.livemode);
+  // Welcome email — the operator's first owned touch after payment. Branches
+  // on whether tryAssignFlow above actually got them a connect action. Same
+  // non-blocking guarantee as tryAssignFlow: nothing in here may throw across
+  // this function or affect billingStatus.
+  const welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
 
-  return { billingStatus: "active", recompute, flowAssignment: assignment, purchaseEmail };
+  return { billingStatus: "active", recompute, flowAssignment: assignment, welcomeEmail };
 }
 
 export type FlowAssignmentOutcome =
   | { assigned: true }
   | { assigned: false; reason: "already-assigned" | "no-channel" | "pool-empty" | "error" };
 
-export type PurchaseEmailOutcome =
-  | { sent: true }
+export type WelcomeEmailOutcome =
+  | { sent: true; variant: "assigned" | "awaiting-setup" }
   | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" };
 
 /**
- * Fires the founding "you're in" email exactly once per operator, never
+ * Fires the post-payment welcome email exactly once per operator, never
  * blocking payment confirmation. Two independent guards:
  *   1. livemode — a Stripe TEST-mode confirmation (including the founding
- *      live-mode E2E test) never sends by default. SEND_TEST_PURCHASE_EMAIL=1
+ *      live-mode E2E test) never sends by default. SEND_TEST_WELCOME_EMAIL=1
  *      is an explicit, unset-by-default opt-in for deliberately testing the
  *      email itself in dev; production never sets it.
- *   2. purchaseConfirmationEmailSentAt — claimed atomically via updateMany
- *      guarded on it still being null (same idiom as claimAvailableFlow in
+ *   2. welcomeEmailSentAt — claimed atomically via updateMany guarded on it
+ *      still being null (same idiom as claimAvailableFlow in
  *      manychatPool.ts), set BEFORE the send itself, so a webhook retry (or a
  *      race between retries) can never trigger a second send.
+ * Branches on flowAssigned: variant A (assigned) tells the operator to
+ * connect Instagram now; variant B (awaiting-setup) does not — there's
+ * nothing to click yet — and forward-references the existing
+ * sendReadyToConnectEmail without duplicating it.
  */
-async function sendPurchaseConfirmationOnce(
+async function sendWelcomeEmailOnce(
   prisma: PrismaClient,
   operatorId: string,
   livemode: boolean,
-): Promise<PurchaseEmailOutcome> {
-  if (!livemode && process.env.SEND_TEST_PURCHASE_EMAIL !== "1") {
+  flowAssigned: boolean,
+): Promise<WelcomeEmailOutcome> {
+  if (!livemode && process.env.SEND_TEST_WELCOME_EMAIL !== "1") {
     return { sent: false, reason: "not-livemode" };
   }
 
   const claim = await prisma.operator.updateMany({
-    where: { id: operatorId, purchaseConfirmationEmailSentAt: null },
-    data: { purchaseConfirmationEmailSentAt: new Date() },
+    where: { id: operatorId, welcomeEmailSentAt: null },
+    data: { welcomeEmailSentAt: new Date() },
   });
   if (claim.count === 0) return { sent: false, reason: "already-sent" };
 
+  const variant = flowAssigned ? ("assigned" as const) : ("awaiting-setup" as const);
   try {
     const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
-    // operator.name is the Instagram handle (see provision.ts's
-    // operatorName ?? displayHandle) — there is no real-name field anywhere
-    // in onboarding, so firstName is deliberately omitted here rather than
-    // greeting someone by their @handle. sendFoundingPurchaseConfirmationEmail
-    // falls back to "Hi there," when firstName is absent.
-    console.log(`[purchase-email] attempting send to operator ${operatorId}`);
-    const result = await sendFoundingPurchaseConfirmationEmail({
-      to: operator.email,
-      dashboardUrl: `${appBaseUrl()}/login`,
-    });
+    const token = await createLoginToken(prisma, operatorId);
+    const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
+    console.log(`[welcome-email] attempting send (variant=${variant}) to operator ${operatorId}`);
+    const result = flowAssigned
+      ? await sendWelcomeAssignedEmail({ to: operator.email, dashboardUrl })
+      : await sendWelcomeAwaitingSetupEmail({ to: operator.email, dashboardUrl });
     if (result.sent) {
-      console.log(`[purchase-email] sent to operator ${operatorId}`);
+      console.log(`[welcome-email] sent (variant=${variant}) to operator ${operatorId}`);
     } else {
-      console.error(`[purchase-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
+      console.error(`[welcome-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
     }
-    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+    return result.sent ? { sent: true, variant } : { sent: false, reason: result.stub ? "stub" : "error" };
   } catch (err) {
-    console.error(`[mail] purchase confirmation send failed for operator ${operatorId}:`, err);
+    console.error(`[mail] welcome email send failed for operator ${operatorId}:`, err);
     return { sent: false, reason: "error" };
   }
 }
@@ -380,13 +394,68 @@ export async function connectChannel(
   channelConnectionId: string,
 ) {
   const conn = await prisma.channelConnection.findUniqueOrThrow({ where: { id: channelConnectionId } });
+  const wasConnected = conn.status === CONNECTED;
   const res = await provider.connect({ channelConnectionId });
   await prisma.channelConnection.update({
     where: { id: channelConnectionId },
     data: { status: res.status, pageId: res.pageId ?? conn.pageId },
   });
   const recompute = await recomputeOperatorReadiness(prisma, conn.operatorId);
-  return { status: res.status, recompute };
+
+  // "You're live" email — fires from this single shared orchestrator so it
+  // fires identically no matter which caller/path triggers a connect (today:
+  // the founder-confirm route; later: a real OAuth callback). Only on a
+  // genuine transition into "connected", never on a no-op re-confirm (e.g.
+  // the founder-confirm route being called again just to set
+  // manychatSubscriberId). Never blocks the connect response.
+  let liveEmail: LiveEmailOutcome = { sent: false, reason: "no-transition" };
+  if (!wasConnected && res.status === CONNECTED) {
+    liveEmail = await sendLiveEmailOnce(prisma, conn.operatorId);
+  }
+
+  return { status: res.status, recompute, liveEmail };
+}
+
+export type LiveEmailOutcome =
+  | { sent: true; variant: "normal-reach" | "low-reach" }
+  | { sent: false; reason: "no-transition" | "already-sent" | "stub" | "error" };
+
+/**
+ * Fires the "you're live" email exactly once per operator, on the channel's
+ * first genuine transition to connected. Idempotency-claimed via
+ * liveEmailSentAt (same claim-before-send idiom as sendWelcomeEmailOnce
+ * above), and wrapped so a send failure can never surface as a connect error.
+ * Branches on the operator's own reachFlag (qualification.ts) — concierge
+ * context only, never a rejection.
+ */
+async function sendLiveEmailOnce(prisma: PrismaClient, operatorId: string): Promise<LiveEmailOutcome> {
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, liveEmailSentAt: null },
+    data: { liveEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return { sent: false, reason: "already-sent" };
+
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    const token = await createLoginToken(prisma, operatorId);
+    const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
+    const lowReach = operator.reachFlag;
+    console.log(`[live-email] attempting send (lowReach=${lowReach}) to operator ${operatorId}`);
+    const result = lowReach
+      ? await sendYoureLiveLowReachEmail({ to: operator.email, dashboardUrl })
+      : await sendYoureLiveEmail({ to: operator.email, dashboardUrl });
+    if (result.sent) {
+      console.log(`[live-email] sent (lowReach=${lowReach}) to operator ${operatorId}`);
+    } else {
+      console.error(`[live-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
+    }
+    return result.sent
+      ? { sent: true, variant: lowReach ? "low-reach" : "normal-reach" }
+      : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] live email send failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
 }
 
 export async function connectCalendar(

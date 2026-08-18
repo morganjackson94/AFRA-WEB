@@ -52,15 +52,41 @@ language, not a founding-cohort reference.
 - Implemented in `src/components/HeroLineBand.tsx`'s `PROOF` constant — that component's own comment
   repeats the "do not fabricate or alter these numbers" rule.
 
-## Purchase confirmation email
+## Lifecycle emails
 
-`sendFoundingPurchaseConfirmationEmail()` (`src/lib/mail.ts`), sent from `confirmFoundingPayment()`
-(`src/lib/activation.ts`) on the verified-webhook path only — the operator's first owned touch after
-payment. Repeats the 7-day promise and the guarantee/refund terms verbatim from this file. If those
-claims change here, that email's copy must be updated in the same pass. Approved final copy — see the
-git history for the exact text; don't paraphrase it further without re-checking against this table.
-(Function name is a pre-existing internal identifier — not customer-facing, not renamed as part of the
-repricing.)
+Three transactional emails, all in `src/lib/mail.ts`, all Resend-with-console-stub (same seam as every
+other outbound email), all carrying a magic-link straight into the dashboard (reuses
+`createLoginToken()` from `src/lib/auth.ts`, the same token issuance `sendReadyToConnectEmail` uses).
+None claim auto-renewal or autonomous follow-up — see Renewal above. If the price, guarantee, or renewal
+wording in this file changes, all three must be updated in the same pass.
+
+Superseded: `sendFoundingPurchaseConfirmationEmail()` (single variant, founding-era) was replaced
+outright by the welcome email below — it sent exactly the moment the welcome email now sends, so running
+both would double-send. The function and its backing field (`Operator.purchaseConfirmationEmailSentAt`)
+were removed from the send path; the DB column stays (additive-only migration policy) but is no longer
+written.
+
+**Welcome** — `sendWelcomeAssignedEmail()` / `sendWelcomeAwaitingSetupEmail()`, sent from
+`confirmFoundingPayment()` (`src/lib/activation.ts`) on the verified-webhook path, after ManyChat pool
+assignment resolves. Variant depends on whether a flow was assigned (pool had stock) or not (awaiting
+setup, mirrors the dashboard's own awaiting-setup banner). Idempotent via `welcomeEmailSentAt`.
+
+**You're live** — `sendYoureLiveEmail()` / `sendYoureLiveLowReachEmail()`, sent from `connectChannel()`
+(`src/lib/activation.ts`) on the channel's first genuine transition to `"connected"` — fires from the
+shared orchestrator, not any one caller, so it fires identically regardless of which path triggers the
+connect. Low-reach variant (`Operator.reachFlag`, see `src/lib/qualification.ts`) adds the three real,
+already-live traffic mechanics (dashboard QR code, bio link, keyword-on-every-post) plus a concierge
+offer — `reachFlag` stays concierge-only context, never a rejection. Idempotent via `liveEmailSentAt`.
+
+**Day-20 check-in** — `sendCheckinEmail()`, sent by the `/api/jobs/run-scheduled-emails` job (Vercel
+Cron, daily) for every operator whose `checkinEmailDueAt` (set at payment confirmation, payment date +
+20 days) has passed and who hasn't received it yet. Filtered to `billingStatus: "active"` to skip
+refunded/canceled operators — there's no automated refund webhook, so this depends on `billingStatus`
+being flipped by hand on a manual refund. Idempotent via `checkinEmailSentAt`.
+
+All three repeat the guarantee/refund terms verbatim from this file where they mention it. Approved
+final copy — see git history for the exact text; don't paraphrase further without re-checking against
+this table.
 
 ## ToS backing
 
