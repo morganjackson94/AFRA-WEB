@@ -365,7 +365,10 @@ export function OnboardingWizard({
           </div>
         ) : (
           <>
-            {/* Step 1 — Locations + email */}
+            {/* Step 1 — Locations first (one tap, nothing to type), email
+                reveals only after a bucket is picked. Same two required
+                fields as before (see canContinue) — just reordered so the
+                first thing a cold visitor does is a free tap, not a form. */}
             {step === 1 && (
               <div>
                 <Reveal delay={0}>
@@ -376,39 +379,46 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
-                    We&apos;ll tailor your account to your size. Flat $4,788/year covers every location either way.
+                    Just tap one — we&apos;ll tailor everything from here.
                   </p>
                 </Reveal>
                 <Reveal delay={300}>
-                  <Field label="Email (for your account, receipts, and logging back in)">
-                    <input
-                      type="email"
-                      className={inputClass}
-                      placeholder="you@venue.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onBlur={() => void checkForResume()}
-                      autoFocus
-                      required
-                    />
-                  </Field>
-                  {resumedBanner && (
-                    <p className="mt-2 text-[13px] text-threshold-ink-soft">
-                      Welcome back — we restored your progress from before.
-                    </p>
-                  )}
-                </Reveal>
-                <Reveal delay={380}>
-                  <div className="mt-6">
+                  <div>
                     <SectionLabel tone="dark" className="mb-3">Locations</SectionLabel>
                     <PillGroup options={LOCATION_BUCKETS} selected={locationsBucket} onSelect={setLocationsBucket} />
                   </div>
                 </Reveal>
                 {(locationsBucket === "1-2" || locationsBucket === "16+") && (
-                  <Reveal delay={420}>
+                  <Reveal delay={340}>
                     <p className="mt-3 text-[13px] leading-relaxed text-threshold-ink-soft">
                       AFRA is built for multi-location operators — you&apos;re welcome to continue.
                     </p>
+                  </Reveal>
+                )}
+                {locationsBucket !== "" && (
+                  <Reveal delay={80}>
+                    <div className="mt-8">
+                      <Field label="Where should we send your setup?">
+                        <input
+                          type="email"
+                          className={inputClass}
+                          placeholder="you@venue.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          onBlur={() => void checkForResume()}
+                          autoFocus
+                          required
+                        />
+                      </Field>
+                      <p className="mt-2 text-[13px] text-threshold-ink-soft">
+                        Just your login and results. No spam.
+                      </p>
+                      {resumedBanner && (
+                        <p className="mt-2 text-[13px] text-threshold-ink-soft">
+                          Welcome back — we restored your progress from before.
+                        </p>
+                      )}
+                    </div>
                   </Reveal>
                 )}
               </div>
@@ -784,7 +794,7 @@ export function OnboardingWizard({
           )}
           {step === 1 && !canContinue && (
             <p className="mt-3 text-center text-[13.5px] text-threshold-ink-soft">
-              Add your email and location count to continue
+              {locationsBucket === "" ? "Pick a location count to continue" : "Add your email to continue"}
             </p>
           )}
           {step === TOTAL && !restricted && (
