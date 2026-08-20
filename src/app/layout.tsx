@@ -1,21 +1,30 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
-import { Fraunces, Inter } from "next/font/google";
+import { EB_Garamond, Manrope, Overpass_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Type kit matched to hermes.com's verified stack (inspected 2026-08-20):
+// EBGaramond for editorial display, Manrope for body/UI, Overpass Mono
+// (light, uppercase) for structural labels and numerals. Same three faces,
+// free Google Fonts cuts.
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-// Display serif — Flho warmth. Optical sizing on for editorial headings.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const ebGaramond = EB_Garamond({
+  variable: "--font-eb-garamond",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
+});
+
+const overpassMono = Overpass_Mono({
+  variable: "--font-overpass-mono",
+  subsets: ["latin"],
+  weight: ["300", "400", "600"],
 });
 
 // Resolves relative OG/social image URLs against the real deployed origin.
@@ -49,7 +58,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={`${manrope.variable} ${ebGaramond.variable} ${overpassMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {META_PIXEL_ID && (
           <>

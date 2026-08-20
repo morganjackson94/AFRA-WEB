@@ -92,6 +92,13 @@ export function OnboardingWizard({
   privacyContent: string;
 }) {
   const [step, setStep] = useState(1);
+  // The beat before step one: a zero-input welcome screen — one button,
+  // nothing to type — so a cold visitor's first act is a free tap, not a
+  // form. Deliberately NOT a numbered step: the progress dots stay unlit
+  // until step 1 actually begins, and the funnel's "started" event still
+  // fires on mount (landing), so the step-1 completion rate keeps measuring
+  // the same thing it always did.
+  const [showIntro, setShowIntro] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
   const [resumedBanner, setResumedBanner] = useState(false);
@@ -294,17 +301,22 @@ export function OnboardingWizard({
             setRestricted(false);
             setStep((s) => Math.max(1, s - 1));
           }}
-          className={`grid size-9 place-items-center rounded-lg text-threshold-ink-soft hover:bg-threshold-soft hover:text-threshold-ink ${step === 1 ? "invisible" : ""}`}
+          className={`grid size-9 place-items-center rounded-lg text-threshold-ink-soft hover:bg-threshold-soft hover:text-threshold-ink ${showIntro || step === 1 ? "invisible" : ""}`}
           aria-label="Back"
         >
           <ArrowLeft className="size-5" />
         </button>
         <div className="flex flex-1 items-center justify-center gap-1.5">
+          {/* During the intro beat no dot is lit — the journey hasn't started. */}
           {Array.from({ length: TOTAL }, (_, i) => i + 1).map((i) => (
             <span
               key={i}
               className={`h-1.5 rounded-full transition-all duration-500 ease-editorial ${
-                i === step ? "w-6 bg-threshold-ink" : i < step ? "w-1.5 bg-threshold-ink/40" : "w-1.5 bg-threshold-line"
+                !showIntro && i === step
+                  ? "w-6 bg-threshold-ink"
+                  : !showIntro && i < step
+                    ? "w-1.5 bg-threshold-ink/40"
+                    : "w-1.5 bg-threshold-line"
               }`}
             />
           ))}
@@ -320,9 +332,30 @@ export function OnboardingWizard({
 
       {/* Content — flex-1 pushes the footer to the bottom; tall steps just scroll.
           key={step} remounts on step change so the staggered reveal re-runs. */}
-      <div key={`${step}-${restricted}`} className="mx-auto w-full max-w-[460px] flex-1 px-6 pb-10 pt-12">
-        {/* Step 2's restricted exit overrides everything else at that step. */}
-        {step === 2 && restricted ? (
+      <div key={showIntro ? "intro" : `${step}-${restricted}`} className="mx-auto w-full max-w-[460px] flex-1 px-6 pb-10 pt-12">
+        {/* The beat before step one — zero inputs, one button (in the footer).
+            Question count is exact: of the 7 screens, six ask questions
+            (locations, market, roles, dealbreakers, socials, interview
+            calendar) and one shows the price. Keep this copy in sync if
+            steps are ever added or removed. */}
+        {showIntro ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <Reveal delay={0}>
+              <p className="t-label text-threshold-ink-soft">Before we start</p>
+            </Reveal>
+            <Reveal hero delay={90}>
+              <h2 className="t-title mt-6 text-threshold-ink">
+                Let&apos;s see if AFRA fits how you hire.
+              </h2>
+            </Reveal>
+            <Reveal delay={220}>
+              <p className="mt-5 max-w-[34ch] text-[16px] leading-relaxed text-threshold-ink-soft">
+                Six quick questions and a straight look at the price. No card yet.
+              </p>
+            </Reveal>
+          </div>
+        ) : /* Step 2's restricted exit overrides everything else at that step. */
+        step === 2 && restricted ? (
           <div>
             <Reveal delay={0}>
               <SectionLabel index="02" tone="dark">Market</SectionLabel>
@@ -379,7 +412,7 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
-                    Just tap one — we&apos;ll tailor everything from here.
+                    Just tap one. We&apos;ll tailor everything from here.
                   </p>
                 </Reveal>
                 <Reveal delay={300}>
@@ -747,7 +780,20 @@ export function OnboardingWizard({
       {/* Footer — static (in flow), bordered. No fixed positioning => no overlap. */}
       <div className="sticky bottom-0 border-t border-threshold-line bg-threshold px-6 py-6">
         <div className="mx-auto max-w-[460px]">
-          {restricted ? (
+          {showIntro ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowIntro(false)}
+                className="w-full rounded-full bg-threshold-ink px-6 py-3.5 text-base font-medium text-threshold transition duration-300 ease-editorial hover:opacity-90"
+              >
+                Start
+              </button>
+              <p className="mt-3 text-center text-[13.5px] text-threshold-ink-soft">
+                Takes about a minute
+              </p>
+            </>
+          ) : restricted ? (
             leadState.submitted ? (
               <Link
                 href="/"
@@ -792,7 +838,7 @@ export function OnboardingWizard({
               {pending ? "Setting up your account…" : "Finish setup"}
             </button>
           )}
-          {step === 1 && !canContinue && (
+          {!showIntro && step === 1 && !canContinue && (
             <p className="mt-3 text-center text-[13.5px] text-threshold-ink-soft">
               {locationsBucket === "" ? "Pick a location count to continue" : "Add your email to continue"}
             </p>

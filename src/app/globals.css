@@ -38,9 +38,10 @@
   --color-threshold-ink: #f0e8d8; /* warm cream */
   --color-threshold-ink-soft: #c2bbaa; /* muted cream */
 
-  /* --- Type --- */
-  --font-sans: var(--font-inter), system-ui, sans-serif; /* body / UI / data */
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif; /* headings */
+  /* --- Type (hermes.com-matched kit: Garamond / Manrope / Overpass Mono) --- */
+  --font-sans: var(--font-manrope), system-ui, sans-serif; /* body / UI */
+  --font-display: var(--font-eb-garamond), Georgia, "Times New Roman", serif; /* headings */
+  --font-mono: var(--font-overpass-mono), ui-monospace, monospace; /* labels / numerals */
 
   /* --- Motion (restrained, editorial) --- */
   --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
@@ -69,52 +70,56 @@ body {
    Type scale (centralized). Display = serif (Fraunces); body/UI = Inter.
    --------------------------------------------------------------------------- */
 @layer components {
-  /* Hero — display serif, magazine-spread scale. Dominates the screen. */
+  /* Hero — display Garamond, poster scale. Garamond wants near-neutral
+     tracking and a medium weight; heavy weights and tight tracking muddy it. */
   .t-display {
     font-family: var(--font-display);
-    font-size: clamp(3rem, 7vw, 5.5rem); /* 48px → 88px */
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    font-size: clamp(3.25rem, 8vw, 6.75rem); /* 52px → 108px (Garamond runs optically small) */
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    text-wrap: balance;
   }
   /* Page titles (@handle, "What are you hiring for?", "Edit hiring post"). */
   .t-title {
     font-family: var(--font-display);
-    font-size: clamp(2.25rem, 4vw, 3.5rem); /* 36px → 56px */
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    font-size: clamp(2.5rem, 5vw, 4rem); /* 40px → 64px */
+    line-height: 1.06;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    text-wrap: balance;
   }
   /* Section sub-headings (how-it-works step titles, readiness headline). */
   .t-heading {
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 2.5vw, 2rem);
-    line-height: 1.15;
-    letter-spacing: -0.01em;
-    font-weight: 560;
+    font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+    line-height: 1.14;
+    letter-spacing: -0.005em;
+    font-weight: 500;
   }
-  /* The founding price — display serif, large. */
+  /* The price — display Garamond, tabular so digits hold their column. */
   .t-price {
     font-family: var(--font-display);
-    font-size: clamp(3.5rem, 6vw, 4.5rem); /* 56px → 72px */
+    font-size: clamp(3.75rem, 6.5vw, 5rem); /* 60px → 80px */
     line-height: 1;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
   }
-  /* The Betak structural signpost: uppercase, EXTREME letter-spacing, quiet. */
+  /* Structural signpost — Hermès-style: light mono, uppercase, wide, quiet. */
   .t-label {
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
-    font-weight: 600;
+    letter-spacing: 0.18em;
+    font-weight: 400;
     color: var(--color-ink-soft);
   }
-  /* Pipeline counts / data numerals — INTER (sans), tabular. Not serif. */
+  /* Pipeline counts / data numerals — light mono, tabular (Hermès weight). */
   .t-numeral {
-    font-family: var(--font-sans);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-family: var(--font-mono);
+    font-weight: 300;
+    letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
   }
 }

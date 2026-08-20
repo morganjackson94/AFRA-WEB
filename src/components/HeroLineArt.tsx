@@ -10,7 +10,7 @@
 // globals.css) — the same toggle Reveal/Stagger set on their own wrapper, so
 // this only fires once this component is nested inside one of those (it has
 // no Reveal of its own).
-const HERO_LINE_PATHS = [
+export const HERO_LINE_PATHS = [
   "M 417.0 230.0 L 431.0 230.0 L 437.0 227.0 L 441.0 221.0 L 443.0 213.0 L 441.0 166.0 L 444.0 151.0 L 448.0 142.0 L 452.0 138.0 L 456.0 143.0 L 464.0 143.0 L 470.0 146.0 L 483.0 164.0 L 488.0 181.0 L 487.0 190.0 L 481.0 204.0 L 483.0 212.0 L 488.0 215.0 L 495.0 216.0 L 502.0 215.0 L 503.0 213.0 L 509.0 213.0",
   "M 428.0 326.0 L 432.0 316.0 L 433.0 293.0 L 431.0 278.0 L 428.0 277.0 L 425.0 283.0 L 424.0 297.0 L 427.0 309.0 L 431.0 314.0",
   "M 430.0 231.0 L 460.0 239.0 L 475.0 239.0 L 485.0 231.0 L 495.0 217.0",
