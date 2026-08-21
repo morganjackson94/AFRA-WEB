@@ -131,9 +131,10 @@ export function DemoModal({ variant = "ghost" }: { variant?: "ghost" | "poster" 
           <span className="absolute right-4 top-4 rounded-full border border-line-strong bg-cream px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink">
             Demo
           </span>
-          <span className="absolute bottom-4 left-4 text-left text-ink">
+          {/* Pinned light: this caption sits on the dark video scrim, not the page ground. */}
+          <span className="absolute bottom-4 left-4 text-left text-[#f0e8d8]">
             <b className="block text-[15px] font-semibold">How AFRA works</b>
-            <span className="text-[12.5px] text-ink-soft">
+            <span className="text-[12.5px] text-[#c2bbaa]">
               From an Instagram comment to a candidate booking their interview
             </span>
           </span>

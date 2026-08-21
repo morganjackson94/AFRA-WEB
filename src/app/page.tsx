@@ -147,7 +147,10 @@ export default function LandingPage() {
             height={230}
             priority
             sizes="100px"
-            className="h-7 w-auto"
+            // The logo asset is a cream mark cut for the old dark ground;
+            // invert() lands it at a near-navy on paper. Interim until a
+            // navy cut of the mark exists as its own asset.
+            className="h-7 w-auto invert"
           />
           <CTA tone="outline" />
         </div>
@@ -198,7 +201,7 @@ export default function LandingPage() {
               muted
               playsInline
               aria-label="AFRA screening a job applicant by chat."
-              className="mx-auto h-auto w-full max-w-[420px] rounded-[2.5rem] lg:mx-0 lg:max-w-none lg:w-[560px] [filter:drop-shadow(0_35px_55px_rgba(0,0,0,0.3))]"
+              className="mx-auto h-auto w-full max-w-[420px] rounded-[2.5rem] lg:mx-0 lg:max-w-none lg:w-[560px] [filter:drop-shadow(0_30px_50px_rgba(38,38,63,0.22))]"
             />
           </Reveal>
         </div>
@@ -338,8 +341,8 @@ export default function LandingPage() {
             <p className="mt-2.5 text-[14.5px] leading-relaxed text-ink-soft">{FEATURES.reminders.body}</p>
           </div>
 
-          {/* Photo cell — real image with a periwinkle scrim so the cream
-              text stays readable at AA over any part of the photo. */}
+          {/* Photo cell — real image under a paper wash (the Hermès move:
+              pale scrim, dark text) so ink text stays AA over the photo. */}
           <div className="relative min-h-[240px] overflow-hidden rounded-2xl border border-line md:col-span-2">
             <Image
               src="/bg2.jpg"
@@ -348,7 +351,7 @@ export default function LandingPage() {
               sizes="(max-width: 768px) 100vw, 720px"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[rgba(30,30,51,0.94)] via-[rgba(30,30,51,0.55)] to-[rgba(30,30,51,0.2)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[rgba(252,247,241,0.96)] via-[rgba(252,247,241,0.62)] to-[rgba(252,247,241,0.15)]" />
             <div className="relative flex h-full flex-col justify-end p-8">
               <h3 className="t-heading text-ink">{FEATURES.booking.title}</h3>
               <p className="mt-2.5 max-w-[44ch] text-[14.5px] leading-relaxed text-ink-soft">{FEATURES.booking.body}</p>

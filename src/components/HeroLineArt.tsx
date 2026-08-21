@@ -73,7 +73,7 @@ export function HeroLineArt({ className = "" }: { className?: string }) {
             d={d}
             pathLength={1}
             fill="none"
-            stroke="#f0e8d8"
+            stroke="var(--color-ink)"
             strokeWidth={2}
             // Butt, not round: a round cap on a near-zero-length dash (the
             // moment each stroke starts drawing) renders as a visible dot.

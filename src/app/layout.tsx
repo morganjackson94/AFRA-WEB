@@ -45,11 +45,11 @@ export const metadata: Metadata = {
 
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-// One intentional dark world: emits <meta name="color-scheme" content="dark"> on
-// every route so the browser/OS UA chrome matches the periwinkle ground and
-// nothing fights it. (Inverse of the earlier light-lock — deliberate, app-wide.)
+// One intentional paper world: emits <meta name="color-scheme" content="light">
+// on every route so the browser/OS UA chrome matches the cream ground and
+// nothing fights it (hermes.com-matched palette, 2026-08-20).
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  colorScheme: "light",
 };
 
 export default function RootLayout({

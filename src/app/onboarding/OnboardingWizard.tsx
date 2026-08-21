@@ -648,7 +648,7 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={300}>
                   <div className="mb-6 grid aspect-[16/9] place-items-center rounded-2xl border border-threshold-line bg-threshold-soft">
-                    <div className="grid size-16 place-items-center rounded-2xl bg-[rgba(240,232,216,0.06)] text-threshold-ink">
+                    <div className="grid size-16 place-items-center rounded-2xl bg-[rgba(38,38,63,0.05)] text-threshold-ink">
                       <Instagram className="size-8" />
                     </div>
                   </div>
@@ -892,13 +892,13 @@ function OptionRow({
       aria-pressed={selected}
       className={`flex w-full items-center gap-3.5 rounded-xl border px-4 py-4 text-left transition duration-300 ease-editorial ${
         selected
-          ? "border-threshold-ink bg-threshold-ink text-threshold shadow-[0_10px_30px_-12px_rgba(255,255,255,0.25)]"
+          ? "border-threshold-ink bg-threshold-ink text-threshold shadow-[0_10px_30px_-12px_rgba(38,38,63,0.3)]"
           : "border-threshold-line text-threshold-ink hover:border-threshold-ink-soft"
       }`}
     >
       <span
         className={`grid size-9 flex-none place-items-center rounded-lg ${
-          selected ? "bg-threshold/10 text-threshold" : "bg-[rgba(240,232,216,0.06)] text-threshold-ink"
+          selected ? "bg-threshold/10 text-threshold" : "bg-[rgba(38,38,63,0.05)] text-threshold-ink"
         }`}
       >
         <Icon className="size-[18px]" />

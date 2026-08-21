@@ -28,7 +28,7 @@ function SketchPath({ d, index, count, progress }: { d: string; index: number; c
       d={d}
       pathLength={1}
       fill="none"
-      stroke="#f0e8d8"
+      stroke="var(--color-ink)"
       strokeWidth={2}
       strokeLinecap="butt"
       strokeDasharray={1}
@@ -80,7 +80,7 @@ export function StepsSketch({ title, steps }: { title: string; steps: Step[] }) 
           >
             {reduce
               ? HERO_LINE_PATHS.map((d, i) => (
-                  <path key={i} d={d} fill="none" stroke="#f0e8d8" strokeWidth={2} strokeLinecap="butt" />
+                  <path key={i} d={d} fill="none" stroke="var(--color-ink)" strokeWidth={2} strokeLinecap="butt" />
                 ))
               : HERO_LINE_PATHS.map((d, i) => (
                   <SketchPath key={i} d={d} index={i} count={HERO_LINE_PATHS.length} progress={scrollYProgress} />
