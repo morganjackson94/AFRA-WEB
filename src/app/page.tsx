@@ -194,7 +194,7 @@ export default function LandingPage() {
               spillover). */}
           <Reveal delay={240}>
             <video
-              src="/hero-phone2.mp4"
+              src="/hero-phone3.mp4"
               poster="/hero-phone.webp"
               autoPlay
               loop
