@@ -287,15 +287,21 @@ export default function LandingPage() {
 
             {/* The applicant's side — a FACTUAL description of the product
                 experience. Never format this as a quotation or attribute it
-                to a person. */}
+                to a person. Copy deliberately answers the operator concern
+                (from operator conversations, 2026-08): they want a reference
+                point on each candidate's experience, so this leads with the
+                answers they receive, not "no resume" as a perk. Claim-safe:
+                candidates' screening answers really do land in the dashboard
+                (docs/CLAIMS.md, screening capability). */}
             <div className="mt-10 rounded-2xl border border-line bg-card px-7 pb-8 pt-6">
               <span className="mb-4 grid size-10 place-items-center rounded-xl bg-cream text-ink">
                 <Instagram className="size-5" />
               </span>
-              <h3 className="t-heading">Two minutes. No resume. No waiting.</h3>
+              <h3 className="t-heading">Two minutes for them. A clear picture for you.</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
-                Applicants message, answer a few questions, and pick an interview time. All in the
-                app they already have open. No forms, no logins, no silence.
+                Applicants answer your screening questions in the app they already have open, and
+                every answer lands with them in your dashboard. Their experience, availability, and
+                dealbreakers, in their own words, before the interview.
               </p>
             </div>
           </div>
