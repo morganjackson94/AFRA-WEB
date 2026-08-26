@@ -3,6 +3,10 @@
     {
       "path": "/api/jobs/run-scheduled-emails",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/jobs/reconcile-trials",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

@@ -19,6 +19,16 @@ async function operatorIdBySubscription(subscriptionId?: string | null) {
   return op?.id ?? null;
 }
 
+/** operatorId is stamped on the subscription itself at creation time (see
+ *  createFoundingCheckout's subscription_data.metadata, billing.ts) — checked
+ *  first since Stripe doesn't guarantee delivery order between
+ *  checkout.session.completed and customer.subscription.* events, so
+ *  stripeSubscriptionId may not be persisted yet when a subscription event
+ *  arrives first. */
+function operatorIdFromSubscriptionMetadata(sub: Stripe.Subscription): string | null {
+  return sub.metadata?.operatorId ?? null;
+}
+
 async function operatorIdByCustomer(customerId?: string | null) {
   if (!customerId) return null;
   const op = await prisma.operator.findFirst({
@@ -63,10 +73,15 @@ export async function POST(request: Request): Promise<Response> {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      // Founding annual: the ONLY trustworthy "paid" signal (verified off the
-      // raw body above). Only confirm when Stripe reports the payment as paid.
+      // Checkout completed — for a trial subscription this means the trial
+      // has started, not that anything was charged (see docs/CLAIMS.md).
+      // session.status === "complete" is Stripe's own recommended,
+      // mode-agnostic fulfillment signal — checked instead of
+      // payment_status, whose "paid" value for a trial subscription
+      // specifically means "the $0 trial invoice was processed," not "a real
+      // charge succeeded." Using status here avoids depending on that nuance.
       const session = event.data.object as Stripe.Checkout.Session;
-      if (session.payment_status === "paid") {
+      if (session.status === "complete") {
         const operatorId =
           session.metadata?.operatorId ??
           session.client_reference_id ??
@@ -74,6 +89,7 @@ export async function POST(request: Request): Promise<Response> {
         if (operatorId) {
           await confirmFoundingPayment(prisma, operatorId, {
             customerId: idOf(session.customer),
+            subscriptionId: idOf(session.subscription),
             paymentIntentId: idOf(session.payment_intent),
             checkoutSessionId: session.id,
             // Real Stripe's own signal, off the signature-verified event —
@@ -89,8 +105,12 @@ export async function POST(request: Request): Promise<Response> {
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
+      // This is also where a trial's end (candidate cap or the 60-day
+      // backstop) gets reconciled — applyStripeStatus handles both causes
+      // identically. See its doc comment in activation.ts.
       const sub = event.data.object as Stripe.Subscription;
-      const operatorId = await operatorIdBySubscription(sub.id);
+      const operatorId =
+        operatorIdFromSubscriptionMetadata(sub) ?? (await operatorIdBySubscription(sub.id));
       if (operatorId) await applyStripeStatus(prisma, operatorId, sub.status);
       break;
     }

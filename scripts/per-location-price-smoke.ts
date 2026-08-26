@@ -14,7 +14,7 @@ function assert(cond: boolean, msg: string) {
 
 function main() {
   console.log("Exact-count math (perLocationMonthlyDollars):");
-  assert(perLocationMonthlyDollars(3) === 133, "3 locations -> $133/mo ($478,800/yr / 12 / 3)");
+  assert(perLocationMonthlyDollars(3) === 133, "3 locations -> $133/mo ($399/mo / 3)");
   assert(perLocationMonthlyDollars(8) === 50, "8 locations -> $50/mo (39900/8 = 4987.5 cents, rounds to $50)");
   assert(perLocationMonthlyDollars(15) === 27, "15 locations -> $27/mo (39900/15 = 2660 cents, rounds to $27)");
 

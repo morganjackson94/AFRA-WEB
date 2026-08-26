@@ -72,12 +72,12 @@ export async function sendReadyToConnectEmail(args: { to: string; loginUrl: stri
 
 /**
  * Welcome email, variant A — sent from confirmFoundingPayment() (activation.ts)
- * when a ManyChat flow was assigned at payment time (pool had stock), so
- * connecting Instagram is something the operator can do right now. Carries a
- * magic-link straight into the dashboard — the operator's only way back in if
- * they paid inside Instagram's in-app browser and closed it. No founding
- * language, no $1,990 — see docs/CLAIMS.md for the approved $4,788 wording
- * this must stay in sync with.
+ * when a ManyChat flow was assigned at signup (pool had stock), so connecting
+ * Instagram is something the operator can do right now. Carries a magic-link
+ * straight into the dashboard — the operator's only way back in if they
+ * signed up inside Instagram's in-app browser and closed it. Trial terms
+ * (not a charge confirmation — nothing is charged yet) — see docs/CLAIMS.md
+ * for the approved wording this must stay in sync with.
  */
 export async function sendWelcomeAssignedEmail(
   args: { to: string; dashboardUrl: string },
@@ -87,15 +87,13 @@ export async function sendWelcomeAssignedEmail(
 
 You're in. Welcome to AFRA.
 
-Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.
+Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.
 
 One thing left to do:
 
 ${args.dashboardUrl}
 
 Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.
-
-You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.
 
 Reply any time. This comes straight to me.
 
@@ -106,11 +104,10 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.</p>
+    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.</p>
     <p><strong>One thing left to do</strong></p>
     <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
     <p>Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.</p>
-    <p>You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
@@ -119,7 +116,7 @@ Dallas, TX`;
 }
 
 /**
- * Welcome email, variant B — sent when the ManyChat pool was empty at payment
+ * Welcome email, variant B — sent when the ManyChat pool was empty at signup
  * time, so there's no connect action for the operator to take yet. Deliberately
  * does NOT tell them to connect Instagram (there's nothing to click) and does
  * NOT duplicate sendReadyToConnectEmail's content — it only forward-references
@@ -135,7 +132,7 @@ export async function sendWelcomeAwaitingSetupEmail(
 
 You're in. Welcome to AFRA.
 
-Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.
+Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.
 
 We're personally setting up your account now. There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.
 
@@ -144,8 +141,6 @@ In the meantime, here's your dashboard:
 ${args.dashboardUrl}
 
 Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.
-
-You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.
 
 Reply any time. This comes straight to me.
 
@@ -156,13 +151,12 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>Payment confirmed: $4,788 flat for the year, every location covered. No per-location fees, no per-candidate charges.</p>
+    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.</p>
     <p><strong>We're personally setting up your account now</strong></p>
     <p>There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.</p>
     <p><strong>In the meantime, here's your dashboard</strong></p>
     <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
     <p>Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.</p>
-    <p>You have 30 days. If candidates aren't booking interviews with you, reply and I'll refund you in full, no questions.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
@@ -272,9 +266,9 @@ export async function sendCheckinEmail(
   const subject = "Three weeks in. How's it going?";
   const text = `Hi there,
 
-You're about three weeks into AFRA. How's it going? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.
+You're about three weeks into your trial. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.
 
-The 30-day money-back guarantee still stands, no questions asked. Your dashboard is always here: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+Your dashboard is always here: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
 
 Morgan
 AFRA Visibility
@@ -282,8 +276,42 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>You're about three weeks into AFRA. How's it going? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.</p>
-    <p>The 30-day money-back guarantee still stands, no questions asked. Your dashboard is always here: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>You're about three weeks into your trial. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.</p>
+    <p>Your dashboard is always here: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * Sent once, by sendTrialEndedEmailOnce (activation.ts), the moment
+ * applyStripeStatus detects the operator's subscription has left "trialing"
+ * — whichever of the two causes triggered it (hit the 20-candidate cap early,
+ * or the 60-day backstop passed). The operator has just had their first real
+ * charge; this is the honest "billing has started" moment, not a surprise.
+ */
+export async function sendTrialEndedEmail(
+  args: { to: string; dashboardUrl: string },
+): Promise<SendResult> {
+  const subject = "Your trial's ended. You're on $399/month.";
+  const text = `Hi there,
+
+Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $399/month plan, billed to the card on file.
+
+You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $399/month plan, billed to the card on file.</p>
+    <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
 

@@ -13,6 +13,7 @@ import { Stagger } from "../../components/Stagger";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { describeBilling, describeReadiness, hiringLinkFor } from "../../lib/dashboard";
 import { prisma } from "../../lib/prisma";
+import { isBillingActive } from "../../lib/readiness";
 import { getQuestionSetForRole } from "../../lib/screeningQuestions";
 import { appBaseUrl, resolveOperatorId } from "../../lib/session";
 
@@ -106,14 +107,30 @@ export default async function DashboardPage({
   const roles = operator.locations.flatMap((l) => l.roles.map((r) => ({ role: r, location: l })));
   const candidates = operator.locations.flatMap((l) => l.candidates);
   const bookings = operator.locations.flatMap((l) => l.bookings);
-  const billing = describeBilling(operator.billingStatus, operator.plan);
-  const isFounding = operator.plan === "founding_annual";
-  const awaitingPayment = checkout === "success" && operator.billingStatus !== "active";
+  const billing = describeBilling(operator.billingStatus, operator.plan, {
+    screenedCandidateCount: operator.screenedCandidateCount,
+    // Approximate, not a live Stripe read: computed from when the checkout
+    // record was created (a few seconds before the trial actually starts, in
+    // practice) rather than fetching the subscription's real trial_end on
+    // every dashboard load. Close enough for a "free until ~<date>" display;
+    // if the trial is ever manually adjusted in Stripe this display can lag,
+    // but that's an acceptable tradeoff against adding a live Stripe network
+    // call to a page render that must keep working even if Stripe hiccups.
+    trialStartedAt: operator.createdAt,
+  });
+  // isBillingActive (readiness.ts) is the SSOT predicate for "billing is in
+  // a good state" — true for "trialing" as well as "active", since under the
+  // trial model a successful checkout redirect lands on "trialing", not
+  // "active" (nothing is charged until the trial ends). Using the same
+  // predicate here that gateBilling itself uses keeps this in sync with that
+  // logic rather than re-deriving a second, potentially-drifting definition.
+  const awaitingPayment = checkout === "success" && !isBillingActive(operator.billingStatus);
   // The post-payment welcome moment (Part 2A): shows once, right after Stripe
-  // hands them back with billingStatus already confirmed active. Branches on
-  // whether the pool assignment hook found a flow or the pool was empty —
-  // either way it's a deliberate, white-glove message, never a vague "wait".
-  const justPaid = checkout === "success" && operator.billingStatus === "active";
+  // hands them back with the checkout confirmed (billingStatus "trialing" or
+  // "active" — see isBillingActive above). Branches on whether the pool
+  // assignment hook found a flow or the pool was empty — either way it's a
+  // deliberate, white-glove message, never a vague "wait".
+  const justPaid = checkout === "success" && isBillingActive(operator.billingStatus);
 
   const creativeHref = `/dashboard/creative?operator=${operator.id}`;
 
@@ -600,27 +617,25 @@ export default async function DashboardPage({
             <span className="font-medium text-ink">{billing.label}</span>
             <span className="text-ink-soft"> — {billing.detail}</span>
           </p>
-          {isFounding ? (
-            <p className="mt-3 text-xs text-faint">
-              Your annual plan is a one-time charge — nothing recurring to manage. Within 30 days of
-              payment, contact support for the money-back guarantee.
-            </p>
-          ) : (
-            <div className="mt-4 flex gap-2">
-              <form action={updateCardAction}>
-                <input type="hidden" name="operatorId" value={operator.id} />
-                <button className="rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink hover:bg-cream">
-                  Update card
-                </button>
-              </form>
-              <form action={cancelSubscriptionAction}>
-                <input type="hidden" name="operatorId" value={operator.id} />
-                <button className="rounded-full border border-red-400/40 px-4 py-1.5 text-sm text-red-300 hover:bg-red-500/10">
-                  Cancel subscription
-                </button>
-              </form>
-            </div>
-          )}
+          {/* Every operator has a real Stripe subscription to manage now
+              (the founding plan's own one-time charge is retired — see
+              docs/CLAIMS.md), so these actions render unconditionally. Both
+              are generic and plan-agnostic already (updateCard/cancelBilling
+              in activation.ts key only on operatorId). */}
+          <div className="mt-4 flex gap-2">
+            <form action={updateCardAction}>
+              <input type="hidden" name="operatorId" value={operator.id} />
+              <button className="rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink hover:bg-cream">
+                Update card
+              </button>
+            </form>
+            <form action={cancelSubscriptionAction}>
+              <input type="hidden" name="operatorId" value={operator.id} />
+              <button className="rounded-full border border-red-400/40 px-4 py-1.5 text-sm text-red-300 hover:bg-red-500/10">
+                Cancel subscription
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </section>

@@ -139,6 +139,30 @@ model Operator {
   /// Null until the day-20 check-in email has been attempted.
   checkinEmailSentAt DateTime?
 
+  // --- Trial (20-free-screened-candidate cap, 60-day backstop) --------------
+  // Replaces the one-time $4,788/yr charge (August 2026 repricing) with a
+  // $399/mo subscription whose first FREE_CANDIDATE_CAP screened candidates
+  // are free — see src/lib/billing.ts. Stripe's own trial_period_days
+  // (TRIAL_DAYS_BACKSTOP) enforces the 60-day cap with zero app code; these
+  // fields track the OTHER trigger (hitting the candidate cap early, via
+  // Candidate.countedTowardTrial in manychat.ts) and the shared reconciliation
+  // outcome in applyStripeStatus (src/lib/activation.ts), which both trial-end
+  // causes converge on.
+  /// Running count of this operator's candidates that have ever reached
+  /// "screened" or beyond (STAGE_RANK-based, see manychat.ts). Incremented
+  /// exactly once per candidate via Candidate.countedTowardTrial — never
+  /// derived by re-counting Candidates, so it survives even if a candidate's
+  /// stage later regresses in some future feature. Never decremented.
+  screenedCandidateCount Int @default(0)
+  /// Set once, by applyStripeStatus, the first time this operator's
+  /// subscription leaves "trialing" — regardless of whether that was caused
+  /// by hitting the candidate cap early or Stripe's natural 60-day backstop.
+  /// Null while still trialing or never started a trial.
+  trialEndedAt DateTime?
+  /// Idempotency claim for the trial-ended email, same claim-before-send
+  /// idiom as welcomeEmailSentAt/liveEmailSentAt above.
+  trialEndedEmailSentAt DateTime?
+
   locations          Location[]
   channelConnections ChannelConnection[]
   conversations      Conversation[]
@@ -436,6 +460,13 @@ model Candidate {
   availability String?
   /// Pipeline stage: "applied" | "screened" | "booked" | "showed" | "rejected"
   stage      String   @default("applied")
+  /// Claimed atomically (updateMany guarded on this being false) the moment
+  /// this candidate first reaches "screened" or beyond (STAGE_RANK-based, see
+  /// ingestScreeningResult in manychat.ts) — guarantees Operator.
+  /// screenedCandidateCount is incremented exactly once per candidate across
+  /// ManyChat webhook retries/reprocessing. Independent of `stage`'s own
+  /// never-regress guard; this field never resets even if stage regresses.
+  countedTowardTrial Boolean @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

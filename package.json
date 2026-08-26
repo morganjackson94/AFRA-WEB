@@ -29,7 +29,8 @@
     "email-normalization:smoke": "tsx scripts/email-normalization-smoke.ts",
     "wizard-funnel:smoke": "tsx scripts/wizard-funnel-smoke.ts",
     "wizard-funnel:report": "tsx scripts/wizard-funnel-report.ts",
-    "per-location-price:smoke": "tsx scripts/per-location-price-smoke.ts"
+    "per-location-price:smoke": "tsx scripts/per-location-price-smoke.ts",
+    "trial-counter:smoke": "tsx scripts/trial-counter-smoke.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

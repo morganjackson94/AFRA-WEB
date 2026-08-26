@@ -5,7 +5,7 @@ import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
 import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
-import { sendWelcomeAssignedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
+import { sendTrialEndedEmail, sendWelcomeAssignedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
 import { claimAvailableFlow } from "./manychatPool";
 import { CONNECTED, evaluateReadiness } from "./readiness";
 
@@ -199,18 +199,21 @@ export async function startFoundingCheckout(
 }
 
 /**
- * Confirm a founding payment — THE webhook path (checkout.session.completed /
- * payment_intent.succeeded). This is the ONLY thing that flips a founding
- * operator to billingStatus="active", and it must be driven by a verified Stripe
- * webhook, never a browser redirect. Idempotent: re-confirming stays "active".
- * Recompute keeps gateBilling honest via evaluateReadiness() — paying flips
- * gateBilling, NOT the channel/calendar gates.
+ * Confirm a founding checkout completed — THE webhook path
+ * (checkout.session.completed). Flips a founding operator to
+ * billingStatus="trialing" (NOT "active" — nothing has been charged yet; the
+ * trial itself starts here). Must be driven by a verified Stripe webhook,
+ * never a browser redirect. Idempotent: re-confirming while already
+ * trialing/active is a no-op re-write of the same fields. The trial's own
+ * end (candidate cap or the 60-day backstop) is reconciled separately, in
+ * ONE shared place — applyStripeStatus below — not here.
  */
 export async function confirmFoundingPayment(
   prisma: PrismaClient,
   operatorId: string,
   ids: {
     customerId?: string | null;
+    subscriptionId?: string | null;
     paymentIntentId?: string | null;
     checkoutSessionId?: string | null;
     /** Stripe's own event.livemode from the verified webhook event. Required
@@ -224,37 +227,40 @@ export async function confirmFoundingPayment(
   await prisma.operator.update({
     where: { id: operatorId },
     data: {
-      billingStatus: "active",
+      billingStatus: "trialing",
       plan: "founding_annual",
       stripeCustomerId: ids.customerId ?? op.stripeCustomerId,
+      stripeSubscriptionId: ids.subscriptionId ?? op.stripeSubscriptionId,
       stripePaymentIntentId: ids.paymentIntentId ?? op.stripePaymentIntentId,
       stripeCheckoutSessionId: ids.checkoutSessionId ?? op.stripeCheckoutSessionId,
       stripeLivemode: ids.livemode,
-      // Day-20 check-in fuse (see /api/jobs/run-scheduled-emails). Set once,
-      // here, at confirmed payment — never overwritten on a webhook retry
-      // since checkinEmailDueAt isn't read from `op` above (it would already
-      // be set on a retry, but re-setting it to the same ~20-days-from-now
-      // math on every retry would be harmless anyway; guarded to only set it
-      // the first time regardless, so a delayed retry can't push it out).
+      // Day-20 check-in fuse (see /api/jobs/run-scheduled-emails) — a
+      // personal how's-it-going touch, independent of the trial mechanics
+      // above. Set once, here, at checkout completion — never overwritten on
+      // a webhook retry since checkinEmailDueAt isn't read from `op` above
+      // (it would already be set on a retry, but re-setting it to the same
+      // ~20-days-from-now math on every retry would be harmless anyway;
+      // guarded to only set it the first time regardless, so a delayed retry
+      // can't push it out).
       ...(op.checkinEmailDueAt ? {} : { checkinEmailDueAt: new Date(Date.now() + CHECKIN_DELAY_MS) }),
     },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
 
-  // Post-payment hook (does NOT affect billingStatus/gateBilling above, which
-  // is already committed by this point): try to hand the operator an instant
-  // "Connect Instagram" by claiming a pre-built flow from the pool. Failure
-  // here — pool empty, no channel row, anything — must never surface as a
-  // payment error; the operator has already paid and is already "active".
+  // Post-checkout hook (does NOT affect billingStatus/gateBilling above,
+  // which is already committed by this point): try to hand the operator an
+  // instant "Connect Instagram" by claiming a pre-built flow from the pool.
+  // Failure here — pool empty, no channel row, anything — must never surface
+  // as a checkout error; the operator's trial has already started.
   const assignment = await tryAssignFlow(prisma, operatorId);
 
-  // Welcome email — the operator's first owned touch after payment. Branches
+  // Welcome email — the operator's first owned touch after checkout. Branches
   // on whether tryAssignFlow above actually got them a connect action. Same
   // non-blocking guarantee as tryAssignFlow: nothing in here may throw across
   // this function or affect billingStatus.
   const welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
 
-  return { billingStatus: "active", recompute, flowAssignment: assignment, welcomeEmail };
+  return { billingStatus: "trialing", recompute, flowAssignment: assignment, welcomeEmail };
 }
 
 export type FlowAssignmentOutcome =
@@ -476,17 +482,102 @@ export async function connectCalendar(
   return { status: res.status, recompute };
 }
 
+export type TrialEndedEmailOutcome =
+  | { sent: true }
+  | { sent: false; reason: "already-sent" | "stub" | "error" };
+
 /**
- * Apply a Stripe subscription status to an operator (the dunning / webhook path).
- * e.g. an invoice.payment_failed webhook -> "past_due" -> gateBilling flips false.
+ * Apply a Stripe subscription status to an operator — the dunning/webhook
+ * path (e.g. invoice.payment_failed -> "past_due" -> gateBilling flips
+ * false), shared by BOTH the founding/subscription-trial plan and the
+ * separate, dead-but-still-present per-location monthly plan (its own
+ * unrelated 14-day trial, PRICE_PER_LOCATION_CENTS in billing.ts).
+ *
+ * For plan === "founding_annual" specifically, this is ALSO the single
+ * shared reconciliation point for BOTH ways that trial can end: hitting the
+ * candidate cap early (endTrialForCandidateCap below calls Stripe, which
+ * fires a webhook that lands here) and Stripe's own natural 60-day backstop
+ * (trial_period_days on the subscription — no app code triggers it, but it
+ * fires the exact same customer.subscription.updated webhook, which also
+ * lands here). Both causes are indistinguishable by the time they reach this
+ * function, which is deliberate: it guarantees trialEndedAt and the
+ * trial-ended email fire exactly once, from one place, regardless of which
+ * cause ended the trial. The plan check below keeps this behavior scoped to
+ * that plan only — the per-location plan's own trialing->past_due dunning
+ * transition must not be mistaken for the same event (their trials are
+ * unrelated mechanisms with unrelated copy).
  */
 export async function applyStripeStatus(
   prisma: PrismaClient,
   operatorId: string,
   stripeStatus: string,
 ) {
+  const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   const billingStatus = mapStripeStatus(stripeStatus);
-  await prisma.operator.update({ where: { id: operatorId }, data: { billingStatus } });
+  const justEndedTrial =
+    operator.plan === "founding_annual" &&
+    operator.billingStatus === "trialing" &&
+    billingStatus !== "trialing" &&
+    !operator.trialEndedAt;
+
+  await prisma.operator.update({
+    where: { id: operatorId },
+    data: { billingStatus, ...(justEndedTrial ? { trialEndedAt: new Date() } : {}) },
+  });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
-  return { billingStatus, recompute };
+  const trialEndedEmail = justEndedTrial ? await sendTrialEndedEmailOnce(prisma, operatorId) : undefined;
+  return { billingStatus, recompute, trialEndedEmail };
+}
+
+/**
+ * The candidate-cap trigger for ending a trial early (see FREE_CANDIDATE_CAP,
+ * billing.ts). Deliberately does nothing but call Stripe: no DB writes, no
+ * email. Every state change (billingStatus, trialEndedAt, the trial-ended
+ * email) happens when the resulting webhook lands in applyStripeStatus above
+ * — this function's only job is to be the thing that makes that webhook fire.
+ * Re-checks billingStatus/stripeSubscriptionId defensively in case of a race
+ * with a second candidate crossing the threshold concurrently.
+ */
+export async function endTrialForCandidateCap(
+  prisma: PrismaClient,
+  billing: BillingProvider,
+  operatorId: string,
+): Promise<void> {
+  const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+  if (operator.billingStatus !== "trialing" || !operator.stripeSubscriptionId) return;
+  await billing.endTrialNow(operator.stripeSubscriptionId);
+}
+
+/**
+ * Fires the trial-ended email exactly once per operator, the moment
+ * applyStripeStatus detects a trialing -> non-trialing transition (candidate
+ * cap or the 60-day backstop — see that function's doc comment). Same
+ * claim-before-send idiom as sendWelcomeEmailOnce/sendLiveEmailOnce.
+ */
+async function sendTrialEndedEmailOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+): Promise<TrialEndedEmailOutcome> {
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, trialEndedEmailSentAt: null },
+    data: { trialEndedEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return { sent: false, reason: "already-sent" };
+
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    const token = await createLoginToken(prisma, operatorId);
+    const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
+    console.log(`[trial-ended-email] attempting send to operator ${operatorId}`);
+    const result = await sendTrialEndedEmail({ to: operator.email, dashboardUrl });
+    if (result.sent) {
+      console.log(`[trial-ended-email] sent to operator ${operatorId}`);
+    } else {
+      console.error(`[trial-ended-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
+    }
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] trial-ended email send failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
 }

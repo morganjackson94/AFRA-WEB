@@ -11,7 +11,7 @@ import { RaceNarrative } from "../components/RaceNarrative";
 import { StepsSketch } from "../components/StepsSketch";
 import { Reveal } from "../components/Reveal";
 import { Stagger } from "../components/Stagger";
-import { ANNUAL_PRICE_CENTS } from "../lib/billing";
+import { FREE_CANDIDATE_CAP, MONTHLY_PRICE_CENTS, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
@@ -19,21 +19,16 @@ const SECTION = "mx-auto max-w-[1120px] px-6";
 // Major-section rhythm: a warm hairline divider + generous vertical air.
 const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 
-// Standing annual price (see docs/CLAIMS.md). Repriced August 2026 — the
-// founding cohort deadline passed with zero sales, so this replaced the old
-// two-tier $1,990-then-$4,788 framing. One price, not an introductory rate.
+// Standing monthly price (see docs/CLAIMS.md). Repriced again: the
+// one-time $4,788/yr charge (itself an earlier August 2026 repricing) was
+// replaced with a real subscription so a genuine free trial is possible: the
+// first FREE_CANDIDATE_CAP screened candidates are free, for up to
+// TRIAL_DAYS_BACKSTOP days, whichever comes first.
 const PRICING = {
-  price: `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $4,788
-  monthlyEquivalent: `$${Math.round(ANNUAL_PRICE_CENTS / 100 / 12)}`, // ~$399/mo, framing only — not billed monthly
+  price: `$${(MONTHLY_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $399
+  freeCandidateCap: FREE_CANDIDATE_CAP,
+  trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
 };
-
-// TODO(billing): The annual plan (Operator.plan = "founding_annual" — an
-// internal identifier, not customer-facing) is an ANNUAL PREPAY (one-time
-// ~$4,788 charge), but Step 3's Stripe integration was built MONTHLY ($199/mo
-// recurring). This copy ships now; the billing wiring is a SEPARATE change:
-// add an annual Stripe product/price and route annual signups to a one-time
-// annual charge instead of the monthly subscription. Do NOT treat monthly as
-// annual — provision() currently still starts a monthly trial sub.
 
 function CTA({
   size = "base",
@@ -60,6 +55,25 @@ function CTA({
     >
       {label}
     </Link>
+  );
+}
+
+// The founder's own sales-call calendar — distinct from Operator.
+// bookingLinkUrl (each operator's own candidate-interview booking link, set
+// during onboarding). Renders nothing when unset rather than a dead link.
+// Deliberately a quiet text link, never competing with the primary CTA.
+function BookACallLink({ className = "" }: { className?: string }) {
+  const url = process.env.SALES_CALL_URL;
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`text-[14.5px] font-medium text-ink-soft underline decoration-line-strong underline-offset-4 transition-colors duration-150 hover:text-ink ${className}`}
+    >
+      Book a call with us
+    </a>
   );
 }
 
@@ -109,14 +123,15 @@ const STEPS = [
 const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
   { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
-  { q: "What if it doesn't work for me?", a: "You're covered by a 30-day money-back guarantee. Try it for 30 days. If candidates aren't booking interviews with you, ask for a full refund." },
+  { q: "What if it doesn't work for me?", a: "Your first 20 screened candidates are free, for up to 60 days. If it's not working, cancel any time before then and you're never charged. You only start paying once you've seen it work." },
   { q: "How does follow-up work?", a: "Within the first 24 hours the bot replies instantly on its own. After that, following up is one tap: you send the reminder in the same chat. No autopilot chasing, no phone tag." },
-  { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live and receiving candidates within 7 days, or you don't pay." },
+  { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live and receiving candidates within 7 days." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
-  { q: "What if I want a refund?", a: "Full refund within 30 days, no questions asked. After that, your year is yours and you are free not to renew." },
-  { q: "How does billing work?", a: "One annual charge of $4,788, covering every location. It's not a subscription that silently auto-renews. Before your year is up, we'll reach out to arrange renewal at the same rate. You'll always get at least 30 days' notice before any future price change." },
+  { q: "What counts as a candidate?", a: "Someone who completes your screening and passes it. Applicants who don't meet your bar don't count against your free 20." },
+  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $399/month on the card you added at signup. You can cancel any time, before or after that." },
+  { q: "How does billing work?", a: "$399/month, covering every location, starting once your trial ends. Cancel any time from your dashboard. No annual commitment, no long-term contract." },
   {
     q: "What exactly do I get?",
     a: [
@@ -126,7 +141,7 @@ const FAQ: { q: string; a: string | string[] }[] = [
       "One-tap follow-up reminders",
       "One simple dashboard for every location",
       "Personal setup. We build and connect your flow for you.",
-      "30-day money-back guarantee",
+      "First 20 screened candidates free",
     ],
   },
 ];
@@ -185,6 +200,7 @@ export default function LandingPage() {
                 </Magnetic>
                 <DemoModal variant="ghost" />
               </div>
+              <BookACallLink className="mt-5 block" />
             </Reveal>
           </div>
 
@@ -375,20 +391,19 @@ export default function LandingPage() {
           what's-included right. Stacks to a single column on mobile. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-12 max-w-[18ch]">Simple, flat pricing.</h2>
+          <h2 className="t-title mb-12 max-w-[18ch]">Try it free. Then $399/mo.</h2>
         </Reveal>
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
             <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
               <div className="t-price">{PRICING.price}</div>
-              <div className="mt-3 text-[15px] text-ink-soft">Per year. All your locations. Billed once.</div>
+              <div className="mt-3 text-[15px] text-ink-soft">Per month. All your locations. Cancel any time.</div>
 
-              {/* Reassurance framing, not a billing plan: prominent so a cold
-                  operator gets the "oh, that's only ~$399/mo" reframe, but
-                  visibly secondary to the $4,788 headline they're actually
-                  charged (they can't pay monthly — no monthly Stripe path). */}
+              {/* The trial IS the risk reversal now — no guarantee to run
+                  alongside it, since you can't refund a charge that was
+                  never made. Prominent, since this is the actual offer. */}
               <div className="mt-4 text-[18px] font-semibold text-ink">
-                That works out to about {PRICING.monthlyEquivalent} a month.
+                Your first {PRICING.freeCandidateCap} screened candidates are free.
               </div>
 
               {/* Structural, location-agnostic reinforcement — no location
@@ -404,15 +419,15 @@ export default function LandingPage() {
                 <CTA size="lg" full />
               </div>
 
-              {/* Risk reversal replaces the free trial */}
               <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
-                <p className="text-[14px] font-semibold text-ink">30-day money-back guarantee</p>
+                <p className="text-[14px] font-semibold text-ink">Free for {PRICING.freeCandidateCap} candidates or {PRICING.trialDaysBackstop} days</p>
                 <p className="mt-1 text-[13px] text-ink-soft">
-                  Try it for 30 days. If candidates aren&apos;t booking interviews with you, full refund, no questions.
+                  Whichever comes first. A card is required to start, but nothing is charged until
+                  then, and you can cancel any time before that with nothing owed.
                 </p>
               </div>
               <p className="mt-3 text-[13px] text-faint">
-                Paid from day one. The guarantee is your safety net. Cancel inside 30 days for a full refund.
+                After the trial, it&apos;s {PRICING.price}/month, billed to the card on file, until you cancel.
               </p>
             </div>
 
@@ -433,6 +448,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
+              <BookACallLink className="mt-8" />
             </div>
           </div>
         </Reveal>

@@ -8,7 +8,7 @@
 // proceed. isNonOperator()/isOverCapacity() below are kept only so historical
 // Operator rows written under the old "0"/"15+" buckets still label/read
 // correctly; the wizard no longer calls them.
-import { ANNUAL_PRICE_CENTS } from "./billing";
+import { MONTHLY_PRICE_CENTS } from "./billing";
 
 export const LOCATION_BUCKETS = [
   { value: "1-2", label: "1-2" },
@@ -80,7 +80,7 @@ export function locationCountForBucket(bucket: string): number {
 }
 
 // Per-location price framing (decided 2026-08-01, see docs/CLAIMS.md) — AFRA's
-// flat $4,788/yr gets cheaper per location the more locations an operator
+// flat $399/mo gets cheaper per location the more locations an operator
 // runs, unlike per-location/per-seat competitors. Reflecting that back at the
 // operator is honest arithmetic, not a fabricated stat.
 //
@@ -96,7 +96,7 @@ export function locationCountForBucket(bucket: string): number {
 // weakest exactly where it's least true, so that bucket shows the flat price
 // only (see OnboardingWizard.tsx step 4).
 export function perLocationMonthlyDollars(locationCount: number): number {
-  return Math.round(ANNUAL_PRICE_CENTS / 12 / locationCount / 100);
+  return Math.round(MONTHLY_PRICE_CENTS / locationCount / 100);
 }
 
 const LOCATION_BUCKET_UPPER_BOUND: Partial<Record<string, number>> = {

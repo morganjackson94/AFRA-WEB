@@ -6,24 +6,33 @@ import Stripe from "stripe";
 
 export const PRICE_PER_LOCATION_CENTS = 19900; // $199/mo per location (monthly path)
 export const TRIAL_DAYS = 14; // 2-week free trial (monthly path only)
-// $4,788/yr flat, all locations, one standing price (see docs/CLAIMS.md).
-// Repriced August 2026 — the founding cohort deadline (July 31, 2026) passed
-// with zero sales; this replaced the old $1,990 founding-year price with no
-// separate renewal figure, since entry and renewal are now the same number.
-export const ANNUAL_PRICE_CENTS = 478800;
+// $399/mo flat, all locations, one standing subscription price (see
+// docs/CLAIMS.md). Repriced again: the one-time $4,788/yr annual charge
+// (itself an earlier August 2026 repricing) was replaced with a real monthly
+// subscription. The upfront-risk objection from prospects was the single
+// most consistent piece of sales feedback, and a subscription is what makes
+// a genuine free trial (see FREE_CANDIDATE_CAP/TRIAL_DAYS_BACKSTOP below)
+// possible in the first place — a one-time charge has nothing to "trial."
+export const MONTHLY_PRICE_CENTS = 39900;
+// The trial: free until the operator has had this many candidates reach
+// "screened" or beyond (see Candidate.countedTowardTrial, incremented in
+// ingestScreeningResult, manychat.ts), or TRIAL_DAYS_BACKSTOP days pass,
+// whichever comes first. The 60-day backstop needs no app code of its own —
+// it's enforced by Stripe's own trial_period_days on the subscription
+// (createFoundingCheckout below); the candidate-cap trigger is the other,
+// app-driven way a trial can end, via endTrialNow. Both converge on the same
+// Stripe event (customer.subscription.updated) and the same reconciliation
+// path (applyStripeStatus, activation.ts) — see docs/CLAIMS.md.
+export const FREE_CANDIDATE_CAP = 20;
+export const TRIAL_DAYS_BACKSTOP = 60;
 // Internal capacity gate only — no longer a marketed "first N only" cohort
-// (that ended with the August 2026 repricing above). Kept as an operational
+// (that ended with the August 2026 repricing). Kept as an operational
 // safety valve; see countActiveFoundingOperators() in activation.ts, which
 // enforces this against real billingStatus="active" data (src/app/onboarding/
 // actions.ts blocks checkout once it's reached). If it ever fires, the
 // decline message must read as generic capacity/waitlist language — nothing
 // customer-facing should reference this number.
 export const FOUNDING_SPOTS_TOTAL = 10;
-
-// TODO(billing): The annual charge is a ONE-TIME payment, not a subscription.
-// Renewal at the same $4,788/yr rate is promised but NOT automated. Build
-// either (a) an annual Stripe subscription, or (b) a renewal reminder +
-// invoice flow, before the first cohort's year ends.
 
 /** Maps a raw Stripe subscription status to our Operator.billingStatus vocabulary. */
 export function mapStripeStatus(stripeStatus: string): string {
@@ -61,14 +70,20 @@ export interface BillingProvider {
     customerId: string;
     paymentMethodId: string;
   }): Promise<{ ok: true }>;
-  getSubscriptionStatus(subscriptionId: string): Promise<{ stripeStatus: string }>;
+  getSubscriptionStatus(subscriptionId: string): Promise<{ stripeStatus: string; trialEnd: number | null }>;
 
   /**
-   * Create a Stripe-HOSTED Checkout Session for the one-time $4,788 annual
-   * charge. The operator enters their card on Stripe's page — our code never
-   * sees raw card data. Returns the hosted URL to redirect to, plus the session
-   * + customer ids we persist for webhook matching. mode = "payment" (one-time),
-   * NOT a subscription, NOT a trial.
+   * Create a Stripe-HOSTED Checkout Session for the $399/mo subscription,
+   * with a trial (see TRIAL_DAYS_BACKSTOP) so nothing is charged until the
+   * trial ends. The operator enters their card on Stripe's page (required
+   * up front — subscription-mode Checkout collects a payment method by
+   * default even during a trial) — our code never sees raw card data.
+   * Returns the hosted URL to redirect to, plus the session + customer ids
+   * we persist for webhook matching. mode = "subscription", WITH a trial —
+   * despite the name, this is no longer a one-time "founding" charge; the
+   * function/field names here are pre-existing internal identifiers kept
+   * unchanged (not customer-facing, not renamed as part of the repricing —
+   * see docs/CLAIMS.md).
    */
   createFoundingCheckout(args: {
     operatorId: string;
@@ -79,13 +94,31 @@ export interface BillingProvider {
   }): Promise<{ checkoutUrl: string; sessionId: string; customerId: string }>;
 
   /**
-   * Read-only lookup of what a completed Checkout Session actually charged,
-   * for the Purchase pixel event on /welcome (real amount over a hardcoded
-   * constant — avoids drift if pricing ever changes). Returns null
-   * if the session can't be found/read; callers fall back to
-   * ANNUAL_PRICE_CENTS in that case. Never mutates anything.
+   * Read-only lookup of what a completed Checkout Session actually charged.
+   * Under the trial model this is legitimately 0 at signup (nothing is
+   * charged until the trial ends) — callers must not treat it as "the real
+   * charged amount" the way the retired one-time-charge model did. Returns
+   * null if the session can't be found/read. Never mutates anything.
+   *
+   * No longer read by /welcome (it fires Meta's StartTrial with value: 0
+   * unconditionally now, not a real charged amount). The trial->paid
+   * conversion pixel event (the real revenue signal) is a deliberately
+   * descoped fast-follow — the existing "redirect to a page that fires
+   * client-side fbq" pattern has no equivalent for an async webhook event
+   * (candidate cap or the 60-day backstop) with nobody on a page; the correct
+   * long-term fix is server-side Conversions API, not built here.
    */
   getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
+
+  /**
+   * End a subscription's trial immediately (the candidate-cap trigger — see
+   * FREE_CANDIDATE_CAP). Does nothing else: no DB writes, no email. The
+   * resulting Stripe status change is picked up by the webhook and
+   * reconciled in ONE shared place, applyStripeStatus (activation.ts), the
+   * same place the OTHER trial-end trigger (Stripe's own 60-day backstop)
+   * lands — so both causes always produce identical, non-duplicated effects.
+   */
+  endTrialNow(subscriptionId: string): Promise<{ stripeStatus: string }>;
 }
 
 // --- Real Stripe (test mode) -------------------------------------------------
@@ -165,10 +198,12 @@ export class StripeBillingProvider implements BillingProvider {
 
   async getSubscriptionStatus(subscriptionId: string) {
     const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
-    return { stripeStatus: sub.status };
+    return { stripeStatus: sub.status, trialEnd: sub.trial_end };
   }
 
-  /** The founding annual product. Reuses STRIPE_FOUNDING_PRODUCT_ID or creates once. */
+  /** The subscription product. Reuses STRIPE_FOUNDING_PRODUCT_ID or creates once.
+   *  (Pre-existing internal identifier, kept unchanged — see the interface
+   *  doc comment on createFoundingCheckout.) */
   private async ensureFoundingProductId(): Promise<string> {
     if (this.foundingProductId) return this.foundingProductId;
     if (process.env.STRIPE_FOUNDING_PRODUCT_ID) {
@@ -176,7 +211,7 @@ export class StripeBillingProvider implements BillingProvider {
       return this.foundingProductId;
     }
     const product = await this.stripe.products.create({
-      name: "AFRA — Annual Plan",
+      name: "AFRA — Monthly Plan",
     });
     this.foundingProductId = product.id;
     return this.foundingProductId;
@@ -189,15 +224,17 @@ export class StripeBillingProvider implements BillingProvider {
     successUrl: string;
     cancelUrl: string;
   }) {
-    // Create the customer up front so we persist its id (the one-time payment
-    // makes no subscription). Stripe Checkout collects the card on its own page.
+    // Create the customer up front so we persist its id. Stripe Checkout
+    // collects the card on its own page — required up front by default for
+    // subscription-mode Checkout, even with a trial (no payment_method_
+    // collection override needed; Stripe's default is "always").
     const customer = await this.stripe.customers.create({
       email: args.email,
       name: args.name,
       metadata: { operatorId: args.operatorId },
     });
 
-    // A pre-made annual price id wins; else build a one-time price_data line.
+    // A pre-made monthly price id wins; else build a recurring price_data line.
     const priceId = process.env.STRIPE_FOUNDING_PRICE_ID;
     const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = priceId
       ? { price: priceId, quantity: 1 }
@@ -205,21 +242,35 @@ export class StripeBillingProvider implements BillingProvider {
           quantity: 1,
           price_data: {
             currency: "usd",
-            unit_amount: ANNUAL_PRICE_CENTS,
+            unit_amount: MONTHLY_PRICE_CENTS,
+            recurring: { interval: "month" },
             product: await this.ensureFoundingProductId(),
           },
         };
 
     const session = await this.stripe.checkout.sessions.create({
-      mode: "payment", // one-time charge, NOT a subscription, NO trial
+      mode: "subscription", // recurring monthly, WITH a trial (see subscription_data)
       customer: customer.id,
       line_items: [lineItem],
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS_BACKSTOP,
+        // No card on file by the natural trial end -> cancel cleanly rather
+        // than attempting a charge with nothing to charge. In practice this
+        // shouldn't fire: Checkout's default payment_method_collection
+        // already requires a card before the session can complete.
+        trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+        // Also on the subscription itself (not just the Checkout Session
+        // below) so the webhook can resolve operatorId directly off
+        // customer.subscription.* events even if they arrive before
+        // checkout.session.completed has persisted stripeSubscriptionId —
+        // Stripe doesn't guarantee webhook delivery order.
+        metadata: { operatorId: args.operatorId },
+      },
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
       client_reference_id: args.operatorId,
       // metadata is echoed on the webhook event for operator matching.
       metadata: { operatorId: args.operatorId, plan: "founding_annual" },
-      payment_intent_data: { metadata: { operatorId: args.operatorId } },
     });
 
     if (!session.url) throw new Error("Stripe did not return a Checkout URL");
@@ -230,13 +281,18 @@ export class StripeBillingProvider implements BillingProvider {
     try {
       const session = await this.stripe.checkout.sessions.retrieve(sessionId);
       if (session.amount_total == null || !session.currency) return null;
+      // Legitimately 0 during the trial — see the interface doc comment.
       return { amountTotal: session.amount_total, currency: session.currency };
     } catch {
       // Bad/unknown session id (e.g. a stale or tampered query param) — the
-      // caller falls back to the known founding price rather than erroring
-      // the page a real paying operator just landed on.
+      // caller must not treat a null return as an error on a real signup.
       return null;
     }
+  }
+
+  async endTrialNow(subscriptionId: string) {
+    const sub = await this.stripe.subscriptions.update(subscriptionId, { trial_end: "now" });
+    return { stripeStatus: sub.status };
   }
 }
 
@@ -267,7 +323,14 @@ export class FakeBillingProvider implements BillingProvider {
   }
 
   async getSubscriptionStatus(subscriptionId: string) {
-    return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing" };
+    return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing", trialEnd: null };
+  }
+
+  async endTrialNow(subscriptionId: string) {
+    // No real webhook loop in fake mode, so the fake must self-report the
+    // outcome directly rather than relying on an async event to land later.
+    this.statuses.set(subscriptionId, "active");
+    return { stripeStatus: "active" };
   }
 
   async createFoundingCheckout(args: {
@@ -283,10 +346,13 @@ export class FakeBillingProvider implements BillingProvider {
     // browser redirect param as proof of payment). Gated to fake mode in the route.
     const sessionId = `cs_fake_${args.operatorId}_${++this.seq}`;
     const customerId = `cus_fake_${args.operatorId}`;
+    const subscriptionId = `sub_fake_${args.operatorId}_${this.seq}`;
+    this.statuses.set(subscriptionId, "trialing");
     const origin = new URL(args.successUrl).origin;
     const url = new URL(`${origin}/api/dev/founding-checkout`);
     url.searchParams.set("session_id", sessionId);
     url.searchParams.set("operator_id", args.operatorId);
+    url.searchParams.set("subscription_id", subscriptionId);
     // Real Stripe substitutes the literal "{CHECKOUT_SESSION_ID}" placeholder
     // in success_url with the real session id before redirecting — this fake
     // stand-in has to do the same substitution itself, or callers relying on
@@ -298,9 +364,9 @@ export class FakeBillingProvider implements BillingProvider {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature must match BillingProvider
   async getCheckoutSessionAmount(_sessionId: string) {
-    // No real Checkout Session object exists in fake mode — the dev stand-in
-    // always charges the same price, so that's the honest answer.
-    return { amountTotal: ANNUAL_PRICE_CENTS, currency: "usd" };
+    // No real Checkout Session object exists in fake mode. Legitimately 0 —
+    // the trial charges nothing at signup, same as real Stripe.
+    return { amountTotal: 0, currency: "usd" };
   }
 }
 

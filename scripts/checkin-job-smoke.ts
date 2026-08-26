@@ -4,9 +4,11 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { provision } from "../src/lib/provision";
 
 // Proves POST/GET /api/jobs/run-scheduled-emails: sends the day-20 check-in
-// exactly once per eligible operator, skips refunded/canceled operators
-// (billingStatus != "active") and not-yet-due operators, and is safe to
-// re-run (a second run against the same due operator sends nothing new).
+// exactly once per eligible operator, INCLUDING one still "trialing" (day 20
+// lands almost always mid-trial under the trial model — see billing.ts —
+// so this must not be filtered out the way "active"-only used to), skips
+// refunded/canceled operators and not-yet-due operators, and is safe to
+// re-run (a second run against the same due operators sends nothing new).
 // Calls the route handler functions directly (no running server needed) —
 // same "import the route module" approach as any other Next.js route-handler
 // smoke test in this repo. Requires JOBS_ADMIN_SECRET to be set (any value)
@@ -49,8 +51,9 @@ async function main() {
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const inTenDays = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
-  console.log("Seeding: one due+active (eligible), one refunded (must be skipped), one not-yet-due (must be skipped):");
+  console.log("Seeding: one due+active, one due+trialing (both eligible), one refunded (must be skipped), one not-yet-due (must be skipped):");
   const opDue = await freshOperator("checkinsmokedue", { dueAt: yesterday, billingStatus: "active" });
+  const opTrialing = await freshOperator("checkinsmoketrialing", { dueAt: yesterday, billingStatus: "trialing" });
   const opRefunded = await freshOperator("checkinsmokerefunded", { dueAt: yesterday, billingStatus: "canceled" });
   const opNotYetDue = await freshOperator("checkinsmokenotyetdue", { dueAt: inTenDays, billingStatus: "active" });
 
@@ -63,22 +66,24 @@ async function main() {
   const badResponse = await POST(badRequest);
   assert(badResponse.status === 401, `wrong secret is rejected with 401 (got ${badResponse.status})`);
 
-  console.log("\n2) First run — must send exactly to the due+active operator:");
+  console.log("\n2) First run — must send to BOTH the due+active and due+trialing operators:");
   const result1 = await runJob();
   console.log(`   RESEND_API_KEY configured: ${Boolean(process.env.RESEND_API_KEY)}`);
   assert(result1.ok === true, "job ran ok");
-  assert(result1.eligible === 1, `eligible count is 1 (got ${result1.eligible})`);
+  assert(result1.eligible === 2, `eligible count is 2 (got ${result1.eligible})`);
   if (process.env.RESEND_API_KEY) {
-    assert(result1.sent === 1, `sent count is 1 (got ${result1.sent})`);
+    assert(result1.sent === 2, `sent count is 2 (got ${result1.sent})`);
   } else {
     // Stub path: sendCheckinEmail resolves { sent: false, stub: true }, which
     // the route records as an error entry, not a `sent` increment — proves
     // the route still renders/attempts the send without throwing.
-    assert(result1.sent === 0 && result1.errors.length === 1, `stub path recorded as a non-throwing attempt (got sent=${result1.sent}, errors=${JSON.stringify(result1.errors)})`);
+    assert(result1.sent === 0 && result1.errors.length === 2, `stub path recorded both as non-throwing attempts (got sent=${result1.sent}, errors=${JSON.stringify(result1.errors)})`);
   }
 
   const dueRow = await prisma.operator.findUniqueOrThrow({ where: { id: opDue } });
-  assert(dueRow.checkinEmailSentAt !== null, "checkinEmailSentAt is now set on the due operator");
+  assert(dueRow.checkinEmailSentAt !== null, "checkinEmailSentAt is now set on the due+active operator");
+  const trialingRow = await prisma.operator.findUniqueOrThrow({ where: { id: opTrialing } });
+  assert(trialingRow.checkinEmailSentAt !== null, "checkinEmailSentAt is now set on the due+trialing operator (the bug this fixture guards against)");
   const refundedRow = await prisma.operator.findUniqueOrThrow({ where: { id: opRefunded } });
   assert(refundedRow.checkinEmailSentAt === null, "refunded operator was never touched");
   const notYetDueRow = await prisma.operator.findUniqueOrThrow({ where: { id: opNotYetDue } });
@@ -89,7 +94,7 @@ async function main() {
   assert(result2.eligible === 0, `no eligible operators left (got ${result2.eligible})`);
   assert(result2.sent === 0, "sent nothing on the re-run");
 
-  await prisma.operator.deleteMany({ where: { id: { in: [opDue, opRefunded, opNotYetDue] } } });
+  await prisma.operator.deleteMany({ where: { id: { in: [opDue, opTrialing, opRefunded, opNotYetDue] } } });
   console.log("\nCheck-in job smoke test PASSED.");
 }
 

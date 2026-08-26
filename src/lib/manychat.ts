@@ -1,4 +1,6 @@
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
+import { endTrialForCandidateCap } from "./activation";
+import { FREE_CANDIDATE_CAP, getBillingProvider } from "./billing";
 import { buildAssembledQuestions, evaluateDisqualification, getQuestionSetForRole, snapshotAnswers } from "./screeningQuestions";
 
 // ManyChat bridge — candidate ingest. ManyChat cannot create flows, but a flow's
@@ -295,6 +297,41 @@ export async function ingestScreeningResult(
     candidateId = candidate.id;
     created = true;
     finalStage = nextStage;
+  }
+
+  // Trial candidate counter (see FREE_CANDIDATE_CAP, billing.ts). Counts a
+  // candidate exactly once, the first time they reach "screened" or beyond —
+  // countedTowardTrial is a permanent claim, independent of stage's own
+  // never-regress guard, so a candidate who later regresses in some future
+  // feature still stays counted. >= (not ===) correctly counts anyone who
+  // lands directly on booked/showed too, and never counts applied/rejected
+  // (both rank 0, same as "screened" - 1).
+  if ((STAGE_RANK[finalStage] ?? 0) >= (STAGE_RANK["screened"] ?? 0)) {
+    const claim = await prisma.candidate.updateMany({
+      where: { id: candidateId, countedTowardTrial: false },
+      data: { countedTowardTrial: true },
+    });
+    if (claim.count === 1) {
+      const op = await prisma.operator.update({
+        where: { id: location.operatorId },
+        data: { screenedCandidateCount: { increment: 1 } },
+        select: { screenedCandidateCount: true, billingStatus: true, stripeSubscriptionId: true, trialEndedAt: true },
+      });
+      if (
+        op.screenedCandidateCount >= FREE_CANDIDATE_CAP &&
+        op.billingStatus === "trialing" &&
+        op.stripeSubscriptionId &&
+        !op.trialEndedAt
+      ) {
+        try {
+          await endTrialForCandidateCap(prisma, getBillingProvider(), location.operatorId);
+        } catch (err) {
+          console.error(`[trial] failed to end trial early for operator ${location.operatorId}:`, err);
+          // Non-fatal — the day-60 backstop and the reconciliation job
+          // (/api/jobs/reconcile-trials) both still catch this operator.
+        }
+      }
+    }
   }
 
   // One Conversation per candidate for the operator (create-or-update), holding

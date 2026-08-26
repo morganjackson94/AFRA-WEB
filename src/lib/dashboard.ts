@@ -3,6 +3,8 @@
 // does NOT recompute gates. Its whole job is to turn that honest state into copy
 // without blurring "ready" (configured, NOT accepting applicants) into "live".
 
+import { FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "./billing";
+
 export type GateState = {
   readinessState: string; // "pending" | "ready" | "live"
   gatePlatform: boolean;
@@ -80,21 +82,42 @@ export function describeReadiness(g: GateState): ReadinessDisplay {
   };
 }
 
-/** Operator-facing billing summary copy from billingStatus + plan. */
+/** Operator-facing billing summary copy from billingStatus + plan. `extra` is
+ *  only meaningful for the founding-annual plan's "trialing" state — the
+ *  other plan/status combinations ignore it. */
 export function describeBilling(
   billingStatus: string,
   plan: string = "monthly",
+  extra?: { screenedCandidateCount?: number; trialStartedAt?: Date },
 ): { label: string; detail: string } {
   if (plan === "founding_annual") {
     switch (billingStatus) {
+      case "trialing": {
+        const used = extra?.screenedCandidateCount ?? 0;
+        const startedAt = extra?.trialStartedAt;
+        const byDate = startedAt
+          ? new Date(startedAt.getTime() + TRIAL_DAYS_BACKSTOP * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : null;
+        return {
+          label: "Free trial",
+          detail: byDate
+            ? `${used} of ${FREE_CANDIDATE_CAP} free candidates used. Free until ${byDate} otherwise.`
+            : `${used} of ${FREE_CANDIDATE_CAP} free candidates used.`,
+        };
+      }
       case "active":
-        return { label: "Active", detail: "$4,788/yr paid · 30-day money-back guarantee." };
+        return { label: "Active", detail: "$399/month." };
+      case "past_due":
+        return { label: "Payment failed", detail: "Update your card to keep your plan active." };
       case "trial_pending":
-        return { label: "Payment pending", detail: "Complete checkout to activate your annual plan." };
+        return { label: "Payment pending", detail: "Complete checkout to start your free trial." };
       case "canceled":
-        return { label: "Canceled", detail: "Your annual plan has been canceled." };
+        return { label: "Canceled", detail: "Your subscription has been canceled." };
       default:
-        return { label: "Active", detail: "$4,788/yr · annual prepay." };
+        return { label: "No plan", detail: "No active subscription." };
     }
   }
   switch (billingStatus) {

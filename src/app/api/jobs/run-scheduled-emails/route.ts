@@ -12,17 +12,20 @@ function appBaseUrl(): string {
 }
 
 // Day-20 check-in job. Finds every operator whose 20-day fuse (checkinEmailDueAt,
-// set at payment confirmation — see activation.ts's confirmFoundingPayment)
+// set at checkout confirmation — see activation.ts's confirmFoundingPayment)
 // has passed, sends the check-in email once, and stamps checkinEmailSentAt.
 // Safe to run repeatedly: each operator is claimed atomically (updateMany
 // guarded on checkinEmailSentAt still being null) BEFORE its send, same
 // idiom as every other lifecycle email in activation.ts, so re-running this
 // job (cron overlap, manual retry) can never double-send.
 //
-// billingStatus: "active" excludes refunded/canceled operators. There's no
-// automated refund webhook yet (refunds are a manual, personal process — see
-// the guarantee copy) so this depends on billingStatus being flipped away
-// from "active" by hand if an operator is refunded before day 20.
+// billingStatus in ("trialing", "active"): under the trial model (see
+// FREE_CANDIDATE_CAP/TRIAL_DAYS_BACKSTOP, billing.ts), day 20 lands almost
+// always WHILE still trialing (the trial runs up to 60 days) — that's
+// exactly when this personal how's-it-going touch is most useful, so
+// "trialing" must be included, not just "active". Excludes canceled/
+// past_due/trial_pending, since there's no point checking in on an operator
+// who never started or already left.
 //
 // Protected by a shared secret. Two ways in, both optional and independent:
 //   - X-Admin-Secret: <JOBS_ADMIN_SECRET> — same pattern as the ManyChat admin
@@ -67,7 +70,7 @@ async function runJob(request: Request): Promise<Response> {
     where: {
       checkinEmailDueAt: { lte: new Date() },
       checkinEmailSentAt: null,
-      billingStatus: "active",
+      billingStatus: { in: ["trialing", "active"] },
     },
     select: { id: true },
   });

@@ -553,11 +553,12 @@ export function OnboardingWizard({
                   <SectionLabel index="04" tone="dark">Price</SectionLabel>
                 </Reveal>
                 <Reveal hero delay={90}>
-                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$4,788/year, every location included</h2>
+                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$399/month, every location included</h2>
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
-                    One flat rate, paid annually. A few more questions and you&apos;re done.
+                    One flat rate. Your first 20 screened candidates are free. A few more questions and
+                    you&apos;re done.
                   </p>
                 </Reveal>
                 {perLocationMonthly !== null && (
@@ -570,9 +571,9 @@ export function OnboardingWizard({
                 <Reveal delay={300}>
                   <ul className="space-y-3">
                     {[
-                      "Flat $4,788/year — every location covered",
-                      "Paid from day one, no trial",
-                      "30-day money-back guarantee",
+                      "Flat $399/month — every location covered",
+                      "First 20 screened candidates free, up to 60 days",
+                      "Cancel any time, nothing owed during the trial",
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
                         <Check className="mt-0.5 size-[16px] flex-none text-accent" />
@@ -845,7 +846,7 @@ export function OnboardingWizard({
           )}
           {step === TOTAL && !restricted && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[13.5px] text-threshold-ink-soft">
-              <Check className="size-3.5 text-accent" /> Paid from day one · 30-day money-back guarantee
+              <Check className="size-3.5 text-accent" /> First 20 screened candidates free · cancel any time
             </p>
           )}
         </div>

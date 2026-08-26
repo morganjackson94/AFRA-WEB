@@ -19,6 +19,7 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("session_id") ?? "";
   const operatorId = url.searchParams.get("operator_id") ?? "";
+  const subscriptionId = url.searchParams.get("subscription_id") ?? "";
   const success = url.searchParams.get("success") ?? "/dashboard";
   const cancel = url.searchParams.get("cancel") ?? "/onboarding";
 
@@ -49,15 +50,16 @@ export async function GET(request: Request): Promise<Response> {
 </style></head><body>
   <div class="card">
     <div class="badge">Test mode · dev stand-in</div>
-    <h1>AFRA — Annual Plan</h1>
-    <div class="amt">$4,788</div>
-    <div class="sub">First year · annual prepay, billed once</div>
+    <h1>AFRA — Monthly Plan</h1>
+    <div class="amt">$399/mo</div>
+    <div class="sub">First 20 screened candidates free · 60-day trial cap</div>
     <form method="post">
       <input type="hidden" name="action" value="pay"/>
       <input type="hidden" name="session_id" value="${sessionId}"/>
       <input type="hidden" name="operator_id" value="${operatorId}"/>
+      <input type="hidden" name="subscription_id" value="${subscriptionId}"/>
       <input type="hidden" name="success" value="${success}"/>
-      <button class="pay" type="submit">Pay $4,788 (simulate confirmed payment)</button>
+      <button class="pay" type="submit">Start trial (simulate checkout complete)</button>
     </form>
     <form method="post">
       <input type="hidden" name="action" value="cancel"/>
@@ -83,12 +85,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const operatorId = String(form.get("operator_id") ?? "");
   const sessionId = String(form.get("session_id") ?? "");
+  const subscriptionId = String(form.get("subscription_id") ?? "");
   const success = String(form.get("success") || "/dashboard");
 
   // Simulate the webhook server-side (same function the real webhook calls).
   // Never livemode — this route only exists in fake billing mode at all.
   await confirmFoundingPayment(prisma, operatorId, {
     checkoutSessionId: sessionId,
+    subscriptionId,
     paymentIntentId: `pi_fake_${operatorId}`,
     customerId: `cus_fake_${operatorId}`,
     livemode: false,
