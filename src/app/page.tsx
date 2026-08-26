@@ -396,8 +396,10 @@ export default function LandingPage() {
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
             <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
-              <div className="t-price">{PRICING.price}</div>
-              <div className="mt-3 text-[15px] text-ink-soft">Per month. All your locations. Cancel any time.</div>
+              <div className="t-price">$0</div>
+              <div className="mt-3 text-[15px] text-ink-soft">
+                Due today. Then {PRICING.price}/mo for all your locations. Cancel any time.
+              </div>
 
               {/* The trial IS the risk reversal now — no guarantee to run
                   alongside it, since you can't refund a charge that was
