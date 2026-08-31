@@ -136,6 +136,12 @@ export async function provision(
       data: {
         name: operatorName,
         email,
+        // Explicit, not the schema default ("monthly") — that default routes
+        // to the unrelated $199/mo-per-location plan's trial length and
+        // dashboard copy. This is the only product provision() creates
+        // operators for; leaving it to fall through to the default silently
+        // put every operator on a plan we don't sell.
+        plan: "founding_annual",
         billingStatus: "trial_pending",
         locationsBucket: inputs.locationsBucket,
         followerBand: inputs.followerBand,
