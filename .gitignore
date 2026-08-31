@@ -52,3 +52,6 @@ src/generated/
 
 # uploaded hiring-post images (local stub store)
 /public/uploads/
+
+# large local video files not meant for deployment (Vercel's 100MB file limit)
+*.mov

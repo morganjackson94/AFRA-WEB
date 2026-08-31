@@ -1,0 +1,5 @@
+# Vercel's own upload-exclusion file — .gitignore alone is not enough;
+# the CLI still uploaded a 210MB untracked .mov even after it was added
+# to .gitignore, since it doesn't consult git's ignore rules for the
+# deploy bundle. This is the actual mechanism that keeps it out.
+*.mov
