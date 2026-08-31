@@ -8,7 +8,7 @@
 // proceed. isNonOperator()/isOverCapacity() below are kept only so historical
 // Operator rows written under the old "0"/"15+" buckets still label/read
 // correctly; the wizard no longer calls them.
-import { MONTHLY_PRICE_CENTS } from "./billing";
+import { ANNUAL_PRICE_CENTS } from "./billing";
 
 export const LOCATION_BUCKETS = [
   { value: "1-2", label: "1-2" },
@@ -80,9 +80,16 @@ export function locationCountForBucket(bucket: string): number {
 }
 
 // Per-location price framing (decided 2026-08-01, see docs/CLAIMS.md) — AFRA's
-// flat $399/mo gets cheaper per location the more locations an operator
+// flat $4,788/yr gets cheaper per location the more locations an operator
 // runs, unlike per-location/per-seat competitors. Reflecting that back at the
 // operator is honest arithmetic, not a fabricated stat.
+//
+// This displays a MONTHLY-equivalent per-location figure even though the
+// underlying price is annual (see copy framing in docs/CLAIMS.md: "$4,788/year
+// — about $399/month" keeps the monthly figure as an anchor) — so the annual
+// total is divided by 12 before dividing by locationCount. Swapping
+// MONTHLY_PRICE_CENTS for ANNUAL_PRICE_CENTS here without that /12 would
+// silently multiply every displayed per-location number by 12.
 //
 // perLocationMonthlyDollars takes an EXACT count (used for the underlying
 // math/tests). The wizard only ever has a BUCKET, so
@@ -96,7 +103,7 @@ export function locationCountForBucket(bucket: string): number {
 // weakest exactly where it's least true, so that bucket shows the flat price
 // only (see OnboardingWizard.tsx step 4).
 export function perLocationMonthlyDollars(locationCount: number): number {
-  return Math.round(MONTHLY_PRICE_CENTS / locationCount / 100);
+  return Math.round(ANNUAL_PRICE_CENTS / 12 / locationCount / 100);
 }
 
 const LOCATION_BUCKET_UPPER_BOUND: Partial<Record<string, number>> = {

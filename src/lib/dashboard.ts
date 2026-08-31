@@ -3,7 +3,10 @@
 // does NOT recompute gates. Its whole job is to turn that honest state into copy
 // without blurring "ready" (configured, NOT accepting applicants) into "live".
 
-import { FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "./billing";
+import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "./billing";
+
+const ANNUAL_PRICE_DISPLAY = `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`; // $4,788
+const MONTHLY_EQUIVALENT_DISPLAY = `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`; // $399
 
 export type GateState = {
   readinessState: string; // "pending" | "ready" | "live"
@@ -109,7 +112,7 @@ export function describeBilling(
         };
       }
       case "active":
-        return { label: "Active", detail: "$399/month." };
+        return { label: "Active", detail: `${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month), billed annually.` };
       case "past_due":
         return { label: "Payment failed", detail: "Update your card to keep your plan active." };
       case "trial_pending":

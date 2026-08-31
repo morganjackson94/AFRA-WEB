@@ -6,14 +6,16 @@ import Stripe from "stripe";
 
 export const PRICE_PER_LOCATION_CENTS = 19900; // $199/mo per location (monthly path)
 export const TRIAL_DAYS = 14; // 2-week free trial (monthly path only)
-// $399/mo flat, all locations, one standing subscription price (see
-// docs/CLAIMS.md). Repriced again: the one-time $4,788/yr annual charge
-// (itself an earlier August 2026 repricing) was replaced with a real monthly
-// subscription. The upfront-risk objection from prospects was the single
-// most consistent piece of sales feedback, and a subscription is what makes
-// a genuine free trial (see FREE_CANDIDATE_CAP/TRIAL_DAYS_BACKSTOP below)
-// possible in the first place — a one-time charge has nothing to "trial."
-export const MONTHLY_PRICE_CENTS = 39900;
+// $4,788/yr flat, all locations, one standing recurring subscription price
+// (see docs/CLAIMS.md). Repriced again: the $399/mo subscription (itself a
+// prior August 2026 repricing, which replaced an even earlier one-time
+// $4,788/yr charge) is now a recurring ANNUAL price instead — same trial
+// mechanism (FREE_CANDIDATE_CAP/TRIAL_DAYS_BACKSTOP below, unchanged), same
+// genuine-trial reasoning (a subscription, not a one-time charge, is what
+// makes a trial possible at all), just a longer commitment per renewal.
+// Stripe renews this natively (interval: "year") — nothing in this file
+// drives renewal.
+export const ANNUAL_PRICE_CENTS = 478800;
 // The trial: free until the operator has had this many candidates reach
 // "screened" or beyond (see Candidate.countedTowardTrial, incremented in
 // ingestScreeningResult, manychat.ts), or TRIAL_DAYS_BACKSTOP days pass,
@@ -73,7 +75,7 @@ export interface BillingProvider {
   getSubscriptionStatus(subscriptionId: string): Promise<{ stripeStatus: string; trialEnd: number | null }>;
 
   /**
-   * Create a Stripe-HOSTED Checkout Session for the $399/mo subscription,
+   * Create a Stripe-HOSTED Checkout Session for the $4,788/yr subscription,
    * with a trial (see TRIAL_DAYS_BACKSTOP) so nothing is charged until the
    * trial ends. The operator enters their card on Stripe's page (required
    * up front — subscription-mode Checkout collects a payment method by
@@ -211,7 +213,7 @@ export class StripeBillingProvider implements BillingProvider {
       return this.foundingProductId;
     }
     const product = await this.stripe.products.create({
-      name: "AFRA — Monthly Plan",
+      name: "AFRA — Annual Plan",
     });
     this.foundingProductId = product.id;
     return this.foundingProductId;
@@ -234,7 +236,7 @@ export class StripeBillingProvider implements BillingProvider {
       metadata: { operatorId: args.operatorId },
     });
 
-    // A pre-made monthly price id wins; else build a recurring price_data line.
+    // A pre-made annual price id wins; else build a recurring price_data line.
     const priceId = process.env.STRIPE_FOUNDING_PRICE_ID;
     const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = priceId
       ? { price: priceId, quantity: 1 }
@@ -242,14 +244,14 @@ export class StripeBillingProvider implements BillingProvider {
           quantity: 1,
           price_data: {
             currency: "usd",
-            unit_amount: MONTHLY_PRICE_CENTS,
-            recurring: { interval: "month" },
+            unit_amount: ANNUAL_PRICE_CENTS,
+            recurring: { interval: "year" },
             product: await this.ensureFoundingProductId(),
           },
         };
 
     const session = await this.stripe.checkout.sessions.create({
-      mode: "subscription", // recurring monthly, WITH a trial (see subscription_data)
+      mode: "subscription", // recurring annual, WITH a trial (see subscription_data)
       customer: customer.id,
       line_items: [lineItem],
       subscription_data: {

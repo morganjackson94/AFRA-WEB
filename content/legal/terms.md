@@ -1,6 +1,6 @@
 # AFRA Terms of Service
 
-**Effective Date:** August 26, 2026
+**Effective Date:** August 31, 2026
 
 These Terms of Service ("Terms") govern your access to and use of the AFRA software-as-a-service ("SaaS") platform and related services (collectively, the "Service") provided by AFRA Visibility, LLC ("AFRA," "we," "us," or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Service.
 
@@ -34,9 +34,9 @@ You acknowledge and agree that for the purposes of data protection laws, you are
 
 ## 5. Fees, Free Trial, and Payment
 
-a. **Subscription Fee:** The Service is billed at a flat rate of $399 per month, covering all of your locations.
+a. **Subscription Fee:** The Service is billed at a flat rate of $4,788 per year (approximately $399 per month), covering all of your locations.
 
-b. **Free Trial:** New accounts begin with a free trial: no charge to your payment method until whichever comes first of (i) your account has had 20 candidates reach a "screened" status (a candidate who completes and passes your screening), or (ii) 60 days have passed since your trial began. Candidates who do not pass your screening do not count toward this limit. Once the trial ends, your subscription begins billing at the rate in Section 5(a) to the payment method on file, and continues each month until canceled (see Section 7).
+b. **Free Trial:** New accounts begin with a free trial: no charge to your payment method until whichever comes first of (i) your account has had 20 candidates reach a "screened" status (a candidate who completes and passes your screening), or (ii) 60 days have passed since your trial began. Candidates who do not pass your screening do not count toward this limit. Once the trial ends, your subscription begins billing at the rate in Section 5(a) to the payment method on file, and renews each year until canceled (see Section 7).
 
 c. **Payment Method Required:** A valid payment method is required to start your trial, in accordance with standard practice for trial subscriptions. You will not be charged during the trial itself.
 
@@ -46,17 +46,19 @@ e. **Taxes:** You are responsible for all applicable taxes associated with your 
 
 ## 6. No Charge Until Your Trial Ends
 
-Because nothing is charged during your free trial (Section 5(b)), there is no refund mechanism for the trial period itself — instead, you may cancel at any time before the trial ends and you will never be charged. If you choose to continue past the trial, your subscription is billed monthly and you may cancel at any time thereafter (Section 7(c)); canceling stops future charges but does not refund charges already billed.
+Because nothing is charged during your free trial (Section 5(b)), there is no refund mechanism for the trial period itself — instead, you may cancel at any time before the trial ends and you will never be charged. If you choose to continue past the trial, your subscription is billed annually and you may cancel at any time thereafter (Section 7(c)); canceling stops future renewal charges but does not refund the year already billed, and you keep access through the end of that year.
 
 We aim to have every operator fully live — Instagram connected, screening questions active, and able to receive candidates — within 7 days of your trial starting. If that timeline is missed, contact morgan@afravisibility.com and we will work with you directly to resolve it.
 
 ## 7. Renewal and Termination
 
-a. **Recurring Billing:** Once your free trial ends (Section 5(b)), your subscription renews automatically each month at the rate in Section 5(a), charged to your payment method on file, until canceled, in accordance with applicable state auto-renewal notice requirements.
+a. **Recurring Billing:** Once your free trial ends (Section 5(b)), your subscription renews automatically each year at the rate in Section 5(a), charged to your payment method on file, until canceled, in accordance with applicable state auto-renewal notice requirements.
 
 b. **Price Changes:** We may change our pricing over time. We will give you at least 30 days' written notice (by email) before any price change takes effect for your account.
 
-c. **Cancellation:** You may cancel your subscription at any time, either directly from your account dashboard or by contacting morgan@afravisibility.com. Canceling during your free trial means you are never charged. Canceling after your trial has ended takes effect at the end of your current billing period; you retain access through the end of that period, and no further charges will occur after it.
+c. **Cancellation:** You may cancel your subscription at any time, either directly from your account dashboard or by contacting morgan@afravisibility.com. Canceling during your free trial means you are never charged.
+
+Canceling after your trial has ended stops your subscription from renewing — it does not end your current billing period early. You retain full access to the Service through the end of the year you already paid for, and no further charges will occur after that. For example: if you cancel three months into a paid year, you are not charged again, but you keep full access to the Service for the remaining nine months already paid for; access ends, and the subscription fully terminates, only at the end of that twelve-month period. Canceling does not entitle you to a partial refund for the unused portion of a billing period.
 
 d. **Termination by AFRA:** We may terminate or suspend your access to the Service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms.
 

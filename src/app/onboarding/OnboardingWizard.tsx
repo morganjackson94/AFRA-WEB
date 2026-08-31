@@ -553,7 +553,7 @@ export function OnboardingWizard({
                   <SectionLabel index="04" tone="dark">Price</SectionLabel>
                 </Reveal>
                 <Reveal hero delay={90}>
-                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$399/month, every location included</h2>
+                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$4,788/year — about $399/month — every location included</h2>
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
@@ -571,7 +571,7 @@ export function OnboardingWizard({
                 <Reveal delay={300}>
                   <ul className="space-y-3">
                     {[
-                      "Flat $399/month — every location covered",
+                      "Flat $4,788/year (about $399/mo) — every location covered",
                       "First 20 screened candidates free, up to 60 days",
                       "Cancel any time, nothing owed during the trial",
                     ].map((line) => (
@@ -846,7 +846,7 @@ export function OnboardingWizard({
           )}
           {step === TOTAL && !restricted && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[13.5px] text-threshold-ink-soft">
-              <Check className="size-3.5 text-accent" /> First 20 screened candidates free · cancel any time
+              <Check className="size-3.5 text-accent" /> First 20 screened candidates free · never charged during your trial
             </p>
           )}
         </div>

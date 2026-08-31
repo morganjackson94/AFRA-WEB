@@ -87,7 +87,7 @@ export async function sendWelcomeAssignedEmail(
 
 You're in. Welcome to AFRA.
 
-Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.
+Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.
 
 One thing left to do:
 
@@ -104,7 +104,7 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.</p>
+    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.</p>
     <p><strong>One thing left to do</strong></p>
     <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
     <p>Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.</p>
@@ -132,7 +132,7 @@ export async function sendWelcomeAwaitingSetupEmail(
 
 You're in. Welcome to AFRA.
 
-Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.
+Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.
 
 We're personally setting up your account now. There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.
 
@@ -151,7 +151,7 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $399/month. Cancel any time before then and you're never charged.</p>
+    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.</p>
     <p><strong>We're personally setting up your account now</strong></p>
     <p>There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.</p>
     <p><strong>In the meantime, here's your dashboard</strong></p>
@@ -294,10 +294,10 @@ Dallas, TX`;
 export async function sendTrialEndedEmail(
   args: { to: string; dashboardUrl: string },
 ): Promise<SendResult> {
-  const subject = "Your trial's ended. You're on $399/month.";
+  const subject = "Your trial's ended. You're on $4,788/year.";
   const text = `Hi there,
 
-Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $399/month plan, billed to the card on file.
+Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
 
 You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
 
@@ -309,7 +309,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $399/month plan, billed to the card on file.</p>
+    <p>Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
     <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>

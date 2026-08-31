@@ -11,7 +11,7 @@ import { RaceNarrative } from "../components/RaceNarrative";
 import { StepsSketch } from "../components/StepsSketch";
 import { Reveal } from "../components/Reveal";
 import { Stagger } from "../components/Stagger";
-import { FREE_CANDIDATE_CAP, MONTHLY_PRICE_CENTS, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
+import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
@@ -19,13 +19,17 @@ const SECTION = "mx-auto max-w-[1120px] px-6";
 // Major-section rhythm: a warm hairline divider + generous vertical air.
 const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 
-// Standing monthly price (see docs/CLAIMS.md). Repriced again: the
-// one-time $4,788/yr charge (itself an earlier August 2026 repricing) was
-// replaced with a real subscription so a genuine free trial is possible: the
-// first FREE_CANDIDATE_CAP screened candidates are free, for up to
-// TRIAL_DAYS_BACKSTOP days, whichever comes first.
+// Standing annual price (see docs/CLAIMS.md, entry dated 2026-09 reversing
+// the prior ban on annual framing). $399/mo was a real subscription too — a
+// genuine free trial (FREE_CANDIDATE_CAP screened candidates, up to
+// TRIAL_DAYS_BACKSTOP days) needs a subscription, not a one-time charge,
+// regardless of interval — so switching the interval to annual doesn't
+// disturb the trial mechanism at all. Approved framing keeps the monthly
+// figure as an anchor: "$4,788/year — about $399/month" — so both are
+// derived here, never hand-typed at call sites.
 const PRICING = {
-  price: `$${(MONTHLY_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $399
+  priceAnnual: `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $4,788
+  priceMonthlyEquivalent: `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`, // $399
   freeCandidateCap: FREE_CANDIDATE_CAP,
   trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
 };
@@ -130,8 +134,8 @@ const FAQ: { q: string; a: string | string[] }[] = [
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What counts as a candidate?", a: "Someone who completes your screening and passes it. Applicants who don't meet your bar don't count against your free 20." },
-  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $399/month on the card you added at signup. You can cancel any time, before or after that." },
-  { q: "How does billing work?", a: "$399/month, covering every location, starting once your trial ends. Cancel any time from your dashboard. No annual commitment, no long-term contract." },
+  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time — canceling during the trial means you're never charged; canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
+  { q: "How does billing work?", a: "$4,788/year (about $399/month), covering every location, starting once your trial ends. One flat rate, no per-location fees. Cancel any time from your dashboard — cancellation takes effect at the end of your current year, and you keep access through then." },
   {
     q: "What exactly do I get?",
     a: [
@@ -391,14 +395,15 @@ export default function LandingPage() {
           what's-included right. Stacks to a single column on mobile. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-12 max-w-[18ch]">Try it free. Then $399/mo.</h2>
+          <h2 className="t-title mb-12 max-w-[18ch]">Try it free. Then {PRICING.priceAnnual}/year.</h2>
         </Reveal>
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
             <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
               <div className="t-price">$0</div>
               <div className="mt-3 text-[15px] text-ink-soft">
-                Due today. Then {PRICING.price}/mo for all your locations. Cancel any time.
+                Due today. Then {PRICING.priceAnnual}/year (about {PRICING.priceMonthlyEquivalent}/mo) for all your
+                locations. Nothing is charged during the trial.
               </div>
 
               {/* The trial IS the risk reversal now — no guarantee to run
@@ -429,7 +434,8 @@ export default function LandingPage() {
                 </p>
               </div>
               <p className="mt-3 text-[13px] text-faint">
-                After the trial, it&apos;s {PRICING.price}/month, billed to the card on file, until you cancel.
+                After the trial, it&apos;s {PRICING.priceAnnual}/year (about {PRICING.priceMonthlyEquivalent}/mo),
+                billed to the card on file each year until you cancel.
               </p>
             </div>
 
