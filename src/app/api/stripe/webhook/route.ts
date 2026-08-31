@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { applyStripeStatus, confirmFoundingPayment } from "../../../../lib/activation";
+import { getBillingProvider } from "../../../../lib/billing";
 import { prisma } from "../../../../lib/prisma";
 
 // Stripe webhook — the dunning / lifecycle trigger. Stripe POSTs subscription
@@ -58,6 +59,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const stripe = new Stripe(secretKey);
+  const billing = getBillingProvider();
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
 
@@ -87,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
           session.client_reference_id ??
           (await operatorIdByCheckoutSession(session.id));
         if (operatorId) {
-          await confirmFoundingPayment(prisma, operatorId, {
+          await confirmFoundingPayment(prisma, billing, operatorId, {
             customerId: idOf(session.customer),
             subscriptionId: idOf(session.subscription),
             paymentIntentId: idOf(session.payment_intent),
@@ -111,17 +113,22 @@ export async function POST(request: Request): Promise<Response> {
       const sub = event.data.object as Stripe.Subscription;
       const operatorId =
         operatorIdFromSubscriptionMetadata(sub) ?? (await operatorIdBySubscription(sub.id));
-      if (operatorId) await applyStripeStatus(prisma, operatorId, sub.status);
+      if (operatorId) await applyStripeStatus(prisma, billing, operatorId);
       break;
     }
     case "invoice.payment_failed": {
       // Dunning: a failed payment moves the operator to past_due.
+      // applyStripeStatus re-fetches the subscription's LIVE status itself
+      // rather than trusting a status this route dictates — a since-recovered
+      // payment (a later retry that succeeded before this event was
+      // processed) reconciles correctly instead of being forced to past_due
+      // regardless of what Stripe currently says.
       const invoice = event.data.object as Stripe.Invoice;
       const operatorId =
         (await operatorIdByCustomer(
           typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id,
         ));
-      if (operatorId) await applyStripeStatus(prisma, operatorId, "past_due");
+      if (operatorId) await applyStripeStatus(prisma, billing, operatorId);
       break;
     }
     default:

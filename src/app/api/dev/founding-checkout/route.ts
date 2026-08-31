@@ -90,7 +90,7 @@ export async function POST(request: Request): Promise<Response> {
 
   // Simulate the webhook server-side (same function the real webhook calls).
   // Never livemode — this route only exists in fake billing mode at all.
-  await confirmFoundingPayment(prisma, operatorId, {
+  await confirmFoundingPayment(prisma, getBillingProvider(), operatorId, {
     checkoutSessionId: sessionId,
     subscriptionId,
     paymentIntentId: `pi_fake_${operatorId}`,

@@ -8,7 +8,7 @@ import {
   recomputeOperatorReadiness,
   startFoundingCheckout,
 } from "../src/lib/activation";
-import { getBillingProvider } from "../src/lib/billing";
+import { FakeBillingProvider, getBillingProvider } from "../src/lib/billing";
 import { evaluateReadiness, isBillingActive } from "../src/lib/readiness";
 import { connectStubbedIntegrations } from "../src/lib/testing";
 import { provision } from "../src/lib/provision";
@@ -75,7 +75,7 @@ async function main() {
   // ---- 3) Webhook-confirmed checkout => trialing, gateBilling true via SSOT ----
   console.log("\n3) Webhook confirms checkout complete (the ONLY thing that starts the trial):");
   const subscriptionId = `sub_test_${operatorId}`;
-  await confirmFoundingPayment(prisma, operatorId, {
+  await confirmFoundingPayment(prisma, billing, operatorId, {
     customerId: `cus_test_${operatorId}`,
     subscriptionId,
     paymentIntentId: `pi_test_${operatorId}`,
@@ -116,7 +116,7 @@ async function main() {
 
   // ---- 6) Idempotent re-confirm (still trialing, no double-effects) ----
   const beforeWentLive = await prisma.event.count({ where: { operatorId, type: "WentLive" } });
-  await confirmFoundingPayment(prisma, operatorId, { livemode: false });
+  await confirmFoundingPayment(prisma, billing, operatorId, { livemode: false });
   const afterWentLive = await prisma.event.count({ where: { operatorId, type: "WentLive" } });
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   assert(beforeWentLive === afterWentLive, "re-confirming checkout does not double-fire WentLive (idempotent)");
@@ -129,7 +129,7 @@ async function main() {
   assert(statusAfterEndTrialNow.stripeStatus === "active", "billing.endTrialNow flipped the (fake) subscription to active");
   // In real life, ending the trial fires customer.subscription.updated async;
   // simulate that webhook landing here, synchronously, same as the real route does.
-  const reconcile1 = await applyStripeStatus(prisma, operatorId, statusAfterEndTrialNow.stripeStatus);
+  const reconcile1 = await applyStripeStatus(prisma, billing, operatorId);
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   assert(op.billingStatus === "active", "billingStatus is 'active' after the trial-end webhook lands");
   assert(op.trialEndedAt !== null, "trialEndedAt stamped");
@@ -138,7 +138,7 @@ async function main() {
 
   // ---- 8) Idempotency: re-applying the SAME non-trialing status must not re-fire ----
   console.log("\n8) Re-applying the same status a second time (simulated webhook retry) does not re-send or re-stamp:");
-  const reconcile2 = await applyStripeStatus(prisma, operatorId, "active");
+  const reconcile2 = await applyStripeStatus(prisma, billing, operatorId);
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   assert(reconcile2.trialEndedEmail === undefined, "no second trial-ended email claim attempted (already past the trialing->non-trialing transition)");
   assert(op.trialEndedAt?.getTime() === trialEndedAtAfterCap?.getTime(), "trialEndedAt unchanged on retry");
@@ -158,16 +158,21 @@ async function main() {
     successUrl: "http://localhost:3000/dashboard?checkout=success",
     cancelUrl: "http://localhost:3000/onboarding?canceled=1",
   });
-  await confirmFoundingPayment(prisma, operatorId2, {
+  const subscriptionId2 = `sub_test_${operatorId2}`;
+  await confirmFoundingPayment(prisma, billing, operatorId2, {
     customerId: `cus_test_${operatorId2}`,
-    subscriptionId: `sub_test_${operatorId2}`,
+    subscriptionId: subscriptionId2,
     checkoutSessionId: checkout2.sessionId,
     livemode: false,
   });
   // Stripe's own day-60 transition fires customer.subscription.updated with
   // NO app-initiated endTrialNow call anywhere in this path — simulate that
   // directly, proving the shared reconciliation path is real, not aspirational.
-  const backstopReconcile = await applyStripeStatus(prisma, operatorId2, "active");
+  // applyStripeStatus now re-fetches live status rather than trusting a
+  // passed-in string, so the fake has to be told directly that Stripe's side
+  // changed (real Stripe would have actually done this on its own).
+  if (billing instanceof FakeBillingProvider) billing.setStatusForTest(subscriptionId2, "active");
+  const backstopReconcile = await applyStripeStatus(prisma, billing, operatorId2);
   const op2 = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId2 } });
   assert(op2.billingStatus === "active", "billingStatus is 'active' after the natural backstop transition");
   assert(op2.trialEndedAt !== null, "trialEndedAt stamped identically to the candidate-cap path");

@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { confirmFoundingPayment } from "../src/lib/activation";
+import { getBillingProvider } from "../src/lib/billing";
 import { provision } from "../src/lib/provision";
 
 // Proves the welcome email's gating, variant branching, and idempotency
@@ -18,6 +19,7 @@ import { provision } from "../src/lib/provision";
 // to prove both templates render without throwing.
 
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+const billing = getBillingProvider();
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -44,7 +46,7 @@ async function addPoolFlow(): Promise<string> {
 async function main() {
   console.log("1) TEST-mode confirmation (livemode: false), no override — must NOT send:");
   const opA = await freshOperator("welcomeemailsmokea");
-  const resultA = await confirmFoundingPayment(prisma, opA, { livemode: false });
+  const resultA = await confirmFoundingPayment(prisma, billing, opA, { subscriptionId: `sub_test_${opA}`, livemode: false });
   assert(resultA.welcomeEmail.sent === false, "welcomeEmail.sent is false");
   assert(
     !resultA.welcomeEmail.sent && resultA.welcomeEmail.reason === "not-livemode",
@@ -61,7 +63,7 @@ async function main() {
   process.env.SEND_TEST_WELCOME_EMAIL = "1";
   const flowId = await addPoolFlow();
   const opB = await freshOperator("welcomeemailsmokeb");
-  const resultB = await confirmFoundingPayment(prisma, opB, { livemode: false });
+  const resultB = await confirmFoundingPayment(prisma, billing, opB, { subscriptionId: `sub_test_${opB}`, livemode: false });
   assert(resultB.flowAssignment.assigned === true, "flow was assigned (pool had stock)");
   const expectedReason = process.env.RESEND_API_KEY ? "sent for real" : "stub";
   console.log(`   RESEND_API_KEY configured: ${Boolean(process.env.RESEND_API_KEY)} — expecting: ${expectedReason}`);
@@ -82,7 +84,7 @@ async function main() {
   const firstSentAt = opBRowFirst.welcomeEmailSentAt;
 
   console.log("\n3) Second confirmFoundingPayment call for the SAME operator (simulated webhook retry) — must NOT re-send:");
-  const resultB2 = await confirmFoundingPayment(prisma, opB, { livemode: false });
+  const resultB2 = await confirmFoundingPayment(prisma, billing, opB, { livemode: false });
   assert(
     !resultB2.welcomeEmail.sent && resultB2.welcomeEmail.reason === "already-sent",
     `reason is 'already-sent' on retry (got: ${JSON.stringify(resultB2.welcomeEmail)})`,
@@ -99,7 +101,7 @@ async function main() {
 
   console.log("\n4) Pool is EMPTY, real livemode: true confirmation — must send variant B (awaiting-setup):");
   const opC = await freshOperator("welcomeemailsmokec");
-  const resultC = await confirmFoundingPayment(prisma, opC, { livemode: true });
+  const resultC = await confirmFoundingPayment(prisma, billing, opC, { subscriptionId: `sub_test_${opC}`, livemode: true });
   assert(resultC.flowAssignment.assigned === false, "flow was NOT assigned (pool empty)");
   if (process.env.RESEND_API_KEY) {
     assert(

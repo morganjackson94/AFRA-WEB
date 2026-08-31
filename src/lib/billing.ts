@@ -326,6 +326,18 @@ export class FakeBillingProvider implements BillingProvider {
     return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing", trialEnd: null };
   }
 
+  /** Test-only: seed a subscription's tracked status directly, for smoke
+   *  scripts simulating a Stripe-side change that didn't happen via any other
+   *  method on this class (e.g. dunning, or the natural 60-day backstop with
+   *  no app-initiated endTrialNow call) — exercises applyStripeStatus's
+   *  re-fetch-before-write behavior against a status this fake wouldn't
+   *  otherwise know about. Not part of BillingProvider; real Stripe has no
+   *  equivalent (you can't just declare a status — see StripeBillingProvider,
+   *  which has no matching method). */
+  setStatusForTest(subscriptionId: string, status: string): void {
+    this.statuses.set(subscriptionId, status);
+  }
+
   async endTrialNow(subscriptionId: string) {
     // No real webhook loop in fake mode, so the fake must self-report the
     // outcome directly rather than relying on an async event to land later.

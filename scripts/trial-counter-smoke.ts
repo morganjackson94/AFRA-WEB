@@ -42,7 +42,7 @@ async function main() {
     cancelUrl: "http://localhost:3000/onboarding?canceled=1",
   });
   const subscriptionId = `sub_test_${operator.id}`;
-  await confirmFoundingPayment(prisma, operator.id, {
+  await confirmFoundingPayment(prisma, billing, operator.id, {
     customerId: `cus_test_${operator.id}`,
     subscriptionId,
     checkoutSessionId: checkout.sessionId,
@@ -68,7 +68,7 @@ async function main() {
 
   // Simulate that webhook landing, same as founding-smoke.ts, to prove the
   // full loop closes.
-  await applyStripeStatus(prisma, operator.id, "active");
+  await applyStripeStatus(prisma, billing, operator.id);
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operator.id } });
   assert(op.billingStatus === "active", "billingStatus flips to 'active' once the resulting webhook is processed");
   assert(op.trialEndedAt !== null, "trialEndedAt stamped");

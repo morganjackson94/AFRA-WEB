@@ -6,7 +6,7 @@ import {
   cancelBilling,
   recomputeOperatorReadiness,
 } from "../src/lib/activation";
-import { getBillingProvider } from "../src/lib/billing";
+import { FakeBillingProvider, getBillingProvider } from "../src/lib/billing";
 import { emitEvent } from "../src/lib/events";
 import { isBillingActive } from "../src/lib/readiness";
 import { connectStubbedIntegrations } from "../src/lib/testing";
@@ -102,7 +102,13 @@ async function main() {
   assert(live2.wentLiveFired === false, "WentLive does NOT re-fire on subsequent checks (idempotent)");
 
   console.log("\n5) Dunning: a failed payment -> past_due -> gateBilling false:");
-  const dunned = await applyStripeStatus(prisma, operatorId, "past_due");
+  // applyStripeStatus now re-fetches live status rather than trusting a
+  // passed-in string, so the fake has to be told directly that Stripe's side
+  // changed (real Stripe would have actually failed the charge on its own).
+  if (billing instanceof FakeBillingProvider && op1.stripeSubscriptionId) {
+    billing.setStatusForTest(op1.stripeSubscriptionId, "past_due");
+  }
+  const dunned = await applyStripeStatus(prisma, billing, operatorId);
   r = await role(operatorId);
   console.log(`   billingStatus=${dunned.billingStatus} gateBilling=${r.gateBilling} state=${r.readinessState}`);
   assert(dunned.billingStatus === "past_due", "past_due mapped from Stripe status");

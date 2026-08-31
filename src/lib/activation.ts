@@ -200,16 +200,32 @@ export async function startFoundingCheckout(
 
 /**
  * Confirm a founding checkout completed — THE webhook path
- * (checkout.session.completed). Flips a founding operator to
- * billingStatus="trialing" (NOT "active" — nothing has been charged yet; the
- * trial itself starts here). Must be driven by a verified Stripe webhook,
- * never a browser redirect. Idempotent: re-confirming while already
- * trialing/active is a no-op re-write of the same fields. The trial's own
- * end (candidate cap or the 60-day backstop) is reconciled separately, in
- * ONE shared place — applyStripeStatus below — not here.
+ * (checkout.session.completed). Re-fetches the subscription's LIVE status
+ * from Stripe and writes THAT, rather than assuming "trialing" — Stripe is
+ * authoritative, not this event's payload. Must be driven by a verified
+ * Stripe webhook, never a browser redirect.
+ *
+ * Genuinely idempotent, not just claimed to be: this used to hardcode
+ * billingStatus="trialing" unconditionally on every call, which meant a
+ * stale or duplicate delivery of this same event — a dashboard resend of an
+ * already-processed checkout.session.completed, concretely — silently
+ * resurrected a CANCELED subscription back to "trialing" in Postgres while
+ * Stripe correctly still showed "canceled". Re-fetching means a stale replay
+ * now reconciles to whatever Stripe says right now instead of overwriting
+ * newer truth with an old event's assumption. Confirmation side effects
+ * (flow assignment, welcome email, the check-in fuse) only run when the live
+ * status is a genuine new confirmation ("trialing" OR "active" — a checkout
+ * can legitimately resolve to "active" with no trial applied; see
+ * isGenuineConfirmation below) — a stale replay against an
+ * already-resolved subscription reconciles billingStatus but does not
+ * re-trigger onboarding.
+ *
+ * The trial's own end (candidate cap or the 60-day backstop) is reconciled
+ * separately, in ONE shared place — applyStripeStatus below — not here.
  */
 export async function confirmFoundingPayment(
   prisma: PrismaClient,
+  billing: BillingProvider,
   operatorId: string,
   ids: {
     customerId?: string | null;
@@ -224,13 +240,35 @@ export async function confirmFoundingPayment(
   },
 ) {
   const op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+
+  // Prefer the id this event carries; fall back to what's already on file (a
+  // webhook retry that omits it, or an idempotent re-confirm call, still has
+  // something to re-fetch against). A completed subscription-mode Checkout
+  // Session always has session.subscription populated by the time
+  // checkout.session.completed fires — Stripe creates the subscription
+  // synchronously as part of completing the session — so if NEITHER is
+  // present, this event is malformed/unexpected: throw so Stripe retries
+  // rather than silently confirming a payment with nothing to verify against.
+  const subscriptionId = ids.subscriptionId ?? op.stripeSubscriptionId;
+  if (!subscriptionId) {
+    throw new Error(`confirmFoundingPayment: no subscriptionId for operator ${operatorId} — cannot verify live status`);
+  }
+
+  // Stripe is authoritative: let a failed fetch propagate (non-2xx -> Stripe
+  // retries) rather than falling back to a value derived from the event
+  // payload — that fallback is exactly the bug this guards against, and it
+  // would resurface silently, specifically when Stripe is briefly
+  // unreachable, i.e. exactly when nobody would notice.
+  const { stripeStatus } = await billing.getSubscriptionStatus(subscriptionId);
+  const billingStatus = mapStripeStatus(stripeStatus);
+
   await prisma.operator.update({
     where: { id: operatorId },
     data: {
-      billingStatus: "trialing",
+      billingStatus,
       plan: "founding_annual",
       stripeCustomerId: ids.customerId ?? op.stripeCustomerId,
-      stripeSubscriptionId: ids.subscriptionId ?? op.stripeSubscriptionId,
+      stripeSubscriptionId: subscriptionId,
       stripePaymentIntentId: ids.paymentIntentId ?? op.stripePaymentIntentId,
       stripeCheckoutSessionId: ids.checkoutSessionId ?? op.stripeCheckoutSessionId,
       stripeLivemode: ids.livemode,
@@ -247,29 +285,42 @@ export async function confirmFoundingPayment(
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
 
-  // Post-checkout hook (does NOT affect billingStatus/gateBilling above,
-  // which is already committed by this point): try to hand the operator an
-  // instant "Connect Instagram" by claiming a pre-built flow from the pool.
-  // Failure here — pool empty, no channel row, anything — must never surface
-  // as a checkout error; the operator's trial has already started.
-  const assignment = await tryAssignFlow(prisma, operatorId);
+  // Confirmation side effects only make sense for a subscription that is
+  // genuinely newly starting — "trialing" (the normal case) or "active" (no
+  // trial applied: already consumed one, or a future config change) both
+  // count. Anything else (past_due, canceled, incomplete) means this event is
+  // stale/out of order relative to what's already happened to the
+  // subscription — the billingStatus write above already reconciled to
+  // truth; there's nothing left to "confirm."
+  const isGenuineConfirmation = billingStatus === "trialing" || billingStatus === "active";
 
-  // Welcome email — the operator's first owned touch after checkout. Branches
-  // on whether tryAssignFlow above actually got them a connect action. Same
-  // non-blocking guarantee as tryAssignFlow: nothing in here may throw across
-  // this function or affect billingStatus.
-  const welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
+  let assignment: FlowAssignmentOutcome = { assigned: false, reason: "stale-confirmation" };
+  let welcomeEmail: WelcomeEmailOutcome = { sent: false, reason: "stale-confirmation" };
+  if (isGenuineConfirmation) {
+    // Post-checkout hook (does NOT affect billingStatus/gateBilling above,
+    // which is already committed by this point): try to hand the operator an
+    // instant "Connect Instagram" by claiming a pre-built flow from the pool.
+    // Failure here — pool empty, no channel row, anything — must never
+    // surface as a checkout error; the operator's trial has already started.
+    assignment = await tryAssignFlow(prisma, operatorId);
 
-  return { billingStatus: "trialing", recompute, flowAssignment: assignment, welcomeEmail };
+    // Welcome email — the operator's first owned touch after checkout.
+    // Branches on whether tryAssignFlow above actually got them a connect
+    // action. Same non-blocking guarantee as tryAssignFlow: nothing in here
+    // may throw across this function or affect billingStatus.
+    welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
+  }
+
+  return { billingStatus, recompute, flowAssignment: assignment, welcomeEmail };
 }
 
 export type FlowAssignmentOutcome =
   | { assigned: true }
-  | { assigned: false; reason: "already-assigned" | "no-channel" | "pool-empty" | "error" };
+  | { assigned: false; reason: "already-assigned" | "no-channel" | "pool-empty" | "error" | "stale-confirmation" };
 
 export type WelcomeEmailOutcome =
   | { sent: true; variant: "assigned" | "awaiting-setup" }
-  | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" };
+  | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" | "stale-confirmation" };
 
 /**
  * Fires the post-payment welcome email exactly once per operator, never
@@ -487,11 +538,30 @@ export type TrialEndedEmailOutcome =
   | { sent: false; reason: "already-sent" | "stub" | "error" };
 
 /**
- * Apply a Stripe subscription status to an operator — the dunning/webhook
- * path (e.g. invoice.payment_failed -> "past_due" -> gateBilling flips
- * false), shared by BOTH the founding/subscription-trial plan and the
- * separate, dead-but-still-present per-location monthly plan (its own
- * unrelated 14-day trial, PRICE_PER_LOCATION_CENTS in billing.ts).
+ * Reconcile an operator's billingStatus against Stripe — the dunning/webhook
+ * path (e.g. invoice.payment_failed's transition -> gateBilling flips false),
+ * shared by BOTH the founding/subscription-trial plan and the separate,
+ * dead-but-still-present per-location monthly plan (its own unrelated 14-day
+ * trial, PRICE_PER_LOCATION_CENTS in billing.ts).
+ *
+ * Re-fetches the subscription's LIVE status from Stripe via
+ * operator.stripeSubscriptionId rather than trusting the caller's claimed
+ * status — the caller's payload can be stale (a duplicate/out-of-order
+ * webhook delivery carrying an old status; see confirmFoundingPayment's
+ * matching guard, added for the same reason after a stale replay overwrote a
+ * canceled subscription back to "trialing"). Two failure modes, both
+ * deliberate:
+ *   - No stripeSubscriptionId yet persisted: a real, expected ordering race
+ *     (e.g. customer.subscription.created landing before
+ *     checkout.session.completed has persisted the id — Stripe doesn't
+ *     guarantee delivery order). Nothing to re-fetch, nothing to reconcile
+ *     yet; no-op rather than guessing or throwing — the other event resolves
+ *     this once it lands.
+ *   - The Stripe fetch itself throws: propagate it. A non-2xx response makes
+ *     Stripe retry, which is correct; catching this and falling back to the
+ *     caller's claimed status would silently reintroduce the exact bug this
+ *     function now guards against, specifically when Stripe is unreachable —
+ *     exactly when nobody would notice.
  *
  * For plan === "founding_annual" specifically, this is ALSO the single
  * shared reconciliation point for BOTH ways that trial can end: hitting the
@@ -509,10 +579,17 @@ export type TrialEndedEmailOutcome =
  */
 export async function applyStripeStatus(
   prisma: PrismaClient,
+  billing: BillingProvider,
   operatorId: string,
-  stripeStatus: string,
 ) {
   const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+
+  if (!operator.stripeSubscriptionId) {
+    const recompute = await recomputeOperatorReadiness(prisma, operatorId);
+    return { billingStatus: operator.billingStatus, recompute, trialEndedEmail: undefined };
+  }
+
+  const { stripeStatus } = await billing.getSubscriptionStatus(operator.stripeSubscriptionId);
   const billingStatus = mapStripeStatus(stripeStatus);
   const justEndedTrial =
     operator.plan === "founding_annual" &&
