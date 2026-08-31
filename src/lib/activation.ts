@@ -137,7 +137,7 @@ export async function startTrial(
   return { customerId, subscriptionId: sub.subscriptionId, billingStatus, recompute };
 }
 
-// --- Founding annual ($4,788 one-time, paid from day one, no trial) ----------
+// --- Founding subscription ($399/mo, first 20 screened candidates free, 60-day cap) ----------
 
 /**
  * Real count of founding operators who have actually paid — the single
