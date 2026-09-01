@@ -15,6 +15,30 @@ possible, so the trial terms (`FREE_CANDIDATE_CAP`/`TRIAL_DAYS_BACKSTOP`) are co
 pass. There are no paying customers on the monthly interval at the time of this change, so this is a
 clean cutover, not a migration.
 
+## Audit methodology note (September 2026) — read before the next claims audit
+
+The July 2026 claims-audit pass checked every customer-facing number against this table and found no
+mismatches. It still missed a live, false billing statement on the operator dashboard (`"Booked
+interviews land here. They're what you're billed on."`, `src/app/dashboard/page.tsx`) — found only later,
+by accident, while auditing something else. The number wasn't wrong (there was no number in that
+sentence). The *mechanism* it described was wrong: it told the operator billing is metered by bookings,
+when billing is a flat $4,788/year regardless of bookings or candidates.
+
+That's a different question than the one the July audit asked. "Does the number match this table" finds
+a wrong price. It does not find a sentence that's numberless but still makes a false claim about how
+money works — per-booking, per-candidate, per-anything-metered, when the real mechanism is flat. Before
+this was caught, the product had described its own pricing three incompatible ways across three
+different surfaces: sales material describing per-qualified-candidate, this dashboard line describing
+per-booked-interview, and Stripe actually charging flat annual — and the live one, on the page a paying
+operator sees every time they log in, was the wrong one.
+
+**The next audit should ask both questions per claim**, not just the first:
+1. Does the number match the canonical claims table?
+2. What does this sentence claim about *how* money works — metered, flat, per-outcome, per-time — and
+   does that mechanism match what `src/lib/billing.ts` and the live Stripe subscription actually do?
+
+Fixed September 2026 — see the canonical claims table below for the corrected wording.
+
 ## Canonical claims
 
 | Claim | Approved wording | Notes |
@@ -32,6 +56,14 @@ clean cutover, not a migration.
 | Proof | sandoitchi, Dallas — 58 candidates in 3 days from one story post, zero ad spend | Raw pilot figure — never describe these as "qualified," never render 58 as a percentage. See sourcing note below. |
 
 ## Retired claims (do not resurrect without a new pricing decision)
+
+- ~~"Booked interviews land here. They're what you're billed on." (`src/app/dashboard/page.tsx`, operator
+  dashboard, both the active and quiet pipeline views)~~ **Retired, September 2026 — see the audit
+  methodology note above.** Live on every paying operator's dashboard, and false: billing is flat
+  $4,788/year, unrelated to booking count. Replaced with wording that states the actual mechanism:
+  bookings land here for tracking, and separately, billing is flat annual with the 20-candidate/60-day
+  free trial. Do not reintroduce any "billed on"/"billed per" framing tied to bookings, candidates, or
+  any other countable outcome — there is no metered pricing anywhere in this product.
 
 **September 2026 update — reversing a prior entry, not silently editing it:** the August 2026 version of
 this file banned annual framing outright ("the price is a recurring $399/month"). That guardrail was

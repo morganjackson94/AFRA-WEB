@@ -495,10 +495,11 @@ export default async function DashboardPage({
           </div>
 
           <div className="rounded-2xl border border-line bg-card p-6">
-            <SectionLabel>Booked interviews · billable</SectionLabel>
+            <SectionLabel>Booked interviews</SectionLabel>
             {bookingsView.length === 0 ? (
               <p className="mt-3 text-sm text-faint">
-                Booked interviews land here. They&apos;re what you&apos;re billed on.
+                Booked interviews land here. Billing is $4,788/year flat, all locations — the first 20
+                screened candidates or 60 days, whichever comes first, are free.
               </p>
             ) : (
               <ul className="mt-3 space-y-1 text-sm text-ink">
@@ -543,7 +544,8 @@ export default async function DashboardPage({
           </div>
           <p className="mt-4 max-w-[52ch] text-sm leading-relaxed text-ink-soft">{emptyApplied}</p>
           <p className="mt-2 text-xs text-faint">
-            Booked interviews land here. They&apos;re what you&apos;re billed on.
+            Booked interviews land here. Billing is $4,788/year flat, all locations — the first 20
+            screened candidates or 60 days, whichever comes first, are free.
           </p>
         </div>
       </div>
