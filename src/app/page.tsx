@@ -380,7 +380,7 @@ export default function LandingPage() {
           what's-included right. Stacks to a single column on mobile. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-12 max-w-[18ch]">Try it free. Then {PRICING.priceAnnual}/year.</h2>
+          <h2 className="t-title mb-12 max-w-[18ch]">Try it free.</h2>
         </Reveal>
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
