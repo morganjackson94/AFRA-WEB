@@ -97,6 +97,13 @@ const STEPS = [
   { n: "03", h: "Candidates book their interview", p: "Good applicants book a time themselves. No phone tag, no chasing." },
 ];
 
+// Switching-cost objection handling, placed inside the mechanism section
+// (not a new one) since it lands right after someone learns how the
+// three steps work. A structural claim about what AFRA does, not a claim
+// about live operator volume — see docs/CLAIMS.md's delivery-status note.
+const STEPS_NOTE =
+  "AFRA doesn't ask you to change how you hire. It runs on the Instagram you already use and puts screened candidates straight into the process you already have.";
+
 const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
   { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
@@ -246,13 +253,17 @@ export default function LandingPage() {
           café line-art draws itself in a sticky column alongside, stroke by
           stroke, at scroll pace: the drawing completes as the setup story
           does. A real sequence, so the numbers carry information. */}
-      <StepsSketch title="Three steps. Then it runs itself." steps={STEPS} />
+      <StepsSketch title="Three steps. Then it runs itself." steps={STEPS} note={STEPS_NOTE} />
 
       {/* Proof — image-led asymmetric split: the real storefront on one side,
           the one sourced number counting up on the other. Amber stays
           reserved for that numeral — the single accent this view carries. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
+          {/* Numeral treatment signals this is the first entry in an ongoing
+              proof series, not the only one that will ever exist — structure
+              only, no invented case studies 02/03. */}
+          <p className="t-label mb-5">Case study No. 01</p>
           <h2 className="t-title mb-12 max-w-[20ch]">What happened at sandoitchi.</h2>
         </Reveal>
         <Stagger className="grid grid-cols-1 items-start gap-10 md:grid-cols-[0.85fr_1.15fr] md:gap-14" step={120}>
@@ -379,6 +390,16 @@ export default function LandingPage() {
                 Due today. Then {PRICING.priceAnnual}/year (about {PRICING.priceMonthlyEquivalent}/mo) for all your
                 locations. Nothing is charged during the trial.
               </div>
+
+              {/* Cost anchor (Phase 2): structural, no dollar figure, since
+                  no citable hospitality vacancy/turnover-cost stat cleared
+                  this page's own verification bar (see docs/CLAIMS.md).
+                  The comparison itself, manager time spent on back-and-forth
+                  screening, is true on its face without needing a number. */}
+              <p className="mt-3 text-[13px] leading-relaxed text-faint">
+                Hiring isn&apos;t free while you wait, either. It&apos;s manager hours spent
+                messaging applicants back and forth, many of whom never show.
+              </p>
 
               {/* The trial IS the risk reversal now — no guarantee to run
                   alongside it, since you can't refund a charge that was

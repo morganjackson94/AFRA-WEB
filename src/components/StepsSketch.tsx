@@ -37,7 +37,7 @@ function SketchPath({ d, index, count, progress }: { d: string; index: number; c
   );
 }
 
-export function StepsSketch({ title, steps }: { title: string; steps: Step[] }) {
+export function StepsSketch({ title, steps, note }: { title: string; steps: Step[]; note?: string }) {
   const ref = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
@@ -88,6 +88,11 @@ export function StepsSketch({ title, steps }: { title: string; steps: Step[] }) 
           </svg>
         </div>
       </div>
+      {note && (
+        <Reveal>
+          <p className="mt-12 max-w-[52ch] text-[15px] leading-relaxed text-ink-soft">{note}</p>
+        </Reveal>
+      )}
     </section>
   );
 }
