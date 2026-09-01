@@ -242,7 +242,7 @@ export default function LandingPage() {
       {/* VSL */}
       <section className={SECTION_DIVIDED}>
         <Stagger step={110}>
-          <h2 className="t-title mb-10 max-w-[28ch]">This is your new screener.</h2>
+          <h2 className="t-title mx-auto mb-10 max-w-[28ch] text-center">This is your new screener.</h2>
           <div>
             <DemoModal variant="poster" />
           </div>
