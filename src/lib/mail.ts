@@ -317,3 +317,46 @@ Dallas, TX`;
 
   return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
 }
+
+/**
+ * Sent once, by /api/jobs/run-scheduled-emails, TRIAL_ENDING_SOON_DAYS_BEFORE
+ * days before the trial's 60-day backstop (see billing.ts's
+ * trialBackstopDate() — the same date describeBilling derives for dashboard
+ * display, so there's one source of truth for when the trial ends). Exists
+ * because Stripe's own customer.subscription.trial_will_end fires a fixed 3
+ * days out and isn't configurable — inadequate notice for a $4,788 charge.
+ * daysRemaining is computed fresh at send time rather than hardcoded to
+ * TRIAL_ENDING_SOON_DAYS_BEFORE, so the copy stays accurate even if the job
+ * runs a day or two late (a missed cron run, not a bug) and actually finds
+ * fewer days left than the job's own trigger window.
+ */
+export async function sendTrialEndingSoonEmail(
+  args: { to: string; dashboardUrl: string; trialEndDate: string; daysRemaining: number },
+): Promise<SendResult> {
+  const whenPhrase = args.daysRemaining === 1 ? "Tomorrow" : `In ${args.daysRemaining} days`;
+  const subject = args.daysRemaining === 1 ? "Your trial ends tomorrow" : `Your trial ends in ${args.daysRemaining} days`;
+  const text = `Hi there,
+
+${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file — unless you cancel before then.
+
+If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged.
+
+Your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file — unless you cancel before then.</p>
+    <p>If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged.</p>
+    <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}

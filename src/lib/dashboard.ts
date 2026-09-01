@@ -3,7 +3,7 @@
 // does NOT recompute gates. Its whole job is to turn that honest state into copy
 // without blurring "ready" (configured, NOT accepting applicants) into "live".
 
-import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "./billing";
+import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, trialBackstopDate } from "./billing";
 
 const ANNUAL_PRICE_DISPLAY = `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`; // $4,788
 const MONTHLY_EQUIVALENT_DISPLAY = `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`; // $399
@@ -99,7 +99,7 @@ export function describeBilling(
         const used = extra?.screenedCandidateCount ?? 0;
         const startedAt = extra?.trialStartedAt;
         const byDate = startedAt
-          ? new Date(startedAt.getTime() + TRIAL_DAYS_BACKSTOP * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+          ? trialBackstopDate(startedAt).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
             })

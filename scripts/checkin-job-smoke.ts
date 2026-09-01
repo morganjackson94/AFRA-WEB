@@ -44,7 +44,11 @@ async function runJob() {
     headers: { "x-admin-secret": process.env.JOBS_ADMIN_SECRET! },
   });
   const response = await POST(request);
-  return response.json() as Promise<{ ok: boolean; eligible: number; sent: number; skipped: number; errors: string[] }>;
+  return response.json() as Promise<{
+    ok: boolean;
+    checkin: { eligible: number; sent: number; skipped: number; errors: string[] };
+    trialEndingSoon: { eligible: number; sent: number; skipped: number; errors: string[] };
+  }>;
 }
 
 async function main() {
@@ -70,14 +74,14 @@ async function main() {
   const result1 = await runJob();
   console.log(`   RESEND_API_KEY configured: ${Boolean(process.env.RESEND_API_KEY)}`);
   assert(result1.ok === true, "job ran ok");
-  assert(result1.eligible === 2, `eligible count is 2 (got ${result1.eligible})`);
+  assert(result1.checkin.eligible === 2, `eligible count is 2 (got ${result1.checkin.eligible})`);
   if (process.env.RESEND_API_KEY) {
-    assert(result1.sent === 2, `sent count is 2 (got ${result1.sent})`);
+    assert(result1.checkin.sent === 2, `sent count is 2 (got ${result1.checkin.sent})`);
   } else {
     // Stub path: sendCheckinEmail resolves { sent: false, stub: true }, which
     // the route records as an error entry, not a `sent` increment — proves
     // the route still renders/attempts the send without throwing.
-    assert(result1.sent === 0 && result1.errors.length === 2, `stub path recorded both as non-throwing attempts (got sent=${result1.sent}, errors=${JSON.stringify(result1.errors)})`);
+    assert(result1.checkin.sent === 0 && result1.checkin.errors.length === 2, `stub path recorded both as non-throwing attempts (got sent=${result1.checkin.sent}, errors=${JSON.stringify(result1.checkin.errors)})`);
   }
 
   const dueRow = await prisma.operator.findUniqueOrThrow({ where: { id: opDue } });
@@ -91,8 +95,8 @@ async function main() {
 
   console.log("\n3) Second run — must be a safe no-op (already sent, nothing newly eligible):");
   const result2 = await runJob();
-  assert(result2.eligible === 0, `no eligible operators left (got ${result2.eligible})`);
-  assert(result2.sent === 0, "sent nothing on the re-run");
+  assert(result2.checkin.eligible === 0, `no eligible operators left (got ${result2.checkin.eligible})`);
+  assert(result2.checkin.sent === 0, "sent nothing on the re-run");
 
   await prisma.operator.deleteMany({ where: { id: { in: [opDue, opTrialing, opRefunded, opNotYetDue] } } });
   console.log("\nCheck-in job smoke test PASSED.");

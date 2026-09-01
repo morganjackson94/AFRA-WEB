@@ -162,6 +162,14 @@ model Operator {
   /// Idempotency claim for the trial-ended email, same claim-before-send
   /// idiom as welcomeEmailSentAt/liveEmailSentAt above.
   trialEndedEmailSentAt DateTime?
+  /// Idempotency claim for the trial-ENDING-SOON email (sent
+  /// TRIAL_ENDING_SOON_DAYS_BEFORE days before the 60-day backstop — see
+  /// billing.ts's trialBackstopDate() and /api/jobs/run-scheduled-emails).
+  /// Same claim-before-send idiom as trialEndedEmailSentAt above. Null for
+  /// an operator who ends their trial early via the candidate cap or
+  /// cancels before this would fire — there's nothing to warn about once
+  /// billingStatus has already left "trialing".
+  trialEndingSoonEmailSentAt DateTime?
 
   locations          Location[]
   channelConnections ChannelConnection[]

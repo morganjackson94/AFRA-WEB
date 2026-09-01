@@ -1,6 +1,9 @@
 import { createLoginToken } from "../../../../lib/auth";
-import { sendCheckinEmail } from "../../../../lib/mail";
+import { TRIAL_DAYS_BACKSTOP, TRIAL_ENDING_SOON_DAYS_BEFORE, trialBackstopDate } from "../../../../lib/billing";
+import { sendCheckinEmail, sendTrialEndingSoonEmail } from "../../../../lib/mail";
 import { prisma } from "../../../../lib/prisma";
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // Duplicated from session.ts's appBaseUrl() rather than imported: session.ts
 // pulls in next/headers (cookies()), which breaks when this route module is
@@ -105,5 +108,82 @@ async function runJob(request: Request): Promise<Response> {
     }
   }
 
-  return Response.json({ ok: true, eligible: due.length, sent, skipped, errors });
+  const trialEndingSoon = await runTrialEndingSoonJob();
+
+  return Response.json({
+    ok: true,
+    checkin: { eligible: due.length, sent, skipped, errors },
+    trialEndingSoon,
+  });
+}
+
+// Trial-ending-soon job. TRIAL_ENDING_SOON_DAYS_BEFORE days before the
+// trial's 60-day backstop (see billing.ts's trialBackstopDate — the SAME
+// derivation describeBilling uses for dashboard display, so there's one
+// source of truth for the trial-end date, not two that can drift).
+//
+// billingStatus: "trialing" does the real work of handling both edge cases
+// where the 7-day date should never fire a warning:
+//   - trial ends early via the candidate cap: endTrialForCandidateCap's
+//     resulting webhook flips billingStatus away from "trialing" before (or
+//     regardless of) whether 7 days remained — this operator is no longer
+//     in the eligible set, deliberately, not by omission. There's nothing
+//     "coming up" to warn about once the trial has already ended.
+//   - operator cancels before the email fires: cancelBilling sets
+//     billingStatus to "canceled", same exclusion, same reasoning — don't
+//     warn about a charge that will never happen.
+// An operator with fewer than TRIAL_ENDING_SOON_DAYS_BEFORE days left "for
+// any reason" (a missed cron run, a delayed deploy) is still caught by the
+// `createdAt <= cutoff` comparison (it's `<=`, not `===`) — daysRemaining is
+// computed fresh per-operator at send time, not hardcoded to 7, so the copy
+// stays accurate even when the job runs late.
+async function runTrialEndingSoonJob() {
+  const cutoff = new Date(Date.now() - (TRIAL_DAYS_BACKSTOP - TRIAL_ENDING_SOON_DAYS_BEFORE) * ONE_DAY_MS);
+  const due = await prisma.operator.findMany({
+    where: {
+      plan: "founding_annual",
+      billingStatus: "trialing",
+      createdAt: { lte: cutoff },
+      trialEndingSoonEmailSentAt: null,
+    },
+    select: { id: true },
+  });
+
+  let sent = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const { id } of due) {
+    // Claimed before send, same idiom as checkinEmailSentAt above — a second
+    // invocation the same day (cron overlap, manual retry) matches zero rows
+    // here and skips, never double-sending.
+    const claim = await prisma.operator.updateMany({
+      where: { id, trialEndingSoonEmailSentAt: null },
+      data: { trialEndingSoonEmailSentAt: new Date() },
+    });
+    if (claim.count === 0) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      const operator = await prisma.operator.findUniqueOrThrow({ where: { id } });
+      const endDate = trialBackstopDate(operator.createdAt);
+      const daysRemaining = Math.max(1, Math.ceil((endDate.getTime() - Date.now()) / ONE_DAY_MS));
+      const trialEndDate = endDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const token = await createLoginToken(prisma, id);
+      const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
+      const result = await sendTrialEndingSoonEmail({ to: operator.email, dashboardUrl, trialEndDate, daysRemaining });
+      if (result.sent) {
+        sent++;
+      } else {
+        errors.push(`${id}: send did not complete (stub=${result.stub ?? false})`);
+      }
+    } catch (err) {
+      console.error(`[trial-ending-soon-email] failed for operator ${id}:`, err);
+      errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { eligible: due.length, sent, skipped, errors };
 }

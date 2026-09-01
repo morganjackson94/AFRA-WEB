@@ -27,6 +27,26 @@ export const ANNUAL_PRICE_CENTS = 478800;
 // path (applyStripeStatus, activation.ts) — see docs/CLAIMS.md.
 export const FREE_CANDIDATE_CAP = 20;
 export const TRIAL_DAYS_BACKSTOP = 60;
+// How many days before the 60-day backstop the "trial ending soon" email
+// fires (see /api/jobs/run-scheduled-emails). Stripe's own
+// customer.subscription.trial_will_end webhook fires a fixed 3 days before
+// end and isn't configurable — inadequate notice for a $4,788 charge. This
+// is a genuinely separate, earlier communication, not a replacement.
+export const TRIAL_ENDING_SOON_DAYS_BEFORE = 7;
+
+/**
+ * The single source of truth for "when does this trial hit its 60-day
+ * backstop" — used by describeBilling() (dashboard display) and the
+ * trial-ending-soon job (src/app/api/jobs/run-scheduled-emails) so both
+ * derive the same date from the same formula rather than each computing it
+ * independently and risking drift if TRIAL_DAYS_BACKSTOP ever changes.
+ * Does NOT account for the candidate-cap trigger ending a trial early —
+ * that's a real Stripe-side event (billingStatus leaves "trialing"), not a
+ * date computable in advance; callers filter on billingStatus separately.
+ */
+export function trialBackstopDate(trialStartedAt: Date): Date {
+  return new Date(trialStartedAt.getTime() + TRIAL_DAYS_BACKSTOP * 24 * 60 * 60 * 1000);
+}
 // Internal capacity gate only — no longer a marketed "first N only" cohort
 // (that ended with the August 2026 repricing). Kept as an operational
 // safety valve; see countActiveFoundingOperators() in activation.ts, which

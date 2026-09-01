@@ -117,17 +117,30 @@ own 60-day backstop, `trial_period_days` on the subscription — no app code tri
 plainly that billing has started at $4,788/year (about $399/month); never a surprise. Idempotent via
 `trialEndedEmailSentAt`.
 
-**Trial ending soon** (drafted, NOT YET WIRED as of September 2026 — see the annual-repricing work log)
-— planned as `sendTrialEndingSoonEmail()`, to be sent by `/api/jobs/run-scheduled-emails` 7 days before
-the trial's backstop date. Motivation: Stripe's own `customer.subscription.trial_will_end` webhook fires
-a fixed 3 days before trial end, inadequate notice for a $4,788 charge (chargeback risk), and isn't
-configurable to fire earlier. Copy drafted and pending approval before this is wired into schema/code —
-do not treat this entry as describing shipped behavior until this note is updated to remove this
-caveat.
+**Trial ending soon** (shipped, September 2026) — `sendTrialEndingSoonEmail()`, sent by
+`/api/jobs/run-scheduled-emails` via a second, independent find/claim/send loop
+(`runTrialEndingSoonJob`) `TRIAL_ENDING_SOON_DAYS_BEFORE` (7) days before the trial's 60-day backstop.
+Motivation: Stripe's own `customer.subscription.trial_will_end` webhook fires a fixed 3 days before
+trial end — inadequate notice for a $4,788 charge — and isn't configurable to fire earlier. Computes the
+trial-end date via `billing.ts`'s `trialBackstopDate()`, the SAME function `describeBilling()` uses for
+dashboard display — one source of truth, not two that can drift. `daysRemaining` is computed fresh at
+send time (not hardcoded to 7), so the copy stays accurate even if the job runs a day or two late.
+Idempotent via `trialEndingSoonEmailSentAt` (same claim-before-send idiom as `trialEndedEmailSentAt`).
+Filtered to `billingStatus: "trialing"`, which deliberately excludes an operator whose trial already
+ended early via the candidate cap, and an operator who already canceled — neither has anything left to
+warn about. `replyTo` set to `CONTACT_EMAIL`, same as every other lifecycle email — see "From address"
+note below.
 
-All four repeat the trial/pricing terms verbatim from this file where they mention them. Approved
+All five repeat the trial/pricing terms verbatim from this file where they mention them. Approved
 final copy — see git history for the exact text; don't paraphrase further without re-checking against
 this table.
+
+**From address:** every lifecycle email's visible `From:` header is `MAIL_FROM` (or the
+`login@afravisibility.com` default), but every one of them sets `reply_to` to `CONTACT_EMAIL`
+(`morgan@afravisibility.com`, `src/lib/constants.ts`) — so "Reply any time. This comes straight to me."
+is genuinely true regardless of what the From header shows. Verified in code, not independently verified
+that `morgan@afravisibility.com` itself is an actively monitored inbox — that's an operational fact, not
+a code fact.
 
 ## ToS backing
 
