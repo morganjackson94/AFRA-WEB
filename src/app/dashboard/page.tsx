@@ -208,6 +208,7 @@ export default async function DashboardPage({
           { id: "p3", name: "Sam T.", contact: "@sam", stage: "applied" },
           { id: "p4", name: "Priya N.", contact: "@priya", stage: "screened" },
           { id: "p5", name: "Lena P.", contact: "@lena", stage: "booked" },
+          { id: "p6", name: "Jordan B.", contact: "@jordan", stage: "rejected" },
         ]
       : candidates.map((c) => ({ id: c.id, name: c.name, contact: c.contact, stage: c.stage }));
   const bookingsView: { id: string; name: string | null; status: string; scheduledAt: Date | null }[] =
@@ -221,6 +222,13 @@ export default async function DashboardPage({
         }));
 
   const waiting = candidatesView.filter((c) => c.stage === "applied" || c.stage === "screened");
+  // Not one of the 4 forward stages (STAGES) — screening out is a terminal
+  // branch, not a further step toward a booking, so it gets its own block
+  // rather than a 5th column in that row. Never counts toward the free-20
+  // trial cap (Candidate.countedTowardTrial stays false for these — see
+  // manychat.ts) — only a "screened" (or later) outcome does, so the two
+  // numbers on this page can diverge a lot without anything being wrong.
+  const rejectedView = candidatesView.filter((c) => c.stage === "rejected");
   const interviewsToday = bookingsView.filter(
     (b) => b.scheduledAt && isToday(new Date(b.scheduledAt)) && b.status === "scheduled",
   );
@@ -249,9 +257,12 @@ export default async function DashboardPage({
     rightNow = "Your pipeline is moving. Nothing needs you this second.";
   }
 
+  // "not_live" doesn't mean nothing can arrive yet — gatePlatform (real
+  // screening) and "live" (every gate met) are independent, so a candidate
+  // can already be screened here during setup. Don't claim otherwise.
   const emptyApplied =
     state === "not_live"
-      ? "Applicants show up here once you're live. Finish setup above."
+      ? "No applicants yet — finish setup above to start receiving them."
       : "No applicants yet. Share your hiring link to start.";
 
   // ---- Reusable section blocks, composed per state below ----
@@ -518,6 +529,40 @@ export default async function DashboardPage({
               </p>
             )}
           </div>
+
+          {/* Not a 5th column in the STAGES row above — that row is forward
+              progress toward a booking, and a rejection is a terminal branch
+              off it, not a further step. Same card treatment as "Booked
+              interviews" instead: this IS the evidence the screening did
+              something, which is the whole value of paying for it. */}
+          <div className="rounded-2xl border border-line bg-card p-6">
+            <SectionLabel>Screened out</SectionLabel>
+            <div className="t-numeral mt-4 text-[44px] leading-none text-ink">{rejectedView.length}</div>
+            <div className="mt-3 space-y-2">
+              {rejectedView.length === 0 ? (
+                <p className="text-xs text-faint">No one screened out yet.</p>
+              ) : (
+                rejectedView.map((c) =>
+                  sampleActive ? (
+                    <div key={c.id} className="rounded-lg bg-cream p-2 text-xs text-ink shadow-sm">
+                      {c.name ?? c.contact ?? "Candidate"}
+                    </div>
+                  ) : (
+                    <Link
+                      key={c.id}
+                      href={`/dashboard/candidates/${c.id}?operator=${operator.id}`}
+                      className="block rounded-lg bg-cream p-2 text-xs text-ink shadow-sm transition hover:bg-bg"
+                    >
+                      {c.name ?? c.contact ?? "Candidate"}
+                    </Link>
+                  ),
+                )
+              )}
+            </div>
+            <p className="mt-4 border-t border-line pt-3 text-xs text-faint">
+              Screened out — only qualified candidates count toward your free 20.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -541,11 +586,39 @@ export default async function DashboardPage({
                 </div>
               );
             })}
+            {/* Not one of STAGES (see rejectedView's comment above) — same
+                reasoning, same exemption from the forward-progress row, just
+                condensed into this one quiet strip instead of its own card.
+                This is the view an operator lives in during concierge setup,
+                before "live" — exactly when they're calibrating whether the
+                bar is set right, which they can't do from qualified
+                candidates alone. */}
+            <div className="flex items-baseline gap-2">
+              <span className="t-numeral text-2xl text-ink-soft">{rejectedView.length}</span>
+              <span className="text-xs uppercase tracking-[0.16em] text-faint">Screened out</span>
+            </div>
           </div>
           <p className="mt-4 max-w-[52ch] text-sm leading-relaxed text-ink-soft">{emptyApplied}</p>
+          {rejectedView.length > 0 && (
+            <ul className="mt-3 space-y-1 text-sm text-ink">
+              {rejectedView.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    href={`/dashboard/candidates/${c.id}?operator=${operator.id}`}
+                    className="hover:underline"
+                  >
+                    {c.name ?? c.contact ?? "Candidate"}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="mt-2 text-xs text-faint">
             Booked interviews land here. Billing is $4,788/year flat, all locations — the first 20
             screened candidates or 60 days, whichever comes first, are free.
+          </p>
+          <p className="mt-2 text-xs text-faint">
+            Screened out — only qualified candidates count toward your free 20.
           </p>
         </div>
       </div>
