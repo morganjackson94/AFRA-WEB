@@ -72,6 +72,36 @@ time `provision()` runs. Just get the schema right: `prisma migrate deploy`
 `DEV_DATABASE_URL`/`DIRECT_URL` — never `db push`, per the raw-SQL-migration
 gap above.
 
+## Migrations run automatically on every deploy — and once reached production unexpectedly
+
+`package.json`'s `vercel-build` script is `prisma migrate deploy && next
+build`. Vercel runs `vercel-build` instead of `build` whenever it's present,
+so **every deploy — Production or Preview, git-triggered or an ad-hoc local
+`vercel deploy` — applies pending migrations automatically before building.**
+Nobody runs `prisma migrate deploy` by hand against a live deployment target;
+the build does it. Any future additive migration ships the moment its commit
+is deployed, to whichever environment that deployment targets. This is
+deliberate and fine for Production. Treat it as load-bearing: a migration
+that isn't safe to auto-apply the instant it's deployed isn't safe to merge.
+
+**Unresolved gap, found 2026-09-01:** during this session's funnel-attribution
+work, an ad-hoc `vercel deploy` (uncommitted local files, no git push
+involved) — confirmed via `vercel inspect` as `target: preview` — had its
+`prisma migrate deploy` step apply the migration to **production**, not the
+dev database Preview's own env vars (`vercel env ls preview`) correctly
+point to. Build logs only show the shared `db.prisma.io` hostname, not which
+credential resolved, so the exact mechanism is not confirmed. What's
+directly verified and NOT in question: application *data* writes from that
+same Preview deployment correctly landed in `afra-web-dev` (checked by
+querying both databases directly). What's unresolved: whether the automatic
+migration step during a Preview build can be trusted to use Preview's
+credentials rather than production's. Until this is root-caused, treat every
+schema migration as potentially live on production the moment it's
+committed, regardless of which environment you think you're deploying to —
+the `ProductionMarker` guard protects data writes from app code and scripts,
+but does **not** protect the migration step itself, which runs before any
+app code executes.
+
 ## Live Stripe restricted key — read-only by design (and that's fine)
 
 The Stripe CLI's live-mode restricted key (`rk_live_...DO3w`, on the "Afra
