@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { provision } from "../src/lib/provision";
 
 // Proves POST/GET /api/jobs/run-scheduled-emails: sends the day-20 check-in
@@ -16,7 +16,7 @@ import { provision } from "../src/lib/provision";
 
 process.env.JOBS_ADMIN_SECRET ??= "smoke-test-secret";
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -52,6 +52,8 @@ async function runJob() {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const inTenDays = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 

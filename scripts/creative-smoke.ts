@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { validateCreativeText } from "../src/lib/creative";
 import { provision } from "../src/lib/provision";
 import { isValidTemplate } from "../src/lib/readiness";
@@ -9,9 +9,7 @@ import { isValidTemplate } from "../src/lib/readiness";
 // reason and passes clean text; saved edits persist via the existing template
 // contract and isValidTemplate() still holds.
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -19,6 +17,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log("1) validateCreativeText blocks non-compliant text:");
   const bad = validateCreativeText({
     headline: "Looking for young servers under 25",

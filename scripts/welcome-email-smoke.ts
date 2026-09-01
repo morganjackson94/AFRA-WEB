@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { confirmFoundingPayment } from "../src/lib/activation";
 import { getBillingProvider } from "../src/lib/billing";
 import { provision } from "../src/lib/provision";
@@ -18,7 +18,7 @@ import { provision } from "../src/lib/provision";
 // full rendered copy instead of calling Resend, which this script relies on
 // to prove both templates render without throwing.
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 const billing = getBillingProvider();
 
 function assert(cond: boolean, msg: string) {
@@ -44,6 +44,8 @@ async function addPoolFlow(): Promise<string> {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log("1) TEST-mode confirmation (livemode: false), no override — must NOT send:");
   const opA = await freshOperator("welcomeemailsmokea");
   const resultA = await confirmFoundingPayment(prisma, billing, opA, { subscriptionId: `sub_test_${opA}`, livemode: false });

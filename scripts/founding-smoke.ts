@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import {
   applyStripeStatus,
   confirmFoundingPayment,
@@ -21,9 +21,7 @@ import { provision } from "../src/lib/provision";
 // triggered it — the candidate cap (endTrialForCandidateCap) or Stripe's own
 // 60-day backstop — proven identical below.
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 const billing = getBillingProvider();
 
 function assert(cond: boolean, msg: string) {
@@ -36,6 +34,8 @@ async function role(operatorId: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log(`Billing provider mode: ${billing.mode}\n`);
 
   // ---- 1) Founding signup: provision WITHOUT a trial, then start checkout ----

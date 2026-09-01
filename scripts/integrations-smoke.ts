@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { connectChannel } from "../src/lib/activation";
 import { getCalendarProvider } from "../src/lib/calendar";
 import { getChannelProvider, StubChannelProvider } from "../src/lib/channel";
@@ -10,9 +10,7 @@ import { provision } from "../src/lib/provision";
 // Verifies the B1/B2/A5 stub seams: methods exist and return stub data, and the
 // stub connect() stays HONEST (does not fake a connected channel / live instance).
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -20,6 +18,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const channel = getChannelProvider(prisma);
   const calendar = getCalendarProvider(prisma);
   const nudge = getNudgeScheduler();

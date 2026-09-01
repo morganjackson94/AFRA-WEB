@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { connectChannel } from "../src/lib/activation";
 import { provision } from "../src/lib/provision";
 
@@ -18,7 +18,7 @@ import { provision } from "../src/lib/provision";
 // Does not require RESEND_API_KEY — the stub path proves both templates
 // render without throwing.
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -55,6 +55,8 @@ async function freshOperator(handle: string, reachFlag: boolean) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log("1) Normal reach (reachFlag: false) — genuine transition must send variant A:");
   const opA = await freshOperator("liveemailsmokea", false);
   const resultA = await connectChannel(prisma, confirmingProvider, opA.channelConnectionId);

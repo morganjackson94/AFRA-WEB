@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { ingestScreeningResult, isCleanManyChatPayload, translateCleanManyChatPayload } from "../src/lib/manychat";
 import { isValidPayload, POST } from "../src/app/api/manychat/webhook/route";
 import { provision } from "../src/lib/provision";
@@ -17,7 +17,7 @@ import { provision } from "../src/lib/provision";
 // and deletes them afterward (cascade) — same self-cleaning pattern as the
 // other *-smoke scripts.
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -25,6 +25,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log("1-3) ingestScreeningResult — real DB, operator-conditional scoring + outcome fallback:");
   const emailA = "knockout-a@smoke.test";
   const emailB = "knockout-b@smoke.test";

@@ -21,6 +21,24 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Database guard rail — not application data. See docs/DATABASE.md and
+// scripts/lib/guardDatabase.ts.
+// ---------------------------------------------------------------------------
+
+/// Exactly one row, inserted manually into the real production database only
+/// — never via prisma/seed.ts, never via app code, never via a migration.
+/// Local scripts and the dev server refuse to run against any database that
+/// has this row, regardless of which URL they were pointed at. A
+/// host-string check alone isn't reliable here: multiple Prisma Postgres
+/// resources (production's and the separate dev one) share the same
+/// db.prisma.io host, so only the row's presence can distinguish them.
+model ProductionMarker {
+  id          Int      @id @default(1)
+  environment String   @default("production")
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
 // Account spine
 // ---------------------------------------------------------------------------
 

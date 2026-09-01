@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { createLoginToken } from "../src/lib/auth";
 import { normalizeEmail } from "../src/lib/constants";
 import { deleteDraft, loadDraft, saveDraft } from "../src/lib/onboardingDraft";
@@ -18,7 +18,7 @@ import { provision } from "../src/lib/provision";
 // which needs Next's runtime — same reason other smoke scripts test lib
 // functions, not action wrappers).
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -26,6 +26,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log("1) normalizeEmail() trims and lowercases:");
   assert(normalizeEmail("  Jane@Restaurant.COM ") === "jane@restaurant.com", "mixed-case + whitespace normalizes correctly");
   assert(normalizeEmail("already@lower.com") === "already@lower.com", "already-normalized input is unchanged");

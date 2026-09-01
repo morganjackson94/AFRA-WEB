@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import {
   applyStripeStatus,
   cancelBilling,
@@ -16,8 +16,7 @@ import { provision } from "../src/lib/provision";
 // StartedSetup fires once on setup start, WentLive does NOT fire on trial-start
 // and DOES fire exactly once on the true live transition. Meta forward stubbed.
 
-const adapter = new PrismaPg(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({ adapter });
+let prisma: PrismaClient;
 const billing = getBillingProvider();
 
 function assert(cond: boolean, msg: string) {
@@ -36,6 +35,8 @@ async function eventTypes(operatorId: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   console.log(`Billing provider mode: ${billing.mode}` +
     (billing.mode === "fake" ? "  (set STRIPE_SECRET_KEY=sk_test_... for real Stripe test mode)" : ""));
 

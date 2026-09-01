@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { logWizardFunnelEvent } from "../src/lib/wizardFunnel";
 
 // Proves the wizard funnel diagnostic (WizardFunnelEvent) records a full
@@ -9,9 +9,7 @@ import { logWizardFunnelEvent } from "../src/lib/wizardFunnel";
 // instead of throwing. Self-cleaning: only touches the throwaway sessions it
 // creates.
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -19,6 +17,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const fullSession = `smoke-full-${Date.now()}`;
   const partialSession = `smoke-partial-${Date.now()}`;
   await prisma.wizardFunnelEvent.deleteMany({ where: { wizardSessionId: { in: [fullSession, partialSession] } } });

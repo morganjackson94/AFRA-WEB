@@ -5,6 +5,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Before running any local script or `npm run dev`
 
-Read `docs/DATABASE.md` first. Local dev and production currently share one
-Postgres database — a local script's writes are real, not sandboxed.
+Read `docs/DATABASE.md` first. Local scripts and the dev server require
+`DEV_DATABASE_URL` (no fallback to `.env`'s production `DATABASE_URL`) and
+refuse to run against a database carrying the `ProductionMarker` row.
 <!-- END:nextjs-agent-rules -->

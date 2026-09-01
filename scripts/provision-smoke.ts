@@ -1,13 +1,12 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { provision } from "../src/lib/provision";
 
 // End-to-end proof of Step 2: provision -> read back -> confirm gates are honest.
 // Creates a throwaway operator and deletes it afterward (cascade) so it's idempotent.
 
-const adapter = new PrismaPg(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({ adapter });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -15,6 +14,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const inputs = {
     instagramHandle: "@BlueBottleCoffee",
     role: { title: "Barista", pay: "$20/hr", hours: "Full-time" },

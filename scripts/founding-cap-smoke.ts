@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { countActiveFoundingOperators } from "../src/lib/activation";
 import { FOUNDING_SPOTS_TOTAL } from "../src/lib/billing";
 
@@ -16,7 +16,7 @@ import { FOUNDING_SPOTS_TOTAL } from "../src/lib/billing";
 // through full provision()/Stripe — this tests the count/cap logic, not
 // checkout) and deletes them afterward.
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -28,6 +28,8 @@ const EXCLUDED_EMAIL = "cap-test-excluded@smoke.test"; // must be excluded by th
 const TEST_MODE_EMAIL = "cap-test-livemode-false@afra-cap-smoke.test"; // must be excluded by stripeLivemode
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   await prisma.operator.deleteMany({ where: { email: { in: [...TEST_EMAILS, EXCLUDED_EMAIL, TEST_MODE_EMAIL] } } });
 
   const baseline = await countActiveFoundingOperators(prisma);

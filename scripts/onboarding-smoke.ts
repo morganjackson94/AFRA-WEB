@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { describeReadiness } from "../src/lib/dashboard";
 import { provision } from "../src/lib/provision";
 
@@ -8,9 +8,7 @@ import { provision } from "../src/lib/provision";
 // input shape the wizard collects (handle, role title, pay, calendarChoice,
 // optional email). The dashboard copy SSOT must read NOT live (stubbed).
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -18,6 +16,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const email = "onboard@smoke.test";
   await prisma.operator.deleteMany({ where: { email } });
 

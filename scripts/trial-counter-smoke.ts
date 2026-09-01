@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 import { confirmFoundingPayment, applyStripeStatus } from "../src/lib/activation";
 import { FREE_CANDIDATE_CAP, getBillingProvider } from "../src/lib/billing";
 import { ingestScreeningResult } from "../src/lib/manychat";
@@ -15,7 +15,7 @@ import { startFoundingCheckout } from "../src/lib/activation";
 // this test observes via the fake billing provider's subscription status
 // flipping to "active").
 
-const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+let prisma: PrismaClient;
 const billing = getBillingProvider();
 
 function assert(cond: boolean, msg: string) {
@@ -24,6 +24,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const email = "founder@trialcountersmoke.com";
   await prisma.operator.deleteMany({ where: { email } });
 

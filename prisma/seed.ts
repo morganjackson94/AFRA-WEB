@@ -1,14 +1,15 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "../scripts/lib/guardDatabase";
 import { DEFAULT_BUSINESS_HOURS } from "../src/lib/constants";
 import { evaluateReadiness } from "../src/lib/readiness";
 import { ensureSystemDefaultTemplate, SYSTEM_DEFAULT_TEMPLATE } from "../src/lib/templates";
 
-const adapter = new PrismaPg(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({ adapter });
+let prisma: PrismaClient;
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   // Idempotent: clear prior seed data so re-running stays clean.
   await prisma.operator.deleteMany({ where: { email: "owner@sandoitchi.com" } });
   await prisma.screeningTemplate.deleteMany({ where: { isSystemDefault: true } });

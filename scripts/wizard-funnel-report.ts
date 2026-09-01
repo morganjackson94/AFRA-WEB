@@ -1,14 +1,12 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { requireDevDatabase } from "./lib/guardDatabase";
 
 // Read path for the onboarding-wizard funnel diagnostic (WizardFunnelEvent —
 // see schema.prisma / src/lib/wizardFunnel.ts). Pure read, no side effects.
 // Run any time with: npm run wizard-funnel:report
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(process.env.DATABASE_URL!),
-});
+let prisma: PrismaClient;
 
 const STEP_NAMES = [
   "locations",
@@ -21,6 +19,8 @@ const STEP_NAMES = [
 ];
 
 async function main() {
+  prisma = await requireDevDatabase();
+
   const started = await prisma.wizardFunnelEvent.count({ where: { eventType: "started" } });
 
   console.log("Onboarding wizard funnel");
