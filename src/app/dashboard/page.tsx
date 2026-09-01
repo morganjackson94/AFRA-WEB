@@ -1,21 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import QRCode from "qrcode";
 import { cancelSubscriptionAction, startManyChatConnectAction, updateCardAction } from "./actions";
-import { CopyLink } from "./CopyLink";
 import { Check } from "../../components/Icons";
 import { DegradedBanner } from "../../components/DegradedBanner";
 import { PreviewTag } from "../../components/PreviewTag";
 import { Reveal } from "../../components/Reveal";
 import { SafeModeHandoff } from "../../components/SafeModeHandoff";
 import { SectionLabel } from "../../components/SectionLabel";
-import { Stagger } from "../../components/Stagger";
 import { WorkspaceHeader } from "./WorkspaceHeader";
-import { describeBilling, describeReadiness, hiringLinkFor } from "../../lib/dashboard";
+import { describeBilling, describeReadiness } from "../../lib/dashboard";
 import { prisma } from "../../lib/prisma";
 import { isBillingActive } from "../../lib/readiness";
 import { getQuestionSetForRole } from "../../lib/screeningQuestions";
-import { appBaseUrl, resolveOperatorId } from "../../lib/session";
+import { resolveOperatorId } from "../../lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -226,14 +223,6 @@ export default async function DashboardPage({
   const waiting = candidatesView.filter((c) => c.stage === "applied" || c.stage === "screened");
   const interviewsToday = bookingsView.filter(
     (b) => b.scheduledAt && isToday(new Date(b.scheduledAt)) && b.status === "scheduled",
-  );
-
-  // Build QR data URLs server-side (no external calls).
-  const links = await Promise.all(
-    operator.locations.map(async (l) => {
-      const url = hiringLinkFor(l.id, appBaseUrl());
-      return { location: l, url, qr: await QRCode.toDataURL(url, { width: 200, margin: 1 }) };
-    }),
   );
 
   // ---- The glanceable RIGHT NOW line (state-driven) ----
@@ -561,53 +550,6 @@ export default async function DashboardPage({
     </section>
   );
 
-  const hiringLinksHero = (
-    <section className="border-t border-line py-14 md:py-16">
-      <div className={RAIL}>
-        <Reveal>
-          <SectionLabel index="02">Share your hiring link</SectionLabel>
-        </Reveal>
-        <Stagger className="space-y-5" step={100}>
-          {links.map(({ location, url, qr }) => (
-            <div key={location.id} className="rounded-2xl border border-line bg-card p-6">
-              <p className="mb-4 font-medium text-ink">{location.name}</p>
-              <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-                <div className="rounded-xl border border-line bg-bg p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qr} alt={`QR for ${location.name}`} width={132} height={132} />
-                </div>
-                <div className="w-full flex-1">
-                  <CopyLink url={url} />
-                  <p className="mt-2 text-xs text-faint">
-                    Post it, put the QR in your window, or drop it in your bio. Applicants who tap it
-                    land in your pipeline.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </Stagger>
-      </div>
-    </section>
-  );
-
-  // Compact hiring-links for states where sharing isn't the headline action.
-  const hiringLinksQuiet = (
-    <section className="border-t border-line py-12">
-      <div className={RAIL}>
-        <SectionLabel index="04">Hiring links</SectionLabel>
-        <Stagger className="space-y-3" step={80}>
-          {links.map(({ location, url }) => (
-            <div key={location.id} className="rounded-2xl border border-line bg-card p-5">
-              <p className="mb-3 text-sm font-medium text-ink">{location.name}</p>
-              <CopyLink url={url} />
-            </div>
-          ))}
-        </Stagger>
-      </div>
-    </section>
-  );
-
   const billingSection = (
     <section className="border-t border-line py-12">
       <div className={RAIL}>
@@ -720,7 +662,6 @@ export default async function DashboardPage({
             {setupHero}
             {questionsCard}
             {pipelineQuiet}
-            {hiringLinksQuiet}
             {billingSection}
           </>
         )}
@@ -728,7 +669,6 @@ export default async function DashboardPage({
         {state === "live_quiet" && (
           <>
             {liveConfirmation}
-            {hiringLinksHero}
             {pipelineQuiet}
             {billingSection}
           </>
@@ -738,7 +678,6 @@ export default async function DashboardPage({
           <>
             {liveConfirmation}
             {pipelineFull}
-            {hiringLinksQuiet}
             {billingSection}
           </>
         )}
