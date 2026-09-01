@@ -391,16 +391,6 @@ export default function LandingPage() {
                 locations. Nothing is charged during the trial.
               </div>
 
-              {/* Cost anchor (Phase 2): structural, no dollar figure, since
-                  no citable hospitality vacancy/turnover-cost stat cleared
-                  this page's own verification bar (see docs/CLAIMS.md).
-                  The comparison itself, manager time spent on back-and-forth
-                  screening, is true on its face without needing a number. */}
-              <p className="mt-3 text-[13px] leading-relaxed text-faint">
-                Hiring isn&apos;t free while you wait, either. It&apos;s manager hours spent
-                messaging applicants back and forth, many of whom never show.
-              </p>
-
               {/* The trial IS the risk reversal now — no guarantee to run
                   alongside it, since you can't refund a charge that was
                   never made. Prominent, since this is the actual offer. */}
