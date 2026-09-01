@@ -11,7 +11,7 @@ import { provision } from "../../lib/provision";
 import { computeReachFlag, locationCountForBucket } from "../../lib/qualification";
 import { appBaseUrl, createSession } from "../../lib/session";
 import { validateOtherRoleText } from "../../lib/textSanitize";
-import { logWizardFunnelEvent, type WizardFunnelEventType } from "../../lib/wizardFunnel";
+import { type Attribution, logWizardFunnelEvent, type WizardFunnelEventType } from "../../lib/wizardFunnel";
 
 export type OnboardingState = { error?: string };
 export type LeadState = { submitted?: boolean; error?: string };
@@ -46,8 +46,10 @@ export async function logWizardFunnelEventAction(
   eventType: WizardFunnelEventType,
   step: number,
   email?: string,
+  elementId?: string,
+  attribution?: Attribution,
 ): Promise<void> {
-  await logWizardFunnelEvent(prisma, { wizardSessionId, eventType, step, email });
+  await logWizardFunnelEvent(prisma, { wizardSessionId, eventType, step, email, elementId, attribution });
 }
 
 // Completes onboarding. Two paths, both: validate -> provision() the instance ->

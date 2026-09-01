@@ -1,10 +1,11 @@
 import Image from "next/image";
-import Link from "next/link";
 import { DemoModal } from "./DemoModal";
 import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
 import { CountUp } from "../components/CountUp";
+import { CTA } from "../components/CTA";
 import { FaqItem } from "../components/FaqItem";
 import { Bell, Bolt, Check, Filter, Instagram } from "../components/Icons";
+import { LandingViewTracker } from "../components/LandingViewTracker";
 import { LegalLinks } from "../components/LegalLinks";
 import { Magnetic } from "../components/Magnetic";
 import { RaceNarrative } from "../components/RaceNarrative";
@@ -33,34 +34,6 @@ const PRICING = {
   freeCandidateCap: FREE_CANDIDATE_CAP,
   trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
 };
-
-function CTA({
-  size = "base",
-  full = false,
-  label = "Claim your spot",
-  tone = "accent",
-}: {
-  size?: "base" | "lg";
-  full?: boolean;
-  label?: string;
-  // "accent" = the lit amber primary (one per view); "outline" = the quiet
-  // cream-on-periwinkle treatment for the persistent nav button, so the sticky
-  // CTA never competes with each section's single amber moment.
-  tone?: "accent" | "outline";
-}) {
-  return (
-    <Link
-      href="/onboarding"
-      className={`inline-flex items-center justify-center rounded-full font-medium transition duration-150 hover:opacity-90 active:scale-[0.98] ${
-        tone === "accent"
-          ? "border border-accent bg-accent text-accent-ink"
-          : "border border-line-strong bg-transparent text-ink hover:bg-cream"
-      } ${size === "lg" ? "px-8 py-4 text-base" : "px-5 py-2.5 text-[14.5px]"} ${full ? "w-full" : ""}`}
-    >
-      {label}
-    </Link>
-  );
-}
 
 // The founder's own sales-call calendar — distinct from Operator.
 // bookingLinkUrl (each operator's own candidate-interview booking link, set
@@ -156,6 +129,7 @@ export default function LandingPage() {
     // without producing a horizontal scrollbar. `clip` (not `hidden`) doesn't
     // create a scroll container, so the sticky nav keeps working.
     <div className="bg-bg text-ink overflow-x-clip">
+      <LandingViewTracker />
       {/* Nav */}
       <nav className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
         <div className={`${SECTION} flex items-center justify-between py-4`}>
@@ -171,7 +145,7 @@ export default function LandingPage() {
             // navy cut of the mark exists as its own asset.
             className="h-7 w-auto invert"
           />
-          <CTA tone="outline" />
+          <CTA id="nav" tone="outline" />
         </div>
       </nav>
 
@@ -200,7 +174,7 @@ export default function LandingPage() {
             <Reveal delay={420}>
               <div className="flex flex-wrap items-center gap-3">
                 <Magnetic>
-                  <CTA size="lg" />
+                  <CTA id="hero" size="lg" />
                 </Magnetic>
                 <DemoModal variant="ghost" />
               </div>
@@ -423,7 +397,7 @@ export default function LandingPage() {
               </div>
 
               <div className="mt-8">
-                <CTA size="lg" full />
+                <CTA id="pricing" size="lg" full />
               </div>
 
               <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
@@ -480,7 +454,7 @@ export default function LandingPage() {
             <h2 className="t-display mx-auto max-w-[14ch]">Stop losing applicants.</h2>
             <div className="mt-10">
               <Magnetic>
-                <CTA size="lg" />
+                <CTA id="final" size="lg" />
               </Magnetic>
             </div>
           </Stagger>

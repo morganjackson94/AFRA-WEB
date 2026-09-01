@@ -240,22 +240,55 @@ model Lead {
 }
 
 /// Best-effort funnel diagnostic for the onboarding wizard (landing-page-view
-/// -> InitiateCheckout is currently a black box — this fills it in). Deliberately
-/// NOT tied to Operator: most of the funnel happens before provision() creates
-/// one, so wizardSessionId (a random id the client generates on mount and
-/// persists in sessionStorage) is the only reliable correlation key across a
+/// -> InitiateCheckout is currently a black box — this fills it in). Now spans
+/// the whole visit, not just the wizard: landing_view/cta_click fire on the
+/// homepage before /onboarding ever mounts (see LandingViewTracker.tsx,
+/// CTA.tsx). Deliberately NOT tied to Operator: most of the funnel happens
+/// before provision() creates one, so wizardSessionId (a random id the
+/// client generates on first landing — homepage or /onboarding, whichever
+/// comes first — and persists in sessionStorage under "afraSessionId", see
+/// sessionAttribution.ts) is the only reliable correlation key across a
 /// single visit. Never gates or blocks anything — see logWizardFunnelEvent in
 /// wizardFunnel.ts. Read path: scripts/wizard-funnel-report.ts.
 model WizardFunnelEvent {
   id              String   @id @default(cuid())
   wizardSessionId String
-  /// "started" | "step_completed"
+  /// "landing_view" | "cta_click" | "page_view" | "session_started" |
+  /// "intro_completed" | "step_completed" | "abandoned" | (historical:
+  /// "started", superseded by page_view + session_started — see
+  /// wizardFunnel.ts's doc comment for why the split happened).
   eventType       String
-  /// 1-7. For "started" this is always 1 (the step the visitor landed on).
+  /// 0-7. 0 = pre-wizard (landing_view, cta_click, intro_completed). 1-7 =
+  /// the wizard step. For page_view/session_started this is always 1 (the
+  /// step the visitor landed on). For abandoned, the step open when the
+  /// signal fired (0 if still on the intro screen).
   step            Int
   /// Best-effort — only present once the visitor has typed a valid email
-  /// (from step 1 onward); null on "started", which fires before that.
+  /// (from step 1 onward); null before that.
   email           String?
+  /// Which UI element this event is about, when that's meaningful:
+  /// cta_click's CTA id ("nav" | "hero" | "pricing" | "final"), or
+  /// abandoned's last-touched field name. Null for every other event type.
+  elementId       String?
+
+  // --- Attribution (captured once per session, carried on every event) ----
+  // See sessionAttribution.ts's captureAttribution(): read from the URL on
+  // whichever page first has query params (ad destination may be the
+  // homepage or /onboarding directly — see docs/DATABASE.md-adjacent
+  // discussion in that file), cached in sessionStorage, and re-attached to
+  // every subsequent event for the rest of the session — a landing_view with
+  // fbclid set still carries it at step 7. Null across the board = direct/
+  // organic traffic, a real category, not a missing-data error.
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmContent      String?
+  utmTerm         String?
+  fbclid          String?
+  gclid           String?
+  referrer        String?
+  landingPath     String?
+
   createdAt       DateTime @default(now())
 
   @@index([eventType, step])

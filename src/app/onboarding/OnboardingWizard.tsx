@@ -25,8 +25,18 @@ import {
 import { Reveal } from "../../components/Reveal";
 import { trackMetaCustomEvent, trackMetaEvent } from "../../lib/metaPixel";
 import { getQuestionSetForRole } from "../../lib/screeningQuestions";
+import {
+  type Attribution,
+  captureAttribution,
+  getOrCreateSessionId,
+  hasFiredOnce,
+  markFiredOnce,
+  sendFunnelBeacon,
+} from "../../lib/sessionAttribution";
 import { validateOtherRoleText } from "../../lib/textSanitize";
 import { SectionLabel } from "../../components/SectionLabel";
+
+const SESSION_STARTED_KEY = "afraWizardSessionStartedFired";
 
 // THRESHOLD MODE — the deliberate dramatic step-through before the dashboard.
 // Same single periwinkle world as the rest of the app (#2D2D4A ground, warm
@@ -135,26 +145,92 @@ export function OnboardingWizard({
   const [leadState, leadFormAction, leadPending] = useActionState(submitQualificationLeadAction, LEAD_INITIAL);
 
   // Funnel diagnostic (see WizardFunnelEvent in schema.prisma). wizardSessionId
-  // is a random per-visit correlation key, not an auth/security token — it's
-  // generated once on mount and persisted in sessionStorage purely so a
-  // refresh mid-wizard doesn't fragment one visit into two "sessions". Silent
-  // background telemetry only: no UI, and every call site below is
-  // fire-and-forget (never awaited), so a slow or failed write can't delay
-  // step transitions or checkout.
+  // is the SAME id the homepage generates (see sessionAttribution.ts) —
+  // shared across landing -> wizard -> checkout, not regenerated here, so a
+  // reload mid-wizard or a hop from / reuses it rather than fragmenting one
+  // visit into two sessions. Silent background telemetry only: no UI, and
+  // every call site below is fire-and-forget (never awaited), so a slow or
+  // failed write can't delay step transitions or checkout.
   const wizardSessionIdRef = useRef("");
-  const startedFiredRef = useRef(false);
+  const attributionRef = useRef<Attribution>({});
+  const mountEffectRanRef = useRef(false);
+  const lastFieldRef = useRef<string>("none");
+  const pendingRef = useRef(false);
+  const stepRef = useRef(1);
+  const showIntroRef = useRef(true);
+  const abandonFiredRef = useRef(false);
 
   useEffect(() => {
-    if (startedFiredRef.current) return;
-    startedFiredRef.current = true;
-    let id = window.sessionStorage.getItem("wizardSessionId") ?? "";
-    if (!id) {
-      id = crypto.randomUUID();
-      window.sessionStorage.setItem("wizardSessionId", id);
-    }
+    if (mountEffectRanRef.current) return;
+    mountEffectRanRef.current = true;
+    const id = getOrCreateSessionId();
+    const attribution = captureAttribution();
     wizardSessionIdRef.current = id;
-    trackMetaCustomEvent("WizardStarted", { step: 1 }, `${id}-started`);
-    void logWizardFunnelEventAction(id, "started", 1);
+    attributionRef.current = attribution;
+
+    // page_view fires every mount, reloads included — that repetition is
+    // itself a signal (several pings in a few seconds reads as prefetch/bot,
+    // not a re-engaged visitor). session_started fires exactly once per
+    // sessionStorage-backed session, so funnel percentages built on it don't
+    // get corrupted by reloads the way the old single "started" event did.
+    trackMetaCustomEvent("WizardPageView", { step: 1 }, `${id}-pageview-${Date.now()}`);
+    void logWizardFunnelEventAction(id, "page_view", 1, undefined, undefined, attribution);
+    if (!hasFiredOnce(SESSION_STARTED_KEY)) {
+      markFiredOnce(SESSION_STARTED_KEY);
+      trackMetaCustomEvent("WizardStarted", { step: 1 }, `${id}-started`);
+      void logWizardFunnelEventAction(id, "session_started", 1, undefined, undefined, attribution);
+    }
+  }, []);
+
+  const emailRef = useRef("");
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+  useEffect(() => {
+    showIntroRef.current = showIntro;
+  }, [showIntro]);
+  useEffect(() => {
+    emailRef.current = email;
+  }, [email]);
+
+  // Abandonment signal: fires once, on real exit, with whatever field was
+  // last touched — not just the last step completed, which is the thing
+  // last turn's analysis couldn't see (where inside an incomplete step
+  // someone stopped). pagehide (not beforeunload/visibilitychange alone) is
+  // the trigger: it fires reliably on an actual close/navigate-away,
+  // including on mobile Safari where beforeunload is unreliable, and — unlike
+  // visibilitychange — does NOT fire on a mere tab-switch or backgrounding,
+  // which would otherwise produce false abandonment pings for someone who
+  // alt-tabbed away and came right back. beforeunload is also wired as a
+  // desktop-browser belt-and-suspenders fallback; abandonFiredRef stops
+  // either from double-firing if both trigger. Guarded on pendingRef so the
+  // real "Finish setup" submission (which also unloads the page, to Stripe)
+  // is never mistaken for abandonment — a false abandonment event on the one
+  // path that actually converts would be worse than missing one.
+  useEffect(() => {
+    function fireAbandonment() {
+      if (abandonFiredRef.current || pendingRef.current) return;
+      const id = wizardSessionIdRef.current;
+      if (!id) return;
+      abandonFiredRef.current = true;
+      sendFunnelBeacon({
+        sessionId: id,
+        eventType: "abandoned",
+        step: showIntroRef.current ? 0 : stepRef.current,
+        email: emailRef.current.trim() || undefined,
+        elementId: lastFieldRef.current,
+        attribution: attributionRef.current,
+      });
+    }
+    window.addEventListener("pagehide", fireAbandonment);
+    window.addEventListener("beforeunload", fireAbandonment);
+    return () => {
+      window.removeEventListener("pagehide", fireAbandonment);
+      window.removeEventListener("beforeunload", fireAbandonment);
+    };
   }, []);
 
   function logStepCompleted(completedStep: number) {
@@ -162,7 +238,25 @@ export function OnboardingWizard({
     if (!id) return;
     const stepName = STEP_NAMES[completedStep - 1];
     trackMetaCustomEvent("WizardStepCompleted", { step: completedStep, stepName }, `${id}-step${completedStep}`);
-    void logWizardFunnelEventAction(id, "step_completed", completedStep, email.trim() || undefined);
+    void logWizardFunnelEventAction(
+      id,
+      "step_completed",
+      completedStep,
+      email.trim() || undefined,
+      undefined,
+      attributionRef.current,
+    );
+  }
+
+  // Fired the moment the pre-step-1 intro screen is dismissed — distinguishes
+  // "loaded and left" (only page_view/session_started, no intro_completed)
+  // from "read the intro, tapped Start, then bailed on the first question"
+  // (intro_completed present, but no step_completed for step 1). Those were
+  // previously indistinguishable.
+  function logIntroCompleted() {
+    const id = wizardSessionIdRef.current;
+    if (!id) return;
+    void logWizardFunnelEventAction(id, "intro_completed", 0, undefined, undefined, attributionRef.current);
   }
 
   const nycNeedsAnswer = primaryState === "NY" && hasNycLocation === null;
@@ -263,7 +357,23 @@ export function OnboardingWizard({
 
   return (
     // Flex column so the footer sits BELOW the content (no fixed-overlap bug).
-    <form action={formAction} className="flex min-h-screen flex-col bg-threshold text-threshold-ink">
+    <form
+      action={formAction}
+      className="flex min-h-screen flex-col bg-threshold text-threshold-ink"
+      // Delegated, capture-phase: tracks "last field touched" for the
+      // abandonment signal without wiring a handler onto every individual
+      // input/button — any descendant carrying data-field updates the ref
+      // when clicked or changed. Read-only bookkeeping, never blocks or
+      // alters the click/change itself.
+      onChangeCapture={(e) => {
+        const el = (e.target as HTMLElement).closest("[data-field]");
+        if (el) lastFieldRef.current = el.getAttribute("data-field") ?? "none";
+      }}
+      onClickCapture={(e) => {
+        const el = (e.target as HTMLElement).closest("[data-field]");
+        if (el) lastFieldRef.current = el.getAttribute("data-field") ?? "none";
+      }}
+    >
       {/* Hidden canonical values submitted on finish */}
       <input type="hidden" name="plan" value="founding" />
       <input type="hidden" name="instagramHandle" value={handle} />
@@ -383,6 +493,7 @@ export function OnboardingWizard({
                       <Field label="Email">
                         <input
                           type="email"
+                          data-field="email"
                           className={inputClass}
                           placeholder="you@venue.com"
                           value={email}
@@ -418,7 +529,7 @@ export function OnboardingWizard({
                 <Reveal delay={300}>
                   <div>
                     <SectionLabel tone="dark" className="mb-3">Locations</SectionLabel>
-                    <PillGroup options={LOCATION_BUCKETS} selected={locationsBucket} onSelect={setLocationsBucket} />
+                    <PillGroup field="locationsBucket" options={LOCATION_BUCKETS} selected={locationsBucket} onSelect={setLocationsBucket} />
                   </div>
                 </Reveal>
                 {(locationsBucket === "1-2" || locationsBucket === "16+") && (
@@ -434,6 +545,7 @@ export function OnboardingWizard({
                       <Field label="Where should we send your setup?">
                         <input
                           type="email"
+                          data-field="email"
                           className={inputClass}
                           placeholder="you@venue.com"
                           value={email}
@@ -472,11 +584,12 @@ export function OnboardingWizard({
                   </p>
                 </Reveal>
                 <Reveal delay={300}>
-                  <PillGroup options={US_STATES} selected={primaryState} onSelect={setPrimaryState} />
+                  <PillGroup field="primaryState" options={US_STATES} selected={primaryState} onSelect={setPrimaryState} />
                   {primaryState === "NY" && (
                     <div className="mt-4">
                       <SectionLabel tone="dark" className="mb-3">Any locations in New York City itself?</SectionLabel>
                       <PillGroup
+                        field="hasNycLocation"
                         options={YES_NO}
                         selected={hasNycLocation === null ? "" : hasNycLocation ? "yes" : "no"}
                         onSelect={(v) => setHasNycLocation(v === "yes")}
@@ -503,6 +616,7 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={300}>
                   <MultiPillGroup
+                    field="roles"
                     options={ROLE_OPTIONS}
                     selected={roles}
                     onToggle={(v) =>
@@ -513,6 +627,7 @@ export function OnboardingWizard({
                     <div className="mt-4">
                       <Field label={`Role title (max ${24} characters)`}>
                         <input
+                          data-field="otherRoleText"
                           className={inputClass}
                           placeholder="e.g. Expo"
                           value={otherRoleText}
@@ -535,6 +650,7 @@ export function OnboardingWizard({
                   <div className="mt-7">
                     <Field label="Typical pay, all roles (optional)">
                       <input
+                        data-field="pay"
                         className={inputClass}
                         placeholder="$16-18 / hr"
                         value={pay}
@@ -601,6 +717,7 @@ export function OnboardingWizard({
                 </Reveal>
                 <Reveal delay={300}>
                   <MultiPillGroup
+                    field="disqualifiers"
                     options={DISQUALIFIERS}
                     selected={disqualifiers}
                     onToggle={(v) =>
@@ -622,6 +739,7 @@ export function OnboardingWizard({
                   <div className="mt-7">
                     <Field label="Describe someone you hired recently and regretted. What did you miss? (optional)">
                       <textarea
+                        data-field="badHireText"
                         className={`${inputClass} min-h-[110px] resize-none`}
                         placeholder="What would have told you sooner?"
                         value={badHireText}
@@ -658,6 +776,7 @@ export function OnboardingWizard({
                   <div className="space-y-5">
                     <Field label="Instagram handle">
                       <input
+                        data-field="handle"
                         className={inputClass}
                         placeholder="@yourvenue"
                         value={handle}
@@ -666,6 +785,7 @@ export function OnboardingWizard({
                     </Field>
                     <Field label="Facebook handle (optional)">
                       <input
+                        data-field="facebookHandle"
                         className={inputClass}
                         placeholder="facebook.com/yourvenue"
                         value={facebookHandle}
@@ -684,7 +804,7 @@ export function OnboardingWizard({
                     <SectionLabel tone="dark" className="mb-3">
                       {handle ? `Roughly how big is ${handle}'s following?` : "Roughly how big is your following?"}
                     </SectionLabel>
-                    <PillGroup options={FOLLOWER_BANDS} selected={followerBand} onSelect={setFollowerBand} />
+                    <PillGroup field="followerBand" options={FOLLOWER_BANDS} selected={followerBand} onSelect={setFollowerBand} />
                     {isLowReach && (
                       <p className="mt-3 text-[13px] leading-relaxed text-threshold-ink-soft">
                         Heads up. With a smaller following you&apos;ll get the most out of this by also sharing
@@ -696,7 +816,7 @@ export function OnboardingWizard({
                 <Reveal delay={480}>
                   <div className="mt-7">
                     <SectionLabel tone="dark" className="mb-3">How often are you hiring hourly staff?</SectionLabel>
-                    <PillGroup options={HIRING_FREQUENCIES} selected={hiringFrequency} onSelect={setHiringFrequency} />
+                    <PillGroup field="hiringFrequency" options={HIRING_FREQUENCIES} selected={hiringFrequency} onSelect={setHiringFrequency} />
                   </div>
                 </Reveal>
               </div>
@@ -722,6 +842,7 @@ export function OnboardingWizard({
                     {CALENDARS.map(({ id, label, Icon }) => (
                       <OptionRow
                         key={id}
+                        field="calendarChoice"
                         selected={calendarChoice === id}
                         onClick={() => setCalendarChoice(id)}
                         Icon={Icon}
@@ -735,6 +856,7 @@ export function OnboardingWizard({
                     <Field label="Booking link">
                       <input
                         type="url"
+                        data-field="bookingLinkUrl"
                         className={inputClass}
                         placeholder="Your Google Calendar or Calendly link"
                         value={bookingLinkUrl}
@@ -758,6 +880,7 @@ export function OnboardingWizard({
                   <label className="mt-6 flex items-start gap-3 text-[13.5px] leading-relaxed text-threshold-ink-soft">
                     <input
                       type="checkbox"
+                      data-field="tosAccepted"
                       checked={tosAccepted}
                       onChange={(e) => setTosAccepted(e.target.checked)}
                       className="mt-0.5 size-4 flex-none rounded border-threshold-line bg-threshold-soft accent-accent"
@@ -785,7 +908,10 @@ export function OnboardingWizard({
             <>
               <button
                 type="button"
-                onClick={() => setShowIntro(false)}
+                onClick={() => {
+                  logIntroCompleted();
+                  setShowIntro(false);
+                }}
                 className="w-full rounded-full bg-threshold-ink px-6 py-3.5 text-base font-medium text-threshold transition duration-300 ease-editorial hover:opacity-90"
               >
                 Start
@@ -880,17 +1006,20 @@ function OptionRow({
   onClick,
   Icon,
   label,
+  field,
 }: {
   selected: boolean;
   onClick: () => void;
   Icon: typeof Calendar;
   label: string;
+  field?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
+      data-field={field}
       className={`flex w-full items-center gap-3.5 rounded-xl border px-4 py-4 text-left transition duration-300 ease-editorial ${
         selected
           ? "border-threshold-ink bg-threshold-ink text-threshold shadow-[0_10px_30px_-12px_rgba(38,38,63,0.3)]"
@@ -924,10 +1053,12 @@ function PillGroup({
   options,
   selected,
   onSelect,
+  field,
 }: {
   options: readonly { value: string; label: string }[];
   selected: string;
   onSelect: (value: string) => void;
+  field?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -937,6 +1068,7 @@ function PillGroup({
           type="button"
           onClick={() => onSelect(o.value)}
           aria-pressed={selected === o.value}
+          data-field={field}
           className={`rounded-full border px-4 py-2 text-[14px] font-medium transition duration-200 ease-editorial ${
             selected === o.value
               ? "border-threshold-ink bg-threshold-ink text-threshold"
@@ -1005,10 +1137,12 @@ function MultiPillGroup({
   options,
   selected,
   onToggle,
+  field,
 }: {
   options: readonly { value: string; label: string }[];
   selected: string[];
   onToggle: (value: string) => void;
+  field?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -1018,6 +1152,7 @@ function MultiPillGroup({
           type="button"
           onClick={() => onToggle(o.value)}
           aria-pressed={selected.includes(o.value)}
+          data-field={field}
           className={`rounded-full border px-4 py-2 text-[14px] font-medium transition duration-200 ease-editorial ${
             selected.includes(o.value)
               ? "border-threshold-ink bg-threshold-ink text-threshold"
