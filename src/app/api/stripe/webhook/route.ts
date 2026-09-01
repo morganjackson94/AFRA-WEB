@@ -131,6 +131,25 @@ export async function POST(request: Request): Promise<Response> {
       if (operatorId) await applyStripeStatus(prisma, billing, operatorId);
       break;
     }
+    case "invoice.paid": {
+      // A second, independent signal at the trial-to-paid moment (and every
+      // renewal after it) alongside customer.subscription.updated — not a
+      // provisioning path (see the AE-closed-deal decision: operators are
+      // never created from an invoice, only reconciled). Safe by
+      // construction: applyStripeStatus ignores this event's own payload and
+      // re-fetches live status, so whether this fires for the $0 trial-start
+      // invoice (re-fetches "trialing", a no-op), the real trial-to-paid
+      // charge (fires the transition once), or a later renewal (billingStatus
+      // is already "active", so justEndedTrial never re-fires), the result is
+      // always a harmless reconciliation to whatever Stripe currently says.
+      const invoice = event.data.object as Stripe.Invoice;
+      const operatorId =
+        (await operatorIdByCustomer(
+          typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id,
+        ));
+      if (operatorId) await applyStripeStatus(prisma, billing, operatorId);
+      break;
+    }
     default:
       // Ignore unrelated events.
       break;
