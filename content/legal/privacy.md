@@ -63,14 +63,15 @@ We use Operator personal data to:
 We share personal data with the following third parties:
 
 *   **Operators:** Candidate personal data is shared with the respective Operator for whom the application is being processed.
-*   **Service Providers:** We use third-party service providers to facilitate our Service. These include:
-    *   **ManyChat:** For managing Instagram/Messenger conversations and automated screening. Candidate conversations pass through ManyChat's systems.
-    *   **Stripe:** For processing payments. We do not store full credit card details; Stripe handles all payment processing securely.
-    *   **Meta (Instagram/Facebook):** As the platform through which conversations occur. Meta's own privacy policies apply to their platform usage.
-    *   **Resend:** For sending email communications (e.g., account notifications, support emails).
+*   **Service Providers / Subprocessors:** We use the following third-party service providers (subprocessors) to facilitate our Service. Each processes only the categories of personal data described below, and only to provide its specific function to us.
+    *   **ManyChat** (processes Candidate data): Runs the Instagram/Messenger screening conversation on our behalf. Receives Candidate names, contact details, screening question responses, and the message content of the conversation. See ManyChat's security practices at [manychat.com/security](https://manychat.com/security).
+    *   **Stripe** (processes Operator data): Handles payment processing for Operator subscriptions. Receives Operator billing details. We do not store full credit card numbers; Stripe processes and stores payment instrument data on our behalf.
+    *   **Resend** (processes Operator data): Delivers transactional email, such as account notifications and support correspondence. Receives Operator email addresses.
+    *   **Vercel** (infrastructure): Hosts the Service and provides the underlying application infrastructure. As our hosting provider, Vercel's systems may incidentally handle any data transmitted through or stored by the Service, but Vercel does not use that data for any purpose other than providing hosting and infrastructure to us.
+*   **Meta (Instagram/Facebook):** Instagram/Messenger conversations occur on Meta's platform. Meta is not our subprocessor; it operates the platform independently, and its own privacy policy governs its handling of that platform interaction.
 *   **Legal Requirements:** We may disclose personal data if required to do so by law or in the good faith belief that such action is necessary to comply with legal obligations, protect our rights or property, or ensure the safety of our users or the public.
 
-We enter into data processing agreements with our service providers to ensure they protect personal data in accordance with our standards and applicable laws.
+We enter into data processing agreements with our subprocessors to ensure they protect personal data in accordance with our standards and applicable laws.
 
 ## 6. Data Security
 

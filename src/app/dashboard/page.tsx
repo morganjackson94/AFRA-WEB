@@ -385,9 +385,10 @@ export default async function DashboardPage({
             <div className="mt-5">{nextGateItem && primaryGateCta(nextGateItem)}</div>
 
             <p className="mt-3 text-xs leading-relaxed text-faint">
-              Instagram connects through ManyChat — one tap once it&apos;s set up for you. Calendar
-              is a booking link (Google Calendar or Calendly) added on your setup call. Your hiring
-              post is ready to finish now.
+              Your Instagram connects through ManyChat, an approved Meta partner. You&apos;ll
+              authorize it there, then come right back. Calendar is a booking link (Google
+              Calendar or Calendly) added on your setup call. Your hiring post is ready to
+              finish now.
             </p>
 
             {/* The full gate checklist: clear, de-ghosted secondary actions. */}
