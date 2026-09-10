@@ -5,18 +5,17 @@ import { confirmFoundingPayment } from "../src/lib/activation";
 import { getBillingProvider } from "../src/lib/billing";
 import { provision } from "../src/lib/provision";
 
-// Proves the welcome email's gating, variant branching, and idempotency
-// (src/lib/activation.ts's sendWelcomeEmailOnce, called from
-// confirmFoundingPayment right after ManyChat pool assignment resolves):
+// Proves the welcome email's gating and idempotency (src/lib/activation.ts's
+// sendWelcomeEmailOnce, called from confirmFoundingPayment):
 //   - a Stripe TEST-mode confirmation does NOT send by default
 //   - an explicit SEND_TEST_WELCOME_EMAIL=1 override does
-//   - variant A (assigned) fires when the pool has stock at payment time
-//   - variant B (awaiting-setup) fires when the pool is empty
+//   - it always sends variant B (awaiting-setup) — automatic flow assignment
+//     (the flow pool, manychatPool.ts) was retired; see activation.ts
 //   - a second confirmFoundingPayment call for the same operator (webhook
 //     retry) never re-sends
 // Does not require RESEND_API_KEY — without it, mail.ts's stub path logs the
 // full rendered copy instead of calling Resend, which this script relies on
-// to prove both templates render without throwing.
+// to prove the template renders without throwing.
 
 let prisma: PrismaClient;
 const billing = getBillingProvider();
@@ -34,13 +33,6 @@ async function freshOperator(handle: string) {
     calendarChoice: "google",
   });
   return operatorId;
-}
-
-async function addPoolFlow(): Promise<string> {
-  const flow = await prisma.manychatFlow.create({
-    data: { connectUrl: "https://manychat.test/smoke-flow", status: "available" },
-  });
-  return flow.id;
 }
 
 async function main() {
@@ -61,18 +53,20 @@ async function main() {
   // email decision and the founding-cap count, not payment confirmation itself.
   assert(opARow.checkinEmailDueAt !== null, "checkinEmailDueAt is set — this WAS a (test-mode) payment confirmation");
 
-  console.log("\n2) Pool HAS stock, TEST-mode WITH override — must send variant A (assigned):");
+  console.log("\n2) TEST-mode WITH override — must send variant B (awaiting-setup):");
   process.env.SEND_TEST_WELCOME_EMAIL = "1";
-  const flowId = await addPoolFlow();
   const opB = await freshOperator("welcomeemailsmokeb");
   const resultB = await confirmFoundingPayment(prisma, billing, opB, { subscriptionId: `sub_test_${opB}`, livemode: false });
-  assert(resultB.flowAssignment.assigned === true, "flow was assigned (pool had stock)");
+  assert(
+    !resultB.flowAssignment.assigned && resultB.flowAssignment.reason === "pool-retired",
+    `flow assignment is retired (got: ${JSON.stringify(resultB.flowAssignment)})`,
+  );
   const expectedReason = process.env.RESEND_API_KEY ? "sent for real" : "stub";
   console.log(`   RESEND_API_KEY configured: ${Boolean(process.env.RESEND_API_KEY)} — expecting: ${expectedReason}`);
   if (process.env.RESEND_API_KEY) {
     assert(
-      resultB.welcomeEmail.sent === true && resultB.welcomeEmail.variant === "assigned",
-      "welcomeEmail sent, variant 'assigned' (real Resend call succeeded)",
+      resultB.welcomeEmail.sent === true && resultB.welcomeEmail.variant === "awaiting-setup",
+      "welcomeEmail sent, variant 'awaiting-setup' (real Resend call succeeded)",
     );
   } else {
     assert(
@@ -101,10 +95,13 @@ async function main() {
     "checkinEmailDueAt is unchanged on retry — the fuse isn't pushed out",
   );
 
-  console.log("\n4) Pool is EMPTY, real livemode: true confirmation — must send variant B (awaiting-setup):");
+  console.log("\n4) Real livemode: true confirmation, no override needed — must send variant B (awaiting-setup):");
   const opC = await freshOperator("welcomeemailsmokec");
   const resultC = await confirmFoundingPayment(prisma, billing, opC, { subscriptionId: `sub_test_${opC}`, livemode: true });
-  assert(resultC.flowAssignment.assigned === false, "flow was NOT assigned (pool empty)");
+  assert(
+    !resultC.flowAssignment.assigned && resultC.flowAssignment.reason === "pool-retired",
+    `flow assignment is retired (got: ${JSON.stringify(resultC.flowAssignment)})`,
+  );
   if (process.env.RESEND_API_KEY) {
     assert(
       resultC.welcomeEmail.sent === true && resultC.welcomeEmail.variant === "awaiting-setup",
@@ -118,7 +115,6 @@ async function main() {
   }
 
   delete process.env.SEND_TEST_WELCOME_EMAIL;
-  await prisma.manychatFlow.deleteMany({ where: { id: flowId } });
   await prisma.operator.deleteMany({ where: { id: { in: [opA, opB, opC] } } });
   console.log("\nWelcome email smoke test PASSED.");
 }

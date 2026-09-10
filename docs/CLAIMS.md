@@ -125,10 +125,11 @@ written.
 
 **Welcome** — `sendWelcomeAssignedEmail()` / `sendWelcomeAwaitingSetupEmail()`, sent from
 `confirmFoundingPayment()` (`src/lib/activation.ts`) on the verified-webhook path (`checkout.session.
-completed`), after ManyChat pool assignment resolves. States the trial terms (20 free screened
-candidates, 60-day cap), NOT a charge confirmation — nothing is charged at this point. Variant depends
-on whether a flow was assigned (pool had stock) or not (awaiting setup, mirrors the dashboard's own
-awaiting-setup banner). Idempotent via `welcomeEmailSentAt`.
+completed`). States the trial terms (20 free screened candidates, 60-day cap), NOT a charge
+confirmation — nothing is charged at this point. Variant depends on whether a flow was assigned or not
+(awaiting setup, mirrors the dashboard's own awaiting-setup banner) — as of the flow pool's retirement
+(never stocked; `manychatPool.ts` deleted), automatic assignment never happens, so every confirmation
+sends the awaiting-setup variant. Idempotent via `welcomeEmailSentAt`.
 
 **You're live** — `sendYoureLiveEmail()` / `sendYoureLiveLowReachEmail()`, sent from `connectChannel()`
 (`src/lib/activation.ts`) on the channel's first genuine transition to `"connected"` — fires from the

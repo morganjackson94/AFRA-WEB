@@ -6,7 +6,6 @@ import type { ChannelProvider } from "./channel";
 import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
 import { sendTrialEndedEmail, sendWelcomeAssignedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
-import { claimAvailableFlow } from "./manychatPool";
 import { CONNECTED, evaluateReadiness } from "./readiness";
 
 // Day-20 check-in fuse (see the checkin job, /api/jobs/run-scheduled-emails).
@@ -294,20 +293,22 @@ export async function confirmFoundingPayment(
   // truth; there's nothing left to "confirm."
   const isGenuineConfirmation = billingStatus === "trialing" || billingStatus === "active";
 
+  // Automatic instant "Connect Instagram" via a pre-built flow pool
+  // (manychatPool.ts) was retired: the pool was never stocked, so this
+  // always resolved to awaiting-setup in practice anyway. Removed rather
+  // than left calling into a permanently-empty pool — see activation.ts's
+  // git history for the deleted tryAssignFlow/claimAvailableFlow. Every
+  // operator now gets the awaiting-setup welcome email; the founder connects
+  // Instagram by hand (manychatConnectUrl set directly, same as always was
+  // the fallback — see dashboard/page.tsx).
   let assignment: FlowAssignmentOutcome = { assigned: false, reason: "stale-confirmation" };
   let welcomeEmail: WelcomeEmailOutcome = { sent: false, reason: "stale-confirmation" };
   if (isGenuineConfirmation) {
-    // Post-checkout hook (does NOT affect billingStatus/gateBilling above,
-    // which is already committed by this point): try to hand the operator an
-    // instant "Connect Instagram" by claiming a pre-built flow from the pool.
-    // Failure here — pool empty, no channel row, anything — must never
-    // surface as a checkout error; the operator's trial has already started.
-    assignment = await tryAssignFlow(prisma, operatorId);
+    assignment = { assigned: false, reason: "pool-retired" };
 
     // Welcome email — the operator's first owned touch after checkout.
-    // Branches on whether tryAssignFlow above actually got them a connect
-    // action. Same non-blocking guarantee as tryAssignFlow: nothing in here
-    // may throw across this function or affect billingStatus.
+    // Always the awaiting-setup variant now (see above). Non-blocking:
+    // nothing in here may throw across this function or affect billingStatus.
     welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
   }
 
@@ -315,8 +316,7 @@ export async function confirmFoundingPayment(
 }
 
 export type FlowAssignmentOutcome =
-  | { assigned: true }
-  | { assigned: false; reason: "already-assigned" | "no-channel" | "pool-empty" | "error" | "stale-confirmation" };
+  | { assigned: false; reason: "pool-retired" | "stale-confirmation" };
 
 export type WelcomeEmailOutcome =
   | { sent: true; variant: "assigned" | "awaiting-setup" }
@@ -330,13 +330,14 @@ export type WelcomeEmailOutcome =
  *      is an explicit, unset-by-default opt-in for deliberately testing the
  *      email itself in dev; production never sets it.
  *   2. welcomeEmailSentAt — claimed atomically via updateMany guarded on it
- *      still being null (same idiom as claimAvailableFlow in
- *      manychatPool.ts), set BEFORE the send itself, so a webhook retry (or a
+ *      still being null, set BEFORE the send itself, so a webhook retry (or a
  *      race between retries) can never trigger a second send.
  * Branches on flowAssigned: variant A (assigned) tells the operator to
  * connect Instagram now; variant B (awaiting-setup) does not — there's
- * nothing to click yet — and forward-references the existing
- * sendReadyToConnectEmail without duplicating it.
+ * nothing to click yet. Automatic flow assignment is retired (see the
+ * confirmFoundingPayment comment above), so flowAssigned is always false in
+ * practice today — variant A is kept, not deleted, in case a future manual
+ * "founder confirms, operator gets notified" path calls this with true.
  */
 async function sendWelcomeEmailOnce(
   prisma: PrismaClient,
@@ -372,35 +373,6 @@ async function sendWelcomeEmailOnce(
   } catch (err) {
     console.error(`[mail] welcome email send failed for operator ${operatorId}:`, err);
     return { sent: false, reason: "error" };
-  }
-}
-
-/**
- * Idempotent: re-confirming an already-paid operator (webhook retries do
- * happen) must not attempt a second claim. Guarded by checking for an
- * existing manychatConnectUrl first — if one's already set (from an earlier
- * confirm, or the founder setting it by hand), this is a no-op.
- */
-async function tryAssignFlow(prisma: PrismaClient, operatorId: string): Promise<FlowAssignmentOutcome> {
-  try {
-    const channel = await prisma.channelConnection.findFirst({ where: { operatorId } });
-    if (!channel) return { assigned: false, reason: "no-channel" };
-    if (channel.manychatConnectUrl) return { assigned: false, reason: "already-assigned" };
-
-    const claim = await claimAvailableFlow(prisma, operatorId);
-    if (!claim.assigned) {
-      console.warn(`[manychatPool] pool empty at payment time for operator ${operatorId} — awaiting-setup fallback applies`);
-      return { assigned: false, reason: "pool-empty" };
-    }
-
-    await prisma.channelConnection.update({
-      where: { id: channel.id },
-      data: { manychatConnectUrl: claim.connectUrl },
-    });
-    return { assigned: true };
-  } catch (err) {
-    console.error(`[manychatPool] flow assignment failed for operator ${operatorId}:`, err);
-    return { assigned: false, reason: "error" };
   }
 }
 

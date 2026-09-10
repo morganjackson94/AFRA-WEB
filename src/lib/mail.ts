@@ -55,27 +55,16 @@ export async function sendMagicLinkEmail(args: { to: string; verifyUrl: string }
   return sendViaResend({ to: args.to, subject, html, text });
 }
 
-/** Closes the awaiting-setup loop: sent the moment a founding operator who was
- *  waiting on the flow pool gets a manychatConnectUrl (pool backfilled, or the
- *  founder sets it by hand). Carries a login link so there's no separate
- *  password/step between the email and the dashboard. */
-export async function sendReadyToConnectEmail(args: { to: string; loginUrl: string }): Promise<SendResult> {
-  const subject = "Your Instagram is ready to connect";
-  const text = `Good news. Your account is ready. Log in and connect your Instagram to go live: ${args.loginUrl}\n\nThis link expires in 15 minutes and only works once.`;
-  const html = `
-    <p>Good news. Your account is ready.</p>
-    <p><a href="${args.loginUrl}">Log in and connect your Instagram</a> to go live.</p>
-    <p style="color:#888;font-size:13px">This link expires in 15 minutes and only works once.</p>
-  `;
-  return sendViaResend({ to: args.to, subject, html, text });
-}
-
 /**
  * Welcome email, variant A — sent from confirmFoundingPayment() (activation.ts)
- * when a ManyChat flow was assigned at signup (pool had stock), so connecting
- * Instagram is something the operator can do right now. Carries a magic-link
- * straight into the dashboard — the operator's only way back in if they
- * signed up inside Instagram's in-app browser and closed it. Trial terms
+ * when flow assignment succeeds, so connecting Instagram is something the
+ * operator can do right now. Currently unreachable in production: the
+ * automatic flow-pool assignment that used to trigger this was retired (pool
+ * never stocked — see activation.ts), so every confirmation takes variant B
+ * below instead. Kept, not deleted, in case a future manual "founder
+ * confirms, operator gets notified" path calls this with true. Carries a
+ * magic-link straight into the dashboard — the operator's only way back in if
+ * they signed up inside Instagram's in-app browser and closed it. Trial terms
  * (not a charge confirmation — nothing is charged yet) — see docs/CLAIMS.md
  * for the approved wording this must stay in sync with.
  */
@@ -116,13 +105,18 @@ Dallas, TX`;
 }
 
 /**
- * Welcome email, variant B — sent when the ManyChat pool was empty at signup
- * time, so there's no connect action for the operator to take yet. Deliberately
- * does NOT tell them to connect Instagram (there's nothing to click) and does
- * NOT duplicate sendReadyToConnectEmail's content — it only forward-references
- * that email, which fires later once the founder (or a pool backfill) resolves
- * the wait. Same white-glove framing as the dashboard's own awaiting-setup
- * banner (src/app/dashboard/page.tsx).
+ * Welcome email, variant B — sent whenever flow assignment doesn't happen at
+ * signup time (always, today — see activation.ts), so there's no connect
+ * action for the operator to take yet. Deliberately does NOT tell them to
+ * connect Instagram (there's nothing to click). Same white-glove framing as
+ * the dashboard's own awaiting-setup banner (src/app/dashboard/page.tsx).
+ *
+ * NOTE: the body below promises a follow-up email "within a few hours" once
+ * Instagram is ready to connect. That promise was backed by
+ * sendReadyToConnectEmail (deleted with the flow pool — nothing calls it, and
+ * nothing else fires when the founder sets manychatConnectUrl by hand). No
+ * follow-up email currently exists. Flagged, not fixed here — copy is the
+ * founder's call.
  */
 export async function sendWelcomeAwaitingSetupEmail(
   args: { to: string; dashboardUrl: string },

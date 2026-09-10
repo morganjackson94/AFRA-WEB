@@ -145,11 +145,10 @@ export default async function DashboardPage({
   };
   const nextGate = ["template", "platform", "calendar", "billing"].find((k) => !gateMet[k]);
 
-  // The operator-level messaging channel (Instagram). manychatConnectUrl is set
-  // one of two ways: instantly, by the pool-assignment hook right after
-  // founding payment (the primary path — see manychatPool.ts), or by the
-  // founder by hand if the pool was empty at that moment. Either way, until
-  // it's set there's genuinely nothing to connect to yet.
+  // The operator-level messaging channel (Instagram). manychatConnectUrl is
+  // set by the founder by hand (the automatic flow-pool assignment this used
+  // to prefer was retired — the pool was never stocked; see activation.ts).
+  // Until it's set there's genuinely nothing to connect to yet.
   const channel = operator.channelConnections[0];
   const platformAction: GateAction =
     channel?.status === "connecting"
