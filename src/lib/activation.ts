@@ -5,7 +5,8 @@ import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
 import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
-import { sendTrialEndedEmail, sendWelcomeAssignedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
+import { OPERATOR_ONBOARDING_CALL_URL } from "./constants";
+import { sendTrialEndedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
 import { CONNECTED, evaluateReadiness } from "./readiness";
 
 // Day-20 check-in fuse (see the checkin job, /api/jobs/run-scheduled-emails).
@@ -306,10 +307,11 @@ export async function confirmFoundingPayment(
   if (isGenuineConfirmation) {
     assignment = { assigned: false, reason: "pool-retired" };
 
-    // Welcome email — the operator's first owned touch after checkout.
-    // Always the awaiting-setup variant now (see above). Non-blocking:
-    // nothing in here may throw across this function or affect billingStatus.
-    welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode, assignment.assigned);
+    // Welcome email — the operator's first owned touch after checkout, and
+    // (per the flow pool's retirement above) the only place a web signup
+    // gets their onboarding call booked. Non-blocking: nothing in here may
+    // throw across this function or affect billingStatus.
+    welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode);
   }
 
   return { billingStatus, recompute, flowAssignment: assignment, welcomeEmail };
@@ -319,7 +321,7 @@ export type FlowAssignmentOutcome =
   | { assigned: false; reason: "pool-retired" | "stale-confirmation" };
 
 export type WelcomeEmailOutcome =
-  | { sent: true; variant: "assigned" | "awaiting-setup" }
+  | { sent: true }
   | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" | "stale-confirmation" };
 
 /**
@@ -332,18 +334,14 @@ export type WelcomeEmailOutcome =
  *   2. welcomeEmailSentAt — claimed atomically via updateMany guarded on it
  *      still being null, set BEFORE the send itself, so a webhook retry (or a
  *      race between retries) can never trigger a second send.
- * Branches on flowAssigned: variant A (assigned) tells the operator to
- * connect Instagram now; variant B (awaiting-setup) does not — there's
- * nothing to click yet. Automatic flow assignment is retired (see the
- * confirmFoundingPayment comment above), so flowAssigned is always false in
- * practice today — variant A is kept, not deleted, in case a future manual
- * "founder confirms, operator gets notified" path calls this with true.
+ * Only one email exists now (the flow pool's "instant connect" variant was
+ * deleted with the pool — see confirmFoundingPayment above); no more
+ * branching on whether a flow was assigned.
  */
 async function sendWelcomeEmailOnce(
   prisma: PrismaClient,
   operatorId: string,
   livemode: boolean,
-  flowAssigned: boolean,
 ): Promise<WelcomeEmailOutcome> {
   if (!livemode && process.env.SEND_TEST_WELCOME_EMAIL !== "1") {
     return { sent: false, reason: "not-livemode" };
@@ -355,21 +353,22 @@ async function sendWelcomeEmailOnce(
   });
   if (claim.count === 0) return { sent: false, reason: "already-sent" };
 
-  const variant = flowAssigned ? ("assigned" as const) : ("awaiting-setup" as const);
   try {
     const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
     const token = await createLoginToken(prisma, operatorId);
     const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
-    console.log(`[welcome-email] attempting send (variant=${variant}) to operator ${operatorId}`);
-    const result = flowAssigned
-      ? await sendWelcomeAssignedEmail({ to: operator.email, dashboardUrl })
-      : await sendWelcomeAwaitingSetupEmail({ to: operator.email, dashboardUrl });
+    console.log(`[welcome-email] attempting send to operator ${operatorId}`);
+    const result = await sendWelcomeAwaitingSetupEmail({
+      to: operator.email,
+      dashboardUrl,
+      bookingUrl: OPERATOR_ONBOARDING_CALL_URL,
+    });
     if (result.sent) {
-      console.log(`[welcome-email] sent (variant=${variant}) to operator ${operatorId}`);
+      console.log(`[welcome-email] sent to operator ${operatorId}`);
     } else {
       console.error(`[welcome-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
     }
-    return result.sent ? { sent: true, variant } : { sent: false, reason: result.stub ? "stub" : "error" };
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
   } catch (err) {
     console.error(`[mail] welcome email send failed for operator ${operatorId}:`, err);
     return { sent: false, reason: "error" };

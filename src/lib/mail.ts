@@ -56,85 +56,37 @@ export async function sendMagicLinkEmail(args: { to: string; verifyUrl: string }
 }
 
 /**
- * Welcome email, variant A — sent from confirmFoundingPayment() (activation.ts)
- * when flow assignment succeeds, so connecting Instagram is something the
- * operator can do right now. Currently unreachable in production: the
- * automatic flow-pool assignment that used to trigger this was retired (pool
- * never stocked — see activation.ts), so every confirmation takes variant B
- * below instead. Kept, not deleted, in case a future manual "founder
- * confirms, operator gets notified" path calls this with true. Carries a
- * magic-link straight into the dashboard — the operator's only way back in if
- * they signed up inside Instagram's in-app browser and closed it. Trial terms
- * (not a charge confirmation — nothing is charged yet) — see docs/CLAIMS.md
- * for the approved wording this must stay in sync with.
- */
-export async function sendWelcomeAssignedEmail(
-  args: { to: string; dashboardUrl: string },
-): Promise<SendResult> {
-  const subject = "You're in. Let's get you live.";
-  const text = `Hi there,
-
-You're in. Welcome to AFRA.
-
-Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.
-
-One thing left to do:
-
-${args.dashboardUrl}
-
-Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.
-
-Reply any time. This comes straight to me.
-
-Morgan
-AFRA Visibility
-Dallas, TX`;
-
-  const html = `
-    <p>Hi there,</p>
-    <p>You're in. Welcome to AFRA.</p>
-    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.</p>
-    <p><strong>One thing left to do</strong></p>
-    <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
-    <p>Sign in with this email address. You'll get a one-time link, no password. Inside, there's one task waiting: connect your Instagram account. Once it's connected, applicants can start reaching you.</p>
-    <p>Reply any time. This comes straight to me.</p>
-    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
-  `;
-
-  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
-}
-
-/**
- * Welcome email, variant B — sent whenever flow assignment doesn't happen at
- * signup time (always, today — see activation.ts), so there's no connect
- * action for the operator to take yet. Deliberately does NOT tell them to
- * connect Instagram (there's nothing to click). Same white-glove framing as
- * the dashboard's own awaiting-setup banner (src/app/dashboard/page.tsx).
- *
- * NOTE: the body below promises a follow-up email "within a few hours" once
- * Instagram is ready to connect. That promise was backed by
- * sendReadyToConnectEmail (deleted with the flow pool — nothing calls it, and
- * nothing else fires when the founder sets manychatConnectUrl by hand). No
- * follow-up email currently exists. Flagged, not fixed here — copy is the
- * founder's call.
+ * The post-payment welcome email — sent from confirmFoundingPayment()
+ * (activation.ts) after a genuine confirmation. This is the ONLY place a web
+ * signup gets their onboarding call booked (see bookingUrl below); nothing
+ * else in the product does this for them. States the $149 setup fee was
+ * actually charged today (it was — see SETUP_FEE_CENTS, src/lib/billing.ts)
+ * and the trial terms for what comes after. Same white-glove framing as the
+ * dashboard's own awaiting-setup banner (src/app/dashboard/page.tsx). Approved
+ * wording lives in docs/CLAIMS.md — this must stay in sync with it.
  */
 export async function sendWelcomeAwaitingSetupEmail(
-  args: { to: string; dashboardUrl: string },
+  args: { to: string; dashboardUrl: string; bookingUrl: string },
 ): Promise<SendResult> {
-  const subject = "You're in. We're setting you up now.";
+  const subject = "You're in. Book your ten minutes.";
   const text = `Hi there,
 
 You're in. Welcome to AFRA.
 
-Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.
+$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year — about $399 a month — every location.
 
-We're personally setting up your account now. There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.
+We're building your setup now. One thing to do: book your ten-minute call.
 
-In the meantime, here's your dashboard:
+${args.bookingUrl}
 
-${args.dashboardUrl}
+On that call you connect your Instagram — you log into Facebook and click yes — and watch a test candidate land in your spreadsheet. That's the whole call.
 
-Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.
+Before then, make sure your Instagram is a Business or Creator account connected to a Facebook Page. It won't connect otherwise.
+
+Your dashboard: ${args.dashboardUrl}
+Sign in with this email, no password. It'll look quiet until your screener is live.
+
+If something's broken on our end on that call, the $149 comes back.
 
 Reply any time. This comes straight to me.
 
@@ -145,12 +97,13 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>Your trial has started: your first 20 screened candidates are free, for up to 60 days. After that (or once you hit 20, whichever comes first), it's $4,788/year (about $399/month). Cancel any time before then and you're never charged.</p>
-    <p><strong>We're personally setting up your account now</strong></p>
-    <p>There's nothing you need to do yet. You'll get an email the moment your Instagram is ready to connect, usually within a few hours.</p>
-    <p><strong>In the meantime, here's your dashboard</strong></p>
-    <p><a href="${args.dashboardUrl}">${args.dashboardUrl}</a></p>
-    <p>Sign in with this email address. You'll get a one-time link, no password. It'll look quiet until your screener goes live. That's expected, not broken.</p>
+    <p>$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year — about $399 a month — every location.</p>
+    <p><strong>We're building your setup now. One thing to do: book your ten-minute call.</strong></p>
+    <p><a href="${args.bookingUrl}">${args.bookingUrl}</a></p>
+    <p>On that call you connect your Instagram — you log into Facebook and click yes — and watch a test candidate land in your spreadsheet. That's the whole call.</p>
+    <p>Before then, make sure your Instagram is a Business or Creator account connected to a Facebook Page. It won't connect otherwise.</p>
+    <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a><br/>Sign in with this email, no password. It'll look quiet until your screener is live.</p>
+    <p>If something's broken on our end on that call, the $149 comes back.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;

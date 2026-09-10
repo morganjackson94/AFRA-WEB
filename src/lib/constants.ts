@@ -19,6 +19,14 @@ export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
+// Post-payment onboarding call for a web signup — the ONLY place their call
+// gets booked (see sendWelcomeAwaitingSetupEmail, src/lib/mail.ts). An
+// existing Calendly event, not touched by this change. Distinct from
+// SALES_CALL_URL (the pre-payment landing-page "Book a call" CTA, a
+// different call for a prospect who hasn't paid yet) and from each
+// operator's own bookingLinkUrl (their candidate-interview booking link).
+export const OPERATOR_ONBOARDING_CALL_URL = "https://calendly.com/morgan-afravisibility/30min";
+
 export const DEFAULT_TIMEZONE = "America/Chicago";
 
 // A standard week of business hours. [open, close] windows per weekday.

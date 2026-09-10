@@ -9,8 +9,8 @@ import { provision } from "../src/lib/provision";
 // sendWelcomeEmailOnce, called from confirmFoundingPayment):
 //   - a Stripe TEST-mode confirmation does NOT send by default
 //   - an explicit SEND_TEST_WELCOME_EMAIL=1 override does
-//   - it always sends variant B (awaiting-setup) — automatic flow assignment
-//     (the flow pool, manychatPool.ts) was retired; see activation.ts
+//   - flow assignment always comes back "pool-retired" — automatic flow
+//     assignment (the flow pool, manychatPool.ts) was retired; see activation.ts
 //   - a second confirmFoundingPayment call for the same operator (webhook
 //     retry) never re-sends
 // Does not require RESEND_API_KEY — without it, mail.ts's stub path logs the
@@ -53,7 +53,7 @@ async function main() {
   // email decision and the founding-cap count, not payment confirmation itself.
   assert(opARow.checkinEmailDueAt !== null, "checkinEmailDueAt is set — this WAS a (test-mode) payment confirmation");
 
-  console.log("\n2) TEST-mode WITH override — must send variant B (awaiting-setup):");
+  console.log("\n2) TEST-mode WITH override — must send:");
   process.env.SEND_TEST_WELCOME_EMAIL = "1";
   const opB = await freshOperator("welcomeemailsmokeb");
   const resultB = await confirmFoundingPayment(prisma, billing, opB, { subscriptionId: `sub_test_${opB}`, livemode: false });
@@ -65,8 +65,8 @@ async function main() {
   console.log(`   RESEND_API_KEY configured: ${Boolean(process.env.RESEND_API_KEY)} — expecting: ${expectedReason}`);
   if (process.env.RESEND_API_KEY) {
     assert(
-      resultB.welcomeEmail.sent === true && resultB.welcomeEmail.variant === "awaiting-setup",
-      "welcomeEmail sent, variant 'awaiting-setup' (real Resend call succeeded)",
+      resultB.welcomeEmail.sent === true,
+      "welcomeEmail sent (real Resend call succeeded)",
     );
   } else {
     assert(
@@ -95,7 +95,7 @@ async function main() {
     "checkinEmailDueAt is unchanged on retry — the fuse isn't pushed out",
   );
 
-  console.log("\n4) Real livemode: true confirmation, no override needed — must send variant B (awaiting-setup):");
+  console.log("\n4) Real livemode: true confirmation, no override needed — must send:");
   const opC = await freshOperator("welcomeemailsmokec");
   const resultC = await confirmFoundingPayment(prisma, billing, opC, { subscriptionId: `sub_test_${opC}`, livemode: true });
   assert(
@@ -104,8 +104,8 @@ async function main() {
   );
   if (process.env.RESEND_API_KEY) {
     assert(
-      resultC.welcomeEmail.sent === true && resultC.welcomeEmail.variant === "awaiting-setup",
-      "welcomeEmail sent, variant 'awaiting-setup' on a real livemode confirmation",
+      resultC.welcomeEmail.sent === true,
+      "welcomeEmail sent on a real livemode confirmation",
     );
   } else {
     assert(
