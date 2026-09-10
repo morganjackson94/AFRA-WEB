@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 // existing dashboard post-payment welcome banner via a click-through — this
 // page deliberately does NOT duplicate that banner's copy/logic.
 //
-// No Stripe read here anymore: under the trial model nothing is charged at
-// checkout, so there's no "real amount" to look up (getCheckoutSessionAmount
-// would legitimately return 0) — StartTrial always fires with value: 0.
+// No Stripe read here anymore: StartTrial always fires with value: 0,
+// deliberately not wired to the real amount charged at checkout (now
+// SETUP_FEE_CENTS, not 0 — see getCheckoutSessionAmount in billing.ts).
 export default async function WelcomePage({
   searchParams,
 }: {

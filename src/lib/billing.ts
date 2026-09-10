@@ -16,6 +16,17 @@ export const TRIAL_DAYS = 14; // 2-week free trial (monthly path only)
 // Stripe renews this natively (interval: "year") — nothing in this file
 // drives renewal.
 export const ANNUAL_PRICE_CENTS = 478800;
+// One-time setup fee, charged at checkout on BOTH signup paths — AFRA can't
+// float the ManyChat Pro cost (~$39/mo) that's due before the operator's own
+// subscription generates revenue. The phone path already charges this via
+// Stripe Payment Link plink_1UDxwIDG3GjLuRJ6gzoujN7f (annual price + this fee
+// as a one-off + the same 60-day trial). createFoundingCheckout below must
+// charge the identical $149 at checkout, live-mode price already exists as
+// product "AFRA — Setup" (price_1UDxvUDG3GjLuRJ6SN3jiBWQ) — reused via
+// STRIPE_SETUP_PRICE_ID, never recreated (see ensureSetupProductId, which
+// only auto-creates a stand-in product/price for the STRIPE_SETUP_PRICE_ID-
+// unset test-mode case, same fallback pattern as the annual price).
+export const SETUP_FEE_CENTS = 14900;
 // The trial: free until the operator has had this many candidates reach
 // "screened" or beyond (see Candidate.countedTowardTrial, incremented in
 // ingestScreeningResult, manychat.ts), or TRIAL_DAYS_BACKSTOP days pass,
@@ -106,6 +117,10 @@ export interface BillingProvider {
    * function/field names here are pre-existing internal identifiers kept
    * unchanged (not customer-facing, not renamed as part of the repricing —
    * see docs/CLAIMS.md).
+   *
+   * ALSO charges SETUP_FEE_CENTS ($149) as a second, one-time line item on
+   * the same session — due immediately at checkout regardless of the trial,
+   * matching the phone-signup Payment Link (see SETUP_FEE_CENTS).
    */
   createFoundingCheckout(args: {
     operatorId: string;
@@ -117,18 +132,20 @@ export interface BillingProvider {
 
   /**
    * Read-only lookup of what a completed Checkout Session actually charged.
-   * Under the trial model this is legitimately 0 at signup (nothing is
-   * charged until the trial ends) — callers must not treat it as "the real
-   * charged amount" the way the retired one-time-charge model did. Returns
-   * null if the session can't be found/read. Never mutates anything.
+   * Since the $149 setup fee (SETUP_FEE_CENTS) was added, this is no longer
+   * always 0 at signup — it's SETUP_FEE_CENTS (the subscription itself still
+   * charges nothing until the trial ends; only the one-time line item is
+   * collected at checkout). Callers must not treat this as the subscription's
+   * eventual charged amount. Returns null if the session can't be found/read.
+   * Never mutates anything.
    *
    * No longer read by /welcome (it fires Meta's StartTrial with value: 0
-   * unconditionally now, not a real charged amount). The trial->paid
-   * conversion pixel event (the real revenue signal) is a deliberately
-   * descoped fast-follow — the existing "redirect to a page that fires
-   * client-side fbq" pattern has no equivalent for an async webhook event
-   * (candidate cap or the 60-day backstop) with nobody on a page; the correct
-   * long-term fix is server-side Conversions API, not built here.
+   * unconditionally, deliberately not wired to the real setup-fee amount).
+   * The trial->paid conversion pixel event (the real revenue signal) is a
+   * deliberately descoped fast-follow — the existing "redirect to a page that
+   * fires client-side fbq" pattern has no equivalent for an async webhook
+   * event (candidate cap or the 60-day backstop) with nobody on a page; the
+   * correct long-term fix is server-side Conversions API, not built here.
    */
   getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
 
@@ -150,6 +167,7 @@ export class StripeBillingProvider implements BillingProvider {
   private stripe: Stripe;
   private productId?: string;
   private foundingProductId?: string;
+  private setupProductId?: string;
 
   constructor(secretKey: string) {
     this.stripe = new Stripe(secretKey);
@@ -239,6 +257,23 @@ export class StripeBillingProvider implements BillingProvider {
     return this.foundingProductId;
   }
 
+  /** The one-time setup fee's product. Reuses STRIPE_SETUP_PRODUCT_ID or
+   *  creates one once — the live "AFRA — Setup" product/price already exist
+   *  (see SETUP_FEE_CENTS); this fallback only fires in test mode, where no
+   *  equivalent test-mode product exists, same as ensureFoundingProductId. */
+  private async ensureSetupProductId(): Promise<string> {
+    if (this.setupProductId) return this.setupProductId;
+    if (process.env.STRIPE_SETUP_PRODUCT_ID) {
+      this.setupProductId = process.env.STRIPE_SETUP_PRODUCT_ID;
+      return this.setupProductId;
+    }
+    const product = await this.stripe.products.create({
+      name: "AFRA — Setup",
+    });
+    this.setupProductId = product.id;
+    return this.setupProductId;
+  }
+
   async createFoundingCheckout(args: {
     operatorId: string;
     email: string;
@@ -270,10 +305,29 @@ export class StripeBillingProvider implements BillingProvider {
           },
         };
 
+    // The $149 one-time setup fee (see SETUP_FEE_CENTS) — a second line item
+    // with no `recurring` block, so Checkout charges it immediately at
+    // checkout rather than folding it into the trialing subscription.
+    const setupPriceId = process.env.STRIPE_SETUP_PRICE_ID;
+    const setupLineItem: Stripe.Checkout.SessionCreateParams.LineItem = setupPriceId
+      ? { price: setupPriceId, quantity: 1 }
+      : {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: SETUP_FEE_CENTS,
+            product: await this.ensureSetupProductId(),
+          },
+        };
+
     const session = await this.stripe.checkout.sessions.create({
       mode: "subscription", // recurring annual, WITH a trial (see subscription_data)
       customer: customer.id,
-      line_items: [lineItem],
+      line_items: [lineItem, setupLineItem],
+      // The account now has a Terms of Service URL in Business settings
+      // (afravisibility.com/terms-of-service) — required for this to work.
+      // Matches the phone-signup Payment Link, which already collects this.
+      consent_collection: { terms_of_service: "required" },
       subscription_data: {
         trial_period_days: TRIAL_DAYS_BACKSTOP,
         // No card on file by the natural trial end -> cancel cleanly rather
@@ -398,9 +452,10 @@ export class FakeBillingProvider implements BillingProvider {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature must match BillingProvider
   async getCheckoutSessionAmount(_sessionId: string) {
-    // No real Checkout Session object exists in fake mode. Legitimately 0 —
-    // the trial charges nothing at signup, same as real Stripe.
-    return { amountTotal: 0, currency: "usd" };
+    // No real Checkout Session object exists in fake mode. SETUP_FEE_CENTS,
+    // not 0 — the trial itself still charges nothing at signup, but the
+    // one-time setup fee is collected at checkout, same as real Stripe.
+    return { amountTotal: SETUP_FEE_CENTS, currency: "usd" };
   }
 }
 

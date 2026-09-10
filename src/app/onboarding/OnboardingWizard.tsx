@@ -460,7 +460,7 @@ export function OnboardingWizard({
             </Reveal>
             <Reveal delay={220}>
               <p className="mt-5 max-w-[34ch] text-[16px] leading-relaxed text-threshold-ink-soft">
-                Six quick questions and a straight look at the price. No card yet.
+                Six quick questions and a straight look at the price.
               </p>
             </Reveal>
           </div>
@@ -669,12 +669,12 @@ export function OnboardingWizard({
                   <SectionLabel index="04" tone="dark">Price</SectionLabel>
                 </Reveal>
                 <Reveal hero delay={90}>
-                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$4,788/year — about $399/month — every location included</h2>
+                  <h2 className="t-title mt-6 mb-4 text-threshold-ink">$149 to get set up, then $4,788/year — about $399/month — every location included</h2>
                 </Reveal>
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
-                    One flat rate. Your first 20 screened candidates are free. A few more questions and
-                    you&apos;re done.
+                    The $149 covers your build. After that it&apos;s one flat rate, and your first 20
+                    screened candidates are free. A few more questions and you&apos;re done.
                   </p>
                 </Reveal>
                 {perLocationMonthly !== null && (
@@ -687,9 +687,9 @@ export function OnboardingWizard({
                 <Reveal delay={300}>
                   <ul className="space-y-3">
                     {[
-                      "Flat $4,788/year (about $399/mo) — every location covered",
+                      "$149 one-time setup, then a flat $4,788/year (about $399/mo) — every location covered",
                       "First 20 screened candidates free, up to 60 days",
-                      "Cancel any time, nothing owed during the trial",
+                      "Cancel any time — nothing beyond the setup fee is owed during the trial",
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
                         <Check className="mt-0.5 size-[16px] flex-none text-accent" />
@@ -972,7 +972,7 @@ export function OnboardingWizard({
           )}
           {step === TOTAL && !restricted && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[13.5px] text-threshold-ink-soft">
-              <Check className="size-3.5 text-accent" /> First 20 screened candidates free · never charged during your trial
+              <Check className="size-3.5 text-accent" /> $149 setup today · first 20 screened candidates free · nothing more during your trial
             </p>
           )}
         </div>
