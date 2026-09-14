@@ -12,7 +12,7 @@ import { RaceNarrative } from "../components/RaceNarrative";
 import { StepsSketch } from "../components/StepsSketch";
 import { Reveal } from "../components/Reveal";
 import { Stagger } from "../components/Stagger";
-import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
+import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, SETUP_FEE_CENTS, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
@@ -31,6 +31,7 @@ const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 const PRICING = {
   priceAnnual: `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`, // $4,788
   priceMonthlyEquivalent: `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`, // $399
+  setupFee: `$${SETUP_FEE_CENTS / 100}`, // $149
   freeCandidateCap: FREE_CANDIDATE_CAP,
   trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
 };
@@ -107,15 +108,15 @@ const STEPS_NOTE =
 const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
   { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
-  { q: "What if it doesn't work for me?", a: "Your first 20 screened candidates are free, for up to 60 days. If it's not working, cancel any time before then and you're never charged. You only start paying once you've seen it work." },
+  { q: "What if it doesn't work for me?", a: "Your first 20 screened candidates are free, for up to 60 days. If it's not working, cancel any time before then and nothing further is owed beyond the $149 setup fee charged at signup. The $4,788/year subscription only starts once your trial ends." },
   { q: "How does follow-up work?", a: "Within the first 24 hours the bot replies instantly on its own. After that, following up is one tap: you send the reminder in the same chat. No autopilot chasing, no phone tag." },
-  { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live and receiving candidates within 7 days." },
+  { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live within 7 days." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What counts as a candidate?", a: "Someone who completes your screening and passes it. Applicants who don't meet your bar don't count against your free 20." },
-  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time — canceling during the trial means you're never charged; canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
-  { q: "How does billing work?", a: "$4,788/year (about $399/month), covering every location, starting once your trial ends. One flat rate, no per-location fees. Cancel any time from your dashboard — cancellation takes effect at the end of your current year, and you keep access through then." },
+  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time. Canceling during the trial means nothing further is owed beyond the $149 setup fee charged at signup. Canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
+  { q: "How does billing work?", a: "A one-time $149 setup fee is charged at signup. Once your trial ends, it's $4,788/year (about $399/month), covering every location, billed to the card on file each year until you cancel. One flat rate, no per-location fees. Cancel any time from your dashboard. After the trial, canceling stops the next renewal but doesn't refund the year already paid for, and you keep access through the end of that year." },
   {
     q: "What exactly do I get?",
     a: [
@@ -380,20 +381,21 @@ export default function LandingPage() {
           what's-included right. Stacks to a single column on mobile. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-12 max-w-[18ch]">Try it free.</h2>
+          <h2 className="t-title mb-12 max-w-[18ch]">Start with {PRICING.freeCandidateCap} free candidates.</h2>
         </Reveal>
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
             <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
-              <div className="t-price">$0</div>
+              <div className="t-price">{PRICING.setupFee}</div>
               <div className="mt-3 text-[15px] text-ink-soft">
-                Due today. Then {PRICING.priceAnnual}/year (about {PRICING.priceMonthlyEquivalent}/mo) for all your
-                locations. Nothing is charged during the trial.
+                One-time setup fee, charged today at checkout. Then {PRICING.priceAnnual}/year (about{" "}
+                {PRICING.priceMonthlyEquivalent}/mo) for all your locations, with nothing further charged
+                until your trial ends.
               </div>
 
-              {/* The trial IS the risk reversal now — no guarantee to run
-                  alongside it, since you can't refund a charge that was
-                  never made. Prominent, since this is the actual offer. */}
+              {/* The trial is the risk reversal for the subscription (no
+                  guarantee alongside it). The setup fee above is separate and
+                  charged at signup regardless — see docs/CLAIMS.md. */}
               <div className="mt-4 text-[18px] font-semibold text-ink">
                 Your first {PRICING.freeCandidateCap} screened candidates are free.
               </div>
@@ -414,8 +416,9 @@ export default function LandingPage() {
               <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
                 <p className="text-[14px] font-semibold text-ink">Free for {PRICING.freeCandidateCap} candidates or {PRICING.trialDaysBackstop} days</p>
                 <p className="mt-1 text-[13px] text-ink-soft">
-                  Whichever comes first. A card is required to start, but nothing is charged until
-                  then, and you can cancel any time before that with nothing owed.
+                  Whichever comes first. A card is required to start. Beyond the {PRICING.setupFee} setup
+                  fee charged at signup, nothing further is charged until then, and you can cancel any
+                  time before that with nothing further owed.
                 </p>
               </div>
               <p className="mt-3 text-[13px] text-faint">

@@ -128,7 +128,7 @@ export async function startOnboardingAction(
 
   if (roleTitles.length === 0) return { error: "Pick at least one role you're hiring for." };
   if (!CALENDAR_CHOICES.includes(calendarChoice)) return { error: "Choose a calendar." };
-  if (!bookingLinkUrl) return { error: "Add your booking link — it's what lets candidates book their interview." };
+  if (!bookingLinkUrl) return { error: "Add your booking link. It's what lets candidates book their interview." };
   if (!instagramHandle) return { error: "Add the Instagram handle you use for hiring." };
   // Required: it's how you log back in. No email, no way to send a magic
   // link, no way back into your own dashboard after closing the tab.

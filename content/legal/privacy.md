@@ -1,6 +1,6 @@
 # AFRA Privacy Policy
 
-**Effective Date:** July 21, 2026
+**Effective Date:** September 14, 2026
 
 This Privacy Policy describes how AFRA Visibility, LLC ("AFRA," "we," "us," or "our") collects, uses, processes, and discloses personal data when you use our software-as-a-service (SaaS) platform (the "Service"). This policy applies to both our business customers ("Operators") and job applicants ("Candidates") whose data is processed through our Service.
 
@@ -44,7 +44,7 @@ We process Candidate personal data solely to provide the Service to our Operator
 
 *   Automating the initial screening process for job applications.
 *   Displaying candidate information to Operators in a dashboard.
-*   Facilitating interview scheduling and follow-up reminders as instructed by the Operator.
+*   Directing Candidates to the Operator's own interview booking link, as configured by the Operator.
 *   Storing conversation transcripts for Operator review.
 
 We do not use Candidate personal data for our own marketing, advertising, or other purposes unrelated to providing the Service to our Operators.

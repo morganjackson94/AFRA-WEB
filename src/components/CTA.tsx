@@ -19,7 +19,7 @@ export function CTA({
   id,
   size = "base",
   full = false,
-  label = "Claim your spot",
+  label = "Get started",
   tone = "accent",
 }: {
   id: "nav" | "hero" | "pricing" | "final";

@@ -73,13 +73,13 @@ export async function sendWelcomeAwaitingSetupEmail(
 
 You're in. Welcome to AFRA.
 
-$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year — about $399 a month — every location.
+$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year (about $399 a month), every location included.
 
 We're building your setup now. One thing to do: book your ten-minute call.
 
 ${args.bookingUrl}
 
-On that call you connect your Instagram — you log into Facebook and click yes — and watch a test candidate land in your spreadsheet. That's the whole call.
+On that call you connect your Instagram (you log into Facebook and click yes) and watch a test candidate land in your spreadsheet. That's the whole call.
 
 Before then, make sure your Instagram is a Business or Creator account connected to a Facebook Page. It won't connect otherwise.
 
@@ -97,10 +97,10 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year — about $399 a month — every location.</p>
+    <p>$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year (about $399 a month), every location included.</p>
     <p><strong>We're building your setup now. One thing to do: book your ten-minute call.</strong></p>
     <p><a href="${args.bookingUrl}">${args.bookingUrl}</a></p>
-    <p>On that call you connect your Instagram — you log into Facebook and click yes — and watch a test candidate land in your spreadsheet. That's the whole call.</p>
+    <p>On that call you connect your Instagram (you log into Facebook and click yes) and watch a test candidate land in your spreadsheet. That's the whole call.</p>
     <p>Before then, make sure your Instagram is a Business or Creator account connected to a Facebook Page. It won't connect otherwise.</p>
     <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a><br/>Sign in with this email, no password. It'll look quiet until your screener is live.</p>
     <p>If something's broken on our end on that call, the $149 comes back.</p>
@@ -203,8 +203,7 @@ Dallas, TX`;
 }
 
 /**
- * Day-20 check-in — scheduled honesty check before the 30-day guarantee
- * closes (see /api/jobs/run-scheduled-emails). Deliberately short: two
+ * Day-20 check-in — a scheduled honesty check, usually mid-trial (see /api/jobs/run-scheduled-emails). Deliberately short: two
  * paragraphs, no upsell, no automation claims.
  */
 export async function sendCheckinEmail(
@@ -213,7 +212,7 @@ export async function sendCheckinEmail(
   const subject = "Three weeks in. How's it going?";
   const text = `Hi there,
 
-You're about three weeks into your trial. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.
+You're about three weeks in. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.
 
 Your dashboard is always here: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
 
@@ -223,7 +222,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>You're about three weeks into your trial. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.</p>
+    <p>You're about three weeks in. How's it going, and how many candidates have you screened so far? If anything isn't working the way you expected, reply to this email and I'll personally sort it out.</p>
     <p>Your dashboard is always here: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
@@ -246,7 +245,7 @@ export async function sendTrialEndedEmail(
 
 Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
 
-You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.
 
 Reply any time. This comes straight to me.
 
@@ -257,7 +256,7 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
-    <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;
@@ -284,9 +283,9 @@ export async function sendTrialEndingSoonEmail(
   const subject = args.daysRemaining === 1 ? "Your trial ends tomorrow" : `Your trial ends in ${args.daysRemaining} days`;
   const text = `Hi there,
 
-${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file — unless you cancel before then.
+${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (It ends sooner if you reach 20 screened candidates first.)
 
-If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged.
+If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.
 
 Your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
 
@@ -298,8 +297,8 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file — unless you cancel before then.</p>
-    <p>If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged.</p>
+    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (It ends sooner if you reach 20 screened candidates first.)</p>
+    <p>If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.</p>
     <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>

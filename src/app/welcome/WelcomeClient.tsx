@@ -44,8 +44,9 @@ export function WelcomeClient({
       <Reveal>
         <h1 className="t-title mb-3">You&apos;re in.</h1>
         <p className="mb-8 text-[15px] leading-relaxed text-ink-soft">
-          Your free trial has started — your first 20 screened candidates are on us. Head to your
-          dashboard to connect Instagram and finish setup.
+          Your $149 setup fee was charged today. Nothing else is charged until you&apos;ve had 20
+          screened candidates or 60 days go by, whichever comes first. Head to your dashboard to
+          book your onboarding call and finish setup.
         </p>
         <Link
           href={continueHref}
