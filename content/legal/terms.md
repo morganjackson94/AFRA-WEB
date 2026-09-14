@@ -54,7 +54,7 @@ We aim to have every operator fully live — Instagram connected, screening ques
 
 ## 7. Renewal and Termination
 
-a. **Recurring Billing:** Once your free trial ends (Section 5(c)), your subscription renews automatically each year at the rate in Section 5(a), charged to your payment method on file, until canceled, in accordance with applicable state auto-renewal notice requirements.
+a. **Recurring Billing:** Once your free trial ends (Section 5(c)), your subscription renews automatically each year at the rate in Section 5(a), charged to your payment method on file, until canceled, in accordance with applicable state auto-renewal notice requirements. We will email you a reminder about 30 days before each annual renewal, stating the renewal date, the amount, and how to cancel.
 
 b. **Price Changes:** We may change our pricing over time. We will give you at least 30 days' written notice (by email) before any price change takes effect for your account.
 

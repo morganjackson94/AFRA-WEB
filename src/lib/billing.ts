@@ -44,6 +44,9 @@ export const TRIAL_DAYS_BACKSTOP = 60;
 // end and isn't configurable — inadequate notice for a $4,788 charge. This
 // is a genuinely separate, earlier communication, not a replacement.
 export const TRIAL_ENDING_SOON_DAYS_BEFORE = 7;
+// Renewal notice lead time for the annual subscription. Inside the 15-45 day
+// window some state auto-renewal laws require for terms of a year or longer.
+export const RENEWAL_NOTICE_DAYS_BEFORE = 30;
 
 /**
  * The single source of truth for "when does this trial hit its 60-day
@@ -109,7 +112,12 @@ export interface BillingProvider {
   }): Promise<{ ok: true }>;
   getSubscriptionStatus(
     subscriptionId: string,
-  ): Promise<{ stripeStatus: string; trialEnd: number | null; cancelAt: number | null }>;
+  ): Promise<{
+    stripeStatus: string;
+    trialEnd: number | null;
+    cancelAt: number | null;
+    currentPeriodEnd: number | null;
+  }>;
 
   /**
    * Create a Stripe-HOSTED Checkout Session for the $4,788/yr subscription,
@@ -248,7 +256,12 @@ export class StripeBillingProvider implements BillingProvider {
 
   async getSubscriptionStatus(subscriptionId: string) {
     const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
-    return { stripeStatus: sub.status, trialEnd: sub.trial_end, cancelAt: scheduledCancelAt(sub) };
+    return {
+      stripeStatus: sub.status,
+      trialEnd: sub.trial_end,
+      cancelAt: scheduledCancelAt(sub),
+      currentPeriodEnd: sub.items.data[0]?.current_period_end ?? null,
+    };
   }
 
   /** The subscription product. Reuses STRIPE_FOUNDING_PRODUCT_ID or creates once.
@@ -398,6 +411,7 @@ export class FakeBillingProvider implements BillingProvider {
   readonly mode = "fake" as const;
   private statuses = new Map<string, string>();
   private cancelAts = new Map<string, number>();
+  private periodEnds = new Map<string, number>();
   private seq = 0;
 
   async createCustomer(args: { email: string; name?: string; operatorId: string }) {
@@ -431,6 +445,7 @@ export class FakeBillingProvider implements BillingProvider {
       stripeStatus,
       trialEnd: null,
       cancelAt: stripeStatus === "canceled" ? null : (this.cancelAts.get(subscriptionId) ?? null),
+      currentPeriodEnd: this.periodEnds.get(subscriptionId) ?? null,
     };
   }
 
@@ -444,6 +459,11 @@ export class FakeBillingProvider implements BillingProvider {
    *  which has no matching method). */
   setStatusForTest(subscriptionId: string, status: string): void {
     this.statuses.set(subscriptionId, status);
+  }
+
+  /** Test-only: seed the subscription's current period end (unix seconds). */
+  setPeriodEndForTest(subscriptionId: string, periodEnd: number): void {
+    this.periodEnds.set(subscriptionId, periodEnd);
   }
 
   async endTrialNow(subscriptionId: string) {

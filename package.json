@@ -30,7 +30,8 @@
     "wizard-funnel:smoke": "tsx scripts/wizard-funnel-smoke.ts",
     "wizard-funnel:report": "tsx scripts/wizard-funnel-report.ts",
     "per-location-price:smoke": "tsx scripts/per-location-price-smoke.ts",
-    "trial-counter:smoke": "tsx scripts/trial-counter-smoke.ts"
+    "trial-counter:smoke": "tsx scripts/trial-counter-smoke.ts",
+    "renewal-notice:smoke": "tsx scripts/renewal-notice-smoke.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

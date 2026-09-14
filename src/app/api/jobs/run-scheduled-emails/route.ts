@@ -1,6 +1,13 @@
+import { applyStripeStatus } from "../../../../lib/activation";
 import { createLoginToken } from "../../../../lib/auth";
-import { TRIAL_DAYS_BACKSTOP, TRIAL_ENDING_SOON_DAYS_BEFORE, trialBackstopDate } from "../../../../lib/billing";
-import { sendCheckinEmail, sendTrialEndingSoonEmail } from "../../../../lib/mail";
+import {
+  getBillingProvider,
+  RENEWAL_NOTICE_DAYS_BEFORE,
+  TRIAL_DAYS_BACKSTOP,
+  TRIAL_ENDING_SOON_DAYS_BEFORE,
+  trialBackstopDate,
+} from "../../../../lib/billing";
+import { sendCheckinEmail, sendRenewalNoticeEmail, sendTrialEndingSoonEmail } from "../../../../lib/mail";
 import { prisma } from "../../../../lib/prisma";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -109,11 +116,13 @@ async function runJob(request: Request): Promise<Response> {
   }
 
   const trialEndingSoon = await runTrialEndingSoonJob();
+  const renewalNotice = await runRenewalNoticeJob();
 
   return Response.json({
     ok: true,
     checkin: { eligible: due.length, sent, skipped, errors },
     trialEndingSoon,
+    renewalNotice,
   });
 }
 
@@ -186,4 +195,87 @@ async function runTrialEndingSoonJob() {
   }
 
   return { eligible: due.length, sent, skipped, errors };
+}
+
+// Annual renewal notice, RENEWAL_NOTICE_DAYS_BEFORE days before each automatic
+// renewal. subscriptionRenewsAt is synced from Stripe by applyStripeStatus
+// (every subscription webhook and invoice.paid), so after a renewal it moves a
+// year out and the operator becomes eligible again next year; the claim stores
+// WHICH renewal date was noticed, giving one notice per renewal.
+// Active operators missing subscriptionRenewsAt (paid before this column
+// existed) are synced from Stripe first so they aren't silently skipped.
+async function runRenewalNoticeJob() {
+  const billing = getBillingProvider();
+  // The offline fake has no real subscription state to sync from.
+  const unsynced = billing.mode === "fake" ? [] : await prisma.operator.findMany({
+    where: {
+      plan: "founding_annual",
+      billingStatus: "active",
+      subscriptionCancelAt: null,
+      subscriptionRenewsAt: null,
+      stripeSubscriptionId: { not: null },
+    },
+    select: { id: true },
+  });
+  const errors: string[] = [];
+  for (const { id } of unsynced) {
+    try {
+      await applyStripeStatus(prisma, billing, id);
+    } catch (err) {
+      errors.push(`${id}: sync failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + RENEWAL_NOTICE_DAYS_BEFORE * ONE_DAY_MS);
+  const due = await prisma.operator.findMany({
+    where: {
+      plan: "founding_annual",
+      billingStatus: "active",
+      subscriptionCancelAt: null,
+      subscriptionRenewsAt: { gt: now, lte: windowEnd },
+    },
+    select: { id: true, subscriptionRenewsAt: true, renewalNoticeSentForRenewsAt: true },
+  });
+
+  let sent = 0;
+  let skipped = 0;
+  const eligible = due.filter(
+    (o) => o.renewalNoticeSentForRenewsAt?.getTime() !== o.subscriptionRenewsAt!.getTime(),
+  );
+
+  for (const { id, subscriptionRenewsAt } of eligible) {
+    const renewsAt = subscriptionRenewsAt!;
+    const claim = await prisma.operator.updateMany({
+      where: {
+        id,
+        subscriptionRenewsAt: renewsAt,
+        OR: [{ renewalNoticeSentForRenewsAt: null }, { renewalNoticeSentForRenewsAt: { not: renewsAt } }],
+      },
+      data: { renewalNoticeSentForRenewsAt: renewsAt },
+    });
+    if (claim.count === 0) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      const operator = await prisma.operator.findUniqueOrThrow({ where: { id } });
+      const daysRemaining = Math.max(1, Math.ceil((renewsAt.getTime() - Date.now()) / ONE_DAY_MS));
+      const renewalDate = renewsAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const token = await createLoginToken(prisma, id);
+      const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}`;
+      const result = await sendRenewalNoticeEmail({ to: operator.email, dashboardUrl, renewalDate, daysRemaining });
+      if (result.sent) {
+        sent++;
+      } else {
+        errors.push(`${id}: send did not complete (stub=${result.stub ?? false})`);
+      }
+    } catch (err) {
+      console.error(`[renewal-notice-email] failed for operator ${id}:`, err);
+      errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { synced: unsynced.length, eligible: eligible.length, sent, skipped, errors };
 }

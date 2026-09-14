@@ -182,6 +182,13 @@ model Operator {
   /// through the paid year (docs/CLAIMS.md). Synced from Stripe on every
   /// subscription webhook, so a reactivation in Stripe clears it.
   subscriptionCancelAt DateTime?
+  /// Next automatic annual renewal (Stripe current period end). Null unless
+  /// billingStatus is "active" and no cancellation is scheduled. Synced in
+  /// applyStripeStatus.
+  subscriptionRenewsAt DateTime?
+  /// The subscriptionRenewsAt value the renewal notice was last sent for, so
+  /// each year's renewal gets exactly one notice (claim-before-send).
+  renewalNoticeSentForRenewsAt DateTime?
   /// Idempotency claim for the trial-ended email, same claim-before-send
   /// idiom as welcomeEmailSentAt/liveEmailSentAt above.
   trialEndedEmailSentAt DateTime?

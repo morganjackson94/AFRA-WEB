@@ -306,3 +306,38 @@ Dallas, TX`;
 
   return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
 }
+
+/**
+ * Annual renewal notice, RENEWAL_NOTICE_DAYS_BEFORE days before each automatic
+ * renewal (see runRenewalNoticeJob). States the date, amount, card-on-file
+ * charge, and how to cancel. Pricing wording verbatim from docs/CLAIMS.md.
+ */
+export async function sendRenewalNoticeEmail(
+  args: { to: string; dashboardUrl: string; renewalDate: string; daysRemaining: number },
+): Promise<SendResult> {
+  const subject = `Your AFRA subscription renews on ${args.renewalDate}`;
+  const text = `Hi there,
+
+A heads-up: on ${args.renewalDate} (in ${args.daysRemaining} days), your AFRA subscription renews automatically and we'll charge $4,788 for the next year (about $399/month, every location included) to the card on file.
+
+If you want to keep going, there's nothing to do. If you don't, cancel from your dashboard before ${args.renewalDate}. You'll keep full access until then and won't be charged again.
+
+Your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>A heads-up: on ${args.renewalDate} (in ${args.daysRemaining} days), your AFRA subscription renews automatically and we'll charge $4,788 for the next year (about $399/month, every location included) to the card on file.</p>
+    <p>If you want to keep going, there's nothing to do. If you don't, cancel from your dashboard before ${args.renewalDate}. You'll keep full access until then and won't be charged again.</p>
+    <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}

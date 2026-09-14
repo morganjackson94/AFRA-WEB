@@ -401,7 +401,7 @@ export async function cancelBilling(
   const subscriptionCancelAt = cancelAt ? new Date(cancelAt * 1000) : null;
   await prisma.operator.update({
     where: { id: operatorId },
-    data: { billingStatus, subscriptionCancelAt },
+    data: { billingStatus, subscriptionCancelAt, ...(subscriptionCancelAt ? { subscriptionRenewsAt: null } : {}) },
   });
 
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
@@ -576,9 +576,15 @@ export async function applyStripeStatus(
     return { billingStatus: operator.billingStatus, recompute, trialEndedEmail: undefined };
   }
 
-  const { stripeStatus, cancelAt } = await billing.getSubscriptionStatus(operator.stripeSubscriptionId);
+  const { stripeStatus, cancelAt, currentPeriodEnd } = await billing.getSubscriptionStatus(
+    operator.stripeSubscriptionId,
+  );
   const billingStatus = mapStripeStatus(stripeStatus);
   const subscriptionCancelAt = cancelAt ? new Date(cancelAt * 1000) : null;
+  const subscriptionRenewsAt =
+    billingStatus === "active" && !subscriptionCancelAt && currentPeriodEnd
+      ? new Date(currentPeriodEnd * 1000)
+      : null;
   const justEndedTrial =
     operator.plan === "founding_annual" &&
     operator.billingStatus === "trialing" &&
@@ -591,6 +597,7 @@ export async function applyStripeStatus(
     data: {
       billingStatus,
       subscriptionCancelAt,
+      subscriptionRenewsAt,
       ...(justEndedTrial ? { trialEndedAt: new Date() } : {}),
     },
   });
