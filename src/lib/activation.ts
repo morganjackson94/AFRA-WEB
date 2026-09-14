@@ -375,7 +375,13 @@ async function sendWelcomeEmailOnce(
   }
 }
 
-/** Cancel the subscription, reflect "canceled", recompute (gateBilling -> false). */
+/**
+ * Cancel from the dashboard. A paid ("active") subscription stops renewing but
+ * keeps access through the paid year (Terms §7(c)); billingStatus stays
+ * "active" until Stripe's customer.subscription.deleted lands at period end.
+ * Anything else (trialing, past_due, pending) has no paid period to honor, so
+ * it cancels now.
+ */
 export async function cancelBilling(
   prisma: PrismaClient,
   billing: BillingProvider,
@@ -383,13 +389,23 @@ export async function cancelBilling(
 ) {
   const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   if (!operator.stripeSubscriptionId) throw new Error("No subscription to cancel");
+  if (operator.billingStatus === "canceled" || operator.subscriptionCancelAt) {
+    return { billingStatus: operator.billingStatus, subscriptionCancelAt: operator.subscriptionCancelAt, recompute: null };
+  }
 
-  const { stripeStatus } = await billing.cancelSubscription(operator.stripeSubscriptionId);
+  const atPeriodEnd = operator.billingStatus === "active";
+  const { stripeStatus, cancelAt } = await billing.cancelSubscription(operator.stripeSubscriptionId, {
+    atPeriodEnd,
+  });
   const billingStatus = mapStripeStatus(stripeStatus);
-  await prisma.operator.update({ where: { id: operatorId }, data: { billingStatus } });
+  const subscriptionCancelAt = cancelAt ? new Date(cancelAt * 1000) : null;
+  await prisma.operator.update({
+    where: { id: operatorId },
+    data: { billingStatus, subscriptionCancelAt },
+  });
 
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
-  return { billingStatus, recompute };
+  return { billingStatus, subscriptionCancelAt, recompute };
 }
 
 /** Attach/replace the default payment method for the operator's customer. */
@@ -560,17 +576,23 @@ export async function applyStripeStatus(
     return { billingStatus: operator.billingStatus, recompute, trialEndedEmail: undefined };
   }
 
-  const { stripeStatus } = await billing.getSubscriptionStatus(operator.stripeSubscriptionId);
+  const { stripeStatus, cancelAt } = await billing.getSubscriptionStatus(operator.stripeSubscriptionId);
   const billingStatus = mapStripeStatus(stripeStatus);
+  const subscriptionCancelAt = cancelAt ? new Date(cancelAt * 1000) : null;
   const justEndedTrial =
     operator.plan === "founding_annual" &&
     operator.billingStatus === "trialing" &&
     billingStatus !== "trialing" &&
+    billingStatus !== "canceled" &&
     !operator.trialEndedAt;
 
   await prisma.operator.update({
     where: { id: operatorId },
-    data: { billingStatus, ...(justEndedTrial ? { trialEndedAt: new Date() } : {}) },
+    data: {
+      billingStatus,
+      subscriptionCancelAt,
+      ...(justEndedTrial ? { trialEndedAt: new Date() } : {}),
+    },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
   const trialEndedEmail = justEndedTrial ? await sendTrialEndedEmailOnce(prisma, operatorId) : undefined;

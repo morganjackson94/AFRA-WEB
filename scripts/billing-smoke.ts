@@ -121,6 +121,31 @@ async function main() {
   const op2 = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   assert(canceled.billingStatus === "canceled", "cancel maps to 'canceled'");
   assert(op2.billingStatus === "canceled", "operator billingStatus persisted as canceled");
+  assert(canceled.subscriptionCancelAt === null, "non-active cancel is immediate, nothing scheduled");
+
+  if (billing instanceof FakeBillingProvider && op1.stripeSubscriptionId) {
+    console.log("\n7) Cancel a PAID subscription -> keeps access through the paid year:");
+    billing.setStatusForTest(op1.stripeSubscriptionId, "active");
+    await applyStripeStatus(prisma, billing, operatorId);
+    const scheduled = await cancelBilling(prisma, billing, operatorId);
+    r = await role(operatorId);
+    assert(scheduled.billingStatus === "active", "billingStatus stays active after canceling a paid year");
+    assert(!!scheduled.subscriptionCancelAt && scheduled.subscriptionCancelAt > new Date(), "cancel date scheduled in the future");
+    assert(r.gateBilling === true, "gateBilling still TRUE until the paid year ends");
+    const again = await cancelBilling(prisma, billing, operatorId);
+    assert(again.subscriptionCancelAt?.getTime() === scheduled.subscriptionCancelAt?.getTime(), "second cancel click is a no-op");
+    const synced = await applyStripeStatus(prisma, billing, operatorId);
+    const op3 = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    assert(synced.billingStatus === "active" && !!op3.subscriptionCancelAt, "a subscription.updated webhook keeps the scheduled date");
+
+    billing.setStatusForTest(op1.stripeSubscriptionId, "canceled");
+    const ended = await applyStripeStatus(prisma, billing, operatorId);
+    const op4 = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    r = await role(operatorId);
+    assert(ended.billingStatus === "canceled", "period end (subscription.deleted) -> canceled");
+    assert(op4.subscriptionCancelAt === null, "scheduled date cleared once fully canceled");
+    assert(r.gateBilling === false, "gateBilling FALSE once the paid year is over");
+  }
 
   // Cleanup
   await prisma.operator.delete({ where: { id: operatorId } });

@@ -177,6 +177,11 @@ model Operator {
   /// by hitting the candidate cap early or Stripe's natural 60-day backstop.
   /// Null while still trialing or never started a trial.
   trialEndedAt DateTime?
+  /// When a scheduled cancellation takes effect (Stripe cancel_at). Set while
+  /// billingStatus is still "active": canceling after the trial keeps access
+  /// through the paid year (docs/CLAIMS.md). Synced from Stripe on every
+  /// subscription webhook, so a reactivation in Stripe clears it.
+  subscriptionCancelAt DateTime?
   /// Idempotency claim for the trial-ended email, same claim-before-send
   /// idiom as welcomeEmailSentAt/liveEmailSentAt above.
   trialEndedEmailSentAt DateTime?

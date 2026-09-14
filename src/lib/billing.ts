@@ -98,12 +98,18 @@ export interface BillingProvider {
     customerId: string;
     quantity?: number;
   }): Promise<{ subscriptionId: string; stripeStatus: string }>;
-  cancelSubscription(subscriptionId: string): Promise<{ stripeStatus: string }>;
+  /** atPeriodEnd: stop renewal but keep the paid period (post-trial). Otherwise cancel now. */
+  cancelSubscription(
+    subscriptionId: string,
+    opts: { atPeriodEnd: boolean },
+  ): Promise<{ stripeStatus: string; cancelAt: number | null }>;
   updateDefaultPaymentMethod(args: {
     customerId: string;
     paymentMethodId: string;
   }): Promise<{ ok: true }>;
-  getSubscriptionStatus(subscriptionId: string): Promise<{ stripeStatus: string; trialEnd: number | null }>;
+  getSubscriptionStatus(
+    subscriptionId: string,
+  ): Promise<{ stripeStatus: string; trialEnd: number | null; cancelAt: number | null }>;
 
   /**
    * Create a Stripe-HOSTED Checkout Session for the $4,788/yr subscription,
@@ -221,9 +227,13 @@ export class StripeBillingProvider implements BillingProvider {
     return { subscriptionId: sub.id, stripeStatus: sub.status };
   }
 
-  async cancelSubscription(subscriptionId: string) {
-    const sub = await this.stripe.subscriptions.cancel(subscriptionId);
-    return { stripeStatus: sub.status };
+  async cancelSubscription(subscriptionId: string, opts: { atPeriodEnd: boolean }) {
+    if (!opts.atPeriodEnd) {
+      const sub = await this.stripe.subscriptions.cancel(subscriptionId);
+      return { stripeStatus: sub.status, cancelAt: null };
+    }
+    const sub = await this.stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    return { stripeStatus: sub.status, cancelAt: scheduledCancelAt(sub) };
   }
 
   async updateDefaultPaymentMethod(args: { customerId: string; paymentMethodId: string }) {
@@ -238,7 +248,7 @@ export class StripeBillingProvider implements BillingProvider {
 
   async getSubscriptionStatus(subscriptionId: string) {
     const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
-    return { stripeStatus: sub.status, trialEnd: sub.trial_end };
+    return { stripeStatus: sub.status, trialEnd: sub.trial_end, cancelAt: scheduledCancelAt(sub) };
   }
 
   /** The subscription product. Reuses STRIPE_FOUNDING_PRODUCT_ID or creates once.
@@ -372,11 +382,22 @@ export class StripeBillingProvider implements BillingProvider {
   }
 }
 
+// A subscription that's already fully canceled has nothing scheduled. Newer
+// API versions set cancel_at alongside cancel_at_period_end; the item's period
+// end is the fallback for versions that don't.
+function scheduledCancelAt(sub: Stripe.Subscription): number | null {
+  if (sub.status === "canceled") return null;
+  if (sub.cancel_at) return sub.cancel_at;
+  if (sub.cancel_at_period_end) return sub.items.data[0]?.current_period_end ?? null;
+  return null;
+}
+
 // --- Offline fake ------------------------------------------------------------
 
 export class FakeBillingProvider implements BillingProvider {
   readonly mode = "fake" as const;
   private statuses = new Map<string, string>();
+  private cancelAts = new Map<string, number>();
   private seq = 0;
 
   async createCustomer(args: { email: string; name?: string; operatorId: string }) {
@@ -389,9 +410,15 @@ export class FakeBillingProvider implements BillingProvider {
     return { subscriptionId, stripeStatus: "trialing" };
   }
 
-  async cancelSubscription(subscriptionId: string) {
-    this.statuses.set(subscriptionId, "canceled");
-    return { stripeStatus: "canceled" };
+  async cancelSubscription(subscriptionId: string, opts: { atPeriodEnd: boolean }) {
+    if (!opts.atPeriodEnd) {
+      this.statuses.set(subscriptionId, "canceled");
+      this.cancelAts.delete(subscriptionId);
+      return { stripeStatus: "canceled", cancelAt: null };
+    }
+    const cancelAt = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+    this.cancelAts.set(subscriptionId, cancelAt);
+    return { stripeStatus: this.statuses.get(subscriptionId) ?? "active", cancelAt };
   }
 
   async updateDefaultPaymentMethod() {
@@ -399,7 +426,12 @@ export class FakeBillingProvider implements BillingProvider {
   }
 
   async getSubscriptionStatus(subscriptionId: string) {
-    return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing", trialEnd: null };
+    const stripeStatus = this.statuses.get(subscriptionId) ?? "trialing";
+    return {
+      stripeStatus,
+      trialEnd: null,
+      cancelAt: stripeStatus === "canceled" ? null : (this.cancelAts.get(subscriptionId) ?? null),
+    };
   }
 
   /** Test-only: seed a subscription's tracked status directly, for smoke

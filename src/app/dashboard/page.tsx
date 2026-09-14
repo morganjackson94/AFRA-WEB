@@ -8,6 +8,7 @@ import { Reveal } from "../../components/Reveal";
 import { SafeModeHandoff } from "../../components/SafeModeHandoff";
 import { SectionLabel } from "../../components/SectionLabel";
 import { WorkspaceHeader } from "./WorkspaceHeader";
+import { OPERATOR_ONBOARDING_CALL_URL } from "../../lib/constants";
 import { describeBilling, describeReadiness } from "../../lib/dashboard";
 import { prisma } from "../../lib/prisma";
 import { isBillingActive } from "../../lib/readiness";
@@ -114,7 +115,16 @@ export default async function DashboardPage({
     // but that's an acceptable tradeoff against adding a live Stripe network
     // call to a page render that must keep working even if Stripe hiccups.
     trialStartedAt: operator.createdAt,
+    subscriptionCancelAt: operator.subscriptionCancelAt,
   });
+  const canCancel =
+    operator.billingStatus !== "canceled" && operator.billingStatus !== "none" && !operator.subscriptionCancelAt;
+  const cancelExplanation =
+    operator.billingStatus === "active"
+      ? "Your subscription won't renew. You keep full access until the end of the year you've paid for, with no partial refund."
+      : operator.billingStatus === "trialing"
+        ? "This ends your free trial now. Nothing further is charged. The $149 setup fee isn't refunded."
+        : "This ends your subscription now.";
   // isBillingActive (readiness.ts) is the SSOT predicate for "billing is in
   // a good state" — true for "trialing" as well as "active", since under the
   // trial model a successful checkout redirect lands on "trialing", not
@@ -157,7 +167,7 @@ export default async function DashboardPage({
         ? { kind: "manychat-connect", channelConnectionId: channel.id }
         : {
             kind: "pending",
-            note: "Being set up. We'll email you the moment Instagram is ready to connect.",
+            note: "Being set up. You'll connect it together with us on your onboarding call.",
           };
 
   const GATE_ITEMS: GateItem[] = [
@@ -385,8 +395,8 @@ export default async function DashboardPage({
 
             <p className="mt-3 text-xs leading-relaxed text-faint">
               Your Instagram connects through ManyChat, an approved Meta partner. You&apos;ll
-              authorize it there, then come right back. Calendar is a booking link (Google
-              Calendar or Calendly) added on your setup call. Your hiring post is ready to
+              authorize it there, then come right back. Calendar is the booking link you added
+              at signup, so candidates book their own interviews. Your hiring post is ready to
               finish now.
             </p>
 
@@ -509,7 +519,7 @@ export default async function DashboardPage({
             <SectionLabel>Booked interviews</SectionLabel>
             {bookingsView.length === 0 ? (
               <p className="mt-3 text-sm text-faint">
-                Booked interviews land here. Billing is $4,788/year flat, all locations — the first 20
+                Booked interviews land here. Billing is $4,788/year flat, all locations. The first 20
                 screened candidates or 60 days, whichever comes first, are free.
               </p>
             ) : (
@@ -560,7 +570,7 @@ export default async function DashboardPage({
               )}
             </div>
             <p className="mt-4 border-t border-line pt-3 text-xs text-faint">
-              Screened out — only qualified candidates count toward your free 20.
+              Screened out. Only candidates who pass your screening count toward your free 20.
             </p>
           </div>
         </div>
@@ -614,11 +624,11 @@ export default async function DashboardPage({
             </ul>
           )}
           <p className="mt-2 text-xs text-faint">
-            Booked interviews land here. Billing is $4,788/year flat, all locations — the first 20
+            Booked interviews land here. Billing is $4,788/year flat, all locations. The first 20
             screened candidates or 60 days, whichever comes first, are free.
           </p>
           <p className="mt-2 text-xs text-faint">
-            Screened out — only qualified candidates count toward your free 20.
+            Screened out. Only candidates who pass your screening count toward your free 20.
           </p>
         </div>
       </div>
@@ -632,7 +642,7 @@ export default async function DashboardPage({
         <div className="rounded-2xl border border-line bg-card p-6">
           <p className="text-sm">
             <span className="font-medium text-ink">{billing.label}</span>
-            <span className="text-ink-soft"> — {billing.detail}</span>
+            <span className="text-ink-soft">. {billing.detail}</span>
           </p>
           {/* Every operator has a real Stripe subscription to manage now
               (the founding plan's own one-time charge is retired — see
@@ -641,18 +651,26 @@ export default async function DashboardPage({
               in activation.ts key only on operatorId). */}
           <div className="mt-4 flex gap-2">
             <form action={updateCardAction}>
-              <input type="hidden" name="operatorId" value={operator.id} />
               <button className="rounded-full border border-line-strong px-4 py-1.5 text-sm text-ink hover:bg-cream">
                 Update card
               </button>
             </form>
-            <form action={cancelSubscriptionAction}>
-              <input type="hidden" name="operatorId" value={operator.id} />
-              <button className="rounded-full border border-red-400/40 px-4 py-1.5 text-sm text-red-300 hover:bg-red-500/10">
-                Cancel subscription
-              </button>
-            </form>
           </div>
+          {canCancel && (
+            <details className="mt-4 text-sm">
+              <summary className="inline-block cursor-pointer list-none rounded-full border border-red-400/40 px-4 py-1.5 text-red-300 hover:bg-red-500/10">
+                Cancel subscription
+              </summary>
+              <div className="mt-3 rounded-xl border border-line p-4">
+                <p className="text-ink-soft">{cancelExplanation}</p>
+                <form action={cancelSubscriptionAction} className="mt-3">
+                  <button className="rounded-full bg-red-500/80 px-4 py-1.5 text-sm text-white hover:bg-red-500">
+                    Yes, cancel
+                  </button>
+                </form>
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </section>
@@ -702,8 +720,11 @@ export default async function DashboardPage({
             ) : (
               <>
                 <span className="font-medium">You&apos;re in. Welcome to AFRA.</span>{" "}
-                We&apos;re personally setting up your account now. You&apos;ll get an email the moment
-                your Instagram is ready to connect, usually within a few hours.
+                We&apos;re building your setup now. One thing to do:{" "}
+                <a href={OPERATOR_ONBOARDING_CALL_URL} className="font-medium underline">
+                  book your ten-minute onboarding call
+                </a>
+                , where you&apos;ll connect your Instagram.
               </>
             )}
           </div>

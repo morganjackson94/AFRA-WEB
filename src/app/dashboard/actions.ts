@@ -10,14 +10,17 @@ import { resolveOperatorId } from "../../lib/session";
 
 // Thin server actions. These REUSE the Step 3 billing ops — no new billing logic.
 
-export async function cancelSubscriptionAction(formData: FormData): Promise<void> {
-  const operatorId = String(formData.get("operatorId"));
+// Billing mutations take the operator from the session, never the form field.
+export async function cancelSubscriptionAction(): Promise<void> {
+  const operatorId = await resolveOperatorId();
+  if (!operatorId) redirect("/login");
   await cancelBilling(prisma, getBillingProvider(), operatorId);
   revalidatePath("/dashboard");
 }
 
 export async function updateCardAction(formData: FormData): Promise<void> {
-  const operatorId = String(formData.get("operatorId"));
+  const operatorId = await resolveOperatorId();
+  if (!operatorId) redirect("/login");
   // Test-mode card token. A real card-entry UI (Stripe Elements) replaces this;
   // the billing op it calls (updateCard) is unchanged.
   const paymentMethodId = String(formData.get("paymentMethodId") || "pm_card_visa");

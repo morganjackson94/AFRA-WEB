@@ -91,7 +91,7 @@ export function describeReadiness(g: GateState): ReadinessDisplay {
 export function describeBilling(
   billingStatus: string,
   plan: string = "monthly",
-  extra?: { screenedCandidateCount?: number; trialStartedAt?: Date },
+  extra?: { screenedCandidateCount?: number; trialStartedAt?: Date; subscriptionCancelAt?: Date | null },
 ): { label: string; detail: string } {
   if (plan === "founding_annual") {
     switch (billingStatus) {
@@ -107,16 +107,27 @@ export function describeBilling(
         return {
           label: "Free trial",
           detail: byDate
-            ? `${used} of ${FREE_CANDIDATE_CAP} free candidates used. Free until ${byDate} otherwise.`
-            : `${used} of ${FREE_CANDIDATE_CAP} free candidates used.`,
+            ? `${used} of ${FREE_CANDIDATE_CAP} free screened candidates used. Free until ${byDate} at the latest, then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`
+            : `${used} of ${FREE_CANDIDATE_CAP} free screened candidates used. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
         };
       }
       case "active":
+        if (extra?.subscriptionCancelAt) {
+          const until = extra.subscriptionCancelAt.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return {
+            label: "Canceled",
+            detail: `Your subscription won't renew. You keep full access until ${until}, and you won't be charged again.`,
+          };
+        }
         return { label: "Active", detail: `${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month), billed annually.` };
       case "past_due":
         return { label: "Payment failed", detail: "Update your card to keep your plan active." };
       case "trial_pending":
-        return { label: "Payment pending", detail: "Complete checkout to start your free trial." };
+        return { label: "Payment pending", detail: "Complete checkout ($149 setup fee, charged today) to start your free trial." };
       case "canceled":
         return { label: "Canceled", detail: "Your subscription has been canceled." };
       default:
