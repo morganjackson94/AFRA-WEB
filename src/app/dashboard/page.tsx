@@ -532,12 +532,6 @@ export default async function DashboardPage({
                 ))}
               </ul>
             )}
-            {bookingsView.length > 0 && (
-              <p className="mt-4 border-t border-line pt-3 text-xs text-faint">
-                Interview reminders: we handle these for you personally while one-tap reminders finishes
-                in your dashboard.
-              </p>
-            )}
           </div>
 
           {/* Not a 5th column in the STAGES row above — that row is forward

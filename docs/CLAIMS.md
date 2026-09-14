@@ -59,6 +59,13 @@ Fixed September 2026 — see the canonical claims table below for the corrected 
 
 ## Retired claims (do not resurrect without a new pricing decision)
 
+- ~~"Follow up in one tap" / "One-tap reminders" / "One-tap follow-up reminders" / "follow-up is one tap"
+  (landing hero, feature card, section heading, pricing and FAQ lists) and the dashboard's "one-tap
+  reminders finishes in your dashboard"~~ **Retired, September 2026.** No follow-up or reminder feature
+  exists: `src/lib/nudge.ts` is a logging stub, and there is no ManyChat saved reply. Operators follow up
+  by messaging the candidate in the same Instagram chat themselves. Don't claim reminders, one-tap
+  follow-up, or fewer no-shows until sending is actually built.
+
 - ~~"Booked interviews land here. They're what you're billed on." (`src/app/dashboard/page.tsx`, operator
   dashboard, both the active and quiet pipeline views)~~ **Retired, September 2026 — see the audit
   methodology note above.** Live on every paying operator's dashboard, and false: billing is flat

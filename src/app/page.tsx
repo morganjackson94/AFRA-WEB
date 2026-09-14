@@ -4,7 +4,7 @@ import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
 import { CountUp } from "../components/CountUp";
 import { CTA } from "../components/CTA";
 import { FaqItem } from "../components/FaqItem";
-import { Bell, Bolt, Check, Filter, Instagram } from "../components/Icons";
+import { Bolt, Check, Filter, Instagram } from "../components/Icons";
 import { LandingViewTracker } from "../components/LandingViewTracker";
 import { LegalLinks } from "../components/LegalLinks";
 import { Magnetic } from "../components/Magnetic";
@@ -69,10 +69,10 @@ const FEATURES = {
     title: "Smart screening",
     body: "A few questions sort the serious applicants from the maybes.",
   },
-  reminders: {
-    icon: Bell,
-    title: "One-tap reminders",
-    body: "Follow up in one tap, in the same chat. Fewer people ghost, more people show.",
+  instagram: {
+    icon: Instagram,
+    title: "Runs on your Instagram",
+    body: "Applicants message the account they already follow. You see every candidate and their answers in one dashboard.",
   },
   booking: {
     title: "Candidates book their own interview",
@@ -109,7 +109,7 @@ const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
   { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
   { q: "What if it doesn't work for me?", a: "Your first 20 screened candidates are free, for up to 60 days. If it's not working, cancel any time before then and nothing further is owed beyond the $149 setup fee charged at signup. The $4,788/year subscription only starts once your trial ends." },
-  { q: "How does follow-up work?", a: "Within the first 24 hours the bot replies instantly on its own. After that, following up is one tap: you send the reminder in the same chat. No autopilot chasing, no phone tag." },
+  { q: "How does follow-up work?", a: "AFRA replies to every applicant instantly and runs your screening questions on its own. It doesn't send reminders or chase candidates for you. To follow up with someone, message them in the same Instagram chat, where the whole conversation already is." },
   { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live within 7 days." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
@@ -123,7 +123,6 @@ const FAQ: { q: string; a: string | string[] }[] = [
       "Instant replies to every applicant, day or night",
       "Automatic screening, so you only see people worth your time",
       "Candidates book their interview straight into your calendar",
-      "One-tap follow-up reminders",
       "One simple dashboard for every location",
       "Personal setup. We build and connect your flow for you.",
       "First 20 screened candidates free",
@@ -176,7 +175,7 @@ export default function LandingPage() {
             <Reveal delay={280}>
               <p className="mb-9 max-w-[38ch] text-[18px] leading-relaxed text-ink-soft">
                 Answer every applicant in seconds. Candidates book their interview straight into
-                your calendar. Follow up in one tap.
+                your calendar.
               </p>
             </Reveal>
             <Reveal delay={420}>
@@ -319,12 +318,12 @@ export default function LandingPage() {
           cream, and a real-photo cell for the booking feature. */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-4 max-w-[22ch]">Simple, and follow-up is one tap.</h2>
+          <h2 className="t-title mb-4 max-w-[22ch]">Simple, on the Instagram you already use.</h2>
         </Reveal>
         <Reveal>
           <p className="mb-10 max-w-[52ch] text-[15px] leading-relaxed text-ink-soft">
-            Instant replies, automatic screening, candidates booking their own interviews. All from
-            the Instagram you already use.
+            Instant replies, automatic screening, and candidates booking their own interviews, all in
+            one dashboard.
           </p>
         </Reveal>
         <Stagger className="grid grid-cols-1 gap-4 md:grid-cols-3" step={100}>
@@ -347,10 +346,10 @@ export default function LandingPage() {
 
           <div className="rounded-2xl border border-line bg-cream p-8">
             <span className="mb-5 grid size-11 place-items-center rounded-xl bg-card text-ink">
-              <FEATURES.reminders.icon className="size-5" />
+              <FEATURES.instagram.icon className="size-5" />
             </span>
-            <h3 className="text-[18px] font-semibold">{FEATURES.reminders.title}</h3>
-            <p className="mt-2.5 text-[14.5px] leading-relaxed text-ink-soft">{FEATURES.reminders.body}</p>
+            <h3 className="text-[18px] font-semibold">{FEATURES.instagram.title}</h3>
+            <p className="mt-2.5 text-[14.5px] leading-relaxed text-ink-soft">{FEATURES.instagram.body}</p>
           </div>
 
           {/* Photo cell — real image under a paper wash (the Hermès move:
@@ -386,45 +385,38 @@ export default function LandingPage() {
         <Reveal>
           <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
             <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
-              <div className="t-price">{PRICING.setupFee}</div>
-              <div className="mt-3 text-[15px] text-ink-soft">
-                One-time setup fee, charged today at checkout. Then {PRICING.priceAnnual}/year (about{" "}
-                {PRICING.priceMonthlyEquivalent}/mo) for all your locations, with nothing further charged
-                until your trial ends.
-              </div>
+              {/* What's paid, in the order it happens. Each claim appears once;
+                  wording per docs/CLAIMS.md (monthly figure never stands alone). */}
+              <dl className="divide-y divide-line">
+                {[
+                  { when: "Today", amount: PRICING.setupFee, note: "One-time setup" },
+                  {
+                    when: "Free trial",
+                    amount: "$0",
+                    note: `First ${PRICING.freeCandidateCap} screened candidates or ${PRICING.trialDaysBackstop} days, whichever comes first`,
+                  },
+                  {
+                    when: "Then",
+                    amount: `${PRICING.priceAnnual}/yr`,
+                    note: `About ${PRICING.priceMonthlyEquivalent}/mo. Every location, one flat rate.`,
+                  },
+                ].map((row) => (
+                  <div key={row.when} className="grid grid-cols-[5.5rem_1fr] items-baseline gap-x-5 py-5 first:pt-0 md:grid-cols-[6.5rem_1fr]">
+                    <dt className="t-label">{row.when}</dt>
+                    <dd>
+                      <div className="text-[2rem] leading-none text-ink [font-family:var(--font-display)] [font-variant-numeric:tabular-nums] md:text-[2.5rem]">
+                        {row.amount}
+                      </div>
+                      <div className="mt-2 text-[14px] leading-snug text-ink-soft">{row.note}</div>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
 
-              {/* The trial is the risk reversal for the subscription (no
-                  guarantee alongside it). The setup fee above is separate and
-                  charged at signup regardless — see docs/CLAIMS.md. */}
-              <div className="mt-4 text-[18px] font-semibold text-ink">
-                Your first {PRICING.freeCandidateCap} screened candidates are free.
-              </div>
-
-              {/* Structural, location-agnostic reinforcement — no location
-                  count yet at this point in the funnel, so no personalized
-                  per-location math here (that lives in the wizard, once the
-                  operator has entered a location count — see step 4). */}
-              <div className="mt-3 text-[13px] leading-relaxed text-faint">
-                One flat rate: no per-location fees, no per-seat charges. Most platforms charge per
-                location; AFRA doesn&apos;t.
-              </div>
-
-              <div className="mt-8">
+              <div className="mt-6">
                 <CTA id="pricing" size="lg" full />
               </div>
-
-              <div className="mt-5 rounded-xl border border-line bg-bg px-4 py-4">
-                <p className="text-[14px] font-semibold text-ink">Free for {PRICING.freeCandidateCap} candidates or {PRICING.trialDaysBackstop} days</p>
-                <p className="mt-1 text-[13px] text-ink-soft">
-                  Whichever comes first. A card is required to start. Beyond the {PRICING.setupFee} setup
-                  fee charged at signup, nothing further is charged until then, and you can cancel any
-                  time before that with nothing further owed.
-                </p>
-              </div>
-              <p className="mt-3 text-[13px] text-faint">
-                After the trial, it&apos;s {PRICING.priceAnnual}/year (about {PRICING.priceMonthlyEquivalent}/mo),
-                billed to the card on file each year until you cancel.
-              </p>
+              <p className="mt-3 text-center text-[13px] text-faint">Card required. Cancel anytime.</p>
             </div>
 
             <div className="flex flex-col justify-center p-8 md:p-12">
@@ -434,7 +426,6 @@ export default function LandingPage() {
                   "Instant replies to every applicant",
                   "Automatic screening questions",
                   "Candidates book straight into your calendar",
-                  "One-tap follow-up reminders",
                   "One simple dashboard",
                   "Every location you run, one price",
                 ].map((li) => (
