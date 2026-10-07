@@ -91,12 +91,24 @@ export function describeReadiness(g: GateState): ReadinessDisplay {
 export function describeBilling(
   billingStatus: string,
   plan: string = "monthly",
-  extra?: { screenedCandidateCount?: number; trialStartedAt?: Date; subscriptionCancelAt?: Date | null },
+  extra?: {
+    screenedCandidateCount?: number;
+    trialStartedAt?: Date;
+    trialEndsAt?: Date | null;
+    subscriptionCancelAt?: Date | null;
+  },
 ): { label: string; detail: string } {
   if (plan === "founding_annual") {
     switch (billingStatus) {
       case "trialing": {
         const used = extra?.screenedCandidateCount ?? 0;
+        if (extra?.trialEndsAt) {
+          const endsOn = extra.trialEndsAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          return {
+            label: "Trial ending",
+            detail: `You've reached ${FREE_CANDIDATE_CAP} screened candidates. Your trial ends ${endsOn}, then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month). Cancel before then and you won't be charged.`,
+          };
+        }
         const startedAt = extra?.trialStartedAt;
         const byDate = startedAt
           ? trialBackstopDate(startedAt).toLocaleDateString("en-US", {

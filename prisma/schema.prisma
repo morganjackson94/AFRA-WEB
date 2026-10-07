@@ -200,6 +200,24 @@ model Operator {
   /// cancels before this would fire — there's nothing to warn about once
   /// billingStatus has already left "trialing".
   trialEndingSoonEmailSentAt DateTime?
+  /// Idempotency claim for the "you're at TRIAL_CAP_WARNING_AT of
+  /// FREE_CANDIDATE_CAP" heads-up email (see sendTrialCapWarningOnce,
+  /// activation.ts). Same claim-before-send idiom as the emails above.
+  trialCapWarningEmailSentAt DateTime?
+  /// When the FREE_CANDIDATE_CAP-th candidate was screened — claimed once, and
+  /// the anchor for the shortened trial end (this + TRIAL_CAP_NOTICE_HOURS).
+  /// Anchoring on a stored timestamp, not "now", is what makes a retried
+  /// scheduleTrialEndForCandidateCap set the SAME trial_end instead of
+  /// pushing it later on every retry.
+  trialCapReachedAt DateTime?
+  /// The trial end actually in effect after the cap was reached: the earlier
+  /// of trialCapReachedAt + TRIAL_CAP_NOTICE_HOURS and the subscription's
+  /// existing 60-day trial_end (the cap never extends a trial). Null until
+  /// the cap is reached; the dashboard and the trial-end notice read this.
+  trialEndsAt DateTime?
+  /// Idempotency claim for the "your trial ends in 3 days" email sent when
+  /// the cap is reached (see sendTrialEndNoticeOnce, activation.ts).
+  trialEndNoticeEmailSentAt DateTime?
 
   locations          Location[]
   channelConnections ChannelConnection[]

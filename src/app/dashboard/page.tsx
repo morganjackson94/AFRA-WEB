@@ -115,6 +115,9 @@ export default async function DashboardPage({
     // but that's an acceptable tradeoff against adding a live Stripe network
     // call to a page render that must keep working even if Stripe hiccups.
     trialStartedAt: operator.createdAt,
+    // Set once the candidate cap is reached: the real, already-scheduled
+    // trial end (stored when Stripe's trial_end was moved), so no lag here.
+    trialEndsAt: operator.trialEndsAt,
     subscriptionCancelAt: operator.subscriptionCancelAt,
   });
   const canCancel =
@@ -630,7 +633,7 @@ export default async function DashboardPage({
   );
 
   const billingSection = (
-    <section className="border-t border-line py-12">
+    <section id="billing" className="scroll-mt-6 border-t border-line py-12">
       <div className={RAIL}>
         <SectionLabel>Plan &amp; billing</SectionLabel>
         <div className="rounded-2xl border border-line bg-card p-6">

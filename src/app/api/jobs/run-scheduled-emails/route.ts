@@ -133,11 +133,12 @@ async function runJob(request: Request): Promise<Response> {
 //
 // billingStatus: "trialing" does the real work of handling both edge cases
 // where the 7-day date should never fire a warning:
-//   - trial ends early via the candidate cap: endTrialForCandidateCap's
-//     resulting webhook flips billingStatus away from "trialing" before (or
-//     regardless of) whether 7 days remained — this operator is no longer
-//     in the eligible set, deliberately, not by omission. There's nothing
-//     "coming up" to warn about once the trial has already ended.
+//   - the candidate cap was reached: the trial is still "trialing" for
+//     TRIAL_CAP_NOTICE_HOURS, but the operator already got the trial-end
+//     notice with the real (earlier) date — trialCapReachedAt: null keeps
+//     this job from sending a second email with the stale day-60 date. Both
+//     the query and the claim check it, so a cap reached between the two
+//     still can't slip through.
 //   - operator cancels before the email fires: cancelBilling sets
 //     billingStatus to "canceled", same exclusion, same reasoning — don't
 //     warn about a charge that will never happen.
@@ -154,6 +155,7 @@ async function runTrialEndingSoonJob() {
       billingStatus: "trialing",
       createdAt: { lte: cutoff },
       trialEndingSoonEmailSentAt: null,
+      trialCapReachedAt: null,
     },
     select: { id: true },
   });
@@ -167,7 +169,7 @@ async function runTrialEndingSoonJob() {
     // invocation the same day (cron overlap, manual retry) matches zero rows
     // here and skips, never double-sending.
     const claim = await prisma.operator.updateMany({
-      where: { id, trialEndingSoonEmailSentAt: null },
+      where: { id, trialEndingSoonEmailSentAt: null, trialCapReachedAt: null },
       data: { trialEndingSoonEmailSentAt: new Date() },
     });
     if (claim.count === 0) {

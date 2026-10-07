@@ -1,15 +1,16 @@
-import { endTrialForCandidateCap } from "../../../../lib/activation";
+import { scheduleTrialEndForCandidateCap } from "../../../../lib/activation";
 import { FREE_CANDIDATE_CAP, getBillingProvider } from "../../../../lib/billing";
 import { prisma } from "../../../../lib/prisma";
 
 // Reconciliation backstop for the candidate-cap trial trigger (see
 // FREE_CANDIDATE_CAP, billing.ts). ingestScreeningResult (manychat.ts) already
-// calls endTrialForCandidateCap synchronously the moment an operator crosses
-// the cap — this job exists only to catch the case where that call throws
-// (network blip, Stripe rate limit) with no retry otherwise, since ending a
-// trial is a real-money action worth cheap insurance on. Idempotent: calling
-// endTrialForCandidateCap again for an operator whose trial already ended is
-// a harmless no-op (it re-checks billingStatus === "trialing" itself).
+// calls scheduleTrialEndForCandidateCap synchronously the moment an operator
+// crosses the cap — this job exists only to catch the case where that call
+// throws (network blip, Stripe rate limit) before trial_end was moved or the
+// notice email was claimed. Idempotent: the target trial_end is derived from
+// the stored trialCapReachedAt, never "now", so re-running it sets the same
+// date (or, if the notice window has already passed, ends the trial now), and
+// the notice email has its own once-only claim.
 //
 // The 60-day backstop needs NO job of its own — Stripe's own
 // trial_period_days already ends that trial with zero app code, firing a
@@ -53,6 +54,7 @@ async function runJob(request: Request): Promise<Response> {
       billingStatus: "trialing",
       screenedCandidateCount: { gte: FREE_CANDIDATE_CAP },
       trialEndedAt: null,
+      OR: [{ trialEndsAt: null }, { trialEndNoticeEmailSentAt: null }],
     },
     select: { id: true },
   });
@@ -63,7 +65,7 @@ async function runJob(request: Request): Promise<Response> {
 
   for (const { id } of stuck) {
     try {
-      await endTrialForCandidateCap(prisma, billing, id);
+      await scheduleTrialEndForCandidateCap(prisma, billing, id);
       reconciled++;
     } catch (err) {
       console.error(`[reconcile-trials] failed to end trial for operator ${id}:`, err);

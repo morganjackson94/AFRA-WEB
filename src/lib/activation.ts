@@ -1,12 +1,19 @@
 import type { PrismaClient } from "../generated/prisma/client";
 import type { BillingProvider } from "./billing";
-import { mapStripeStatus } from "./billing";
+import { FREE_CANDIDATE_CAP, mapStripeStatus, TRIAL_CAP_NOTICE_HOURS, TRIAL_CAP_WARNING_AT } from "./billing";
 import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
 import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
 import { OPERATOR_ONBOARDING_CALL_URL } from "./constants";
-import { sendTrialEndedEmail, sendWelcomeAwaitingSetupEmail, sendYoureLiveEmail, sendYoureLiveLowReachEmail } from "./mail";
+import {
+  sendTrialCapWarningEmail,
+  sendTrialEndedEmail,
+  sendTrialEndNoticeEmail,
+  sendWelcomeAwaitingSetupEmail,
+  sendYoureLiveEmail,
+  sendYoureLiveLowReachEmail,
+} from "./mail";
 import { CONNECTED, evaluateReadiness } from "./readiness";
 
 // Day-20 check-in fuse (see the checkin job, /api/jobs/run-scheduled-emails).
@@ -552,8 +559,9 @@ export type TrialEndedEmailOutcome =
  *
  * For plan === "founding_annual" specifically, this is ALSO the single
  * shared reconciliation point for BOTH ways that trial can end: hitting the
- * candidate cap early (endTrialForCandidateCap below calls Stripe, which
- * fires a webhook that lands here) and Stripe's own natural 60-day backstop
+ * candidate cap early (scheduleTrialEndForCandidateCap below moves Stripe's
+ * trial_end TRIAL_CAP_NOTICE_HOURS out; when it arrives Stripe fires a
+ * webhook that lands here) and Stripe's own natural 60-day backstop
  * (trial_period_days on the subscription — no app code triggers it, but it
  * fires the exact same customer.subscription.updated webhook, which also
  * lands here). Both causes are indistinguishable by the time they reach this
@@ -606,23 +614,194 @@ export async function applyStripeStatus(
   return { billingStatus, recompute, trialEndedEmail };
 }
 
+export type TrialCapEmailOutcome =
+  | { sent: true }
+  | { sent: false; reason: "already-sent" | "not-eligible" | "covered-by-trial-ending-soon" | "stub" | "error" };
+
+export type ScheduleTrialEndOutcome =
+  | { scheduled: false; reason: "not-trialing" | "stripe-not-trialing" }
+  | {
+      scheduled: true;
+      trialEndsAt: Date;
+      /** What was done to Stripe's trial_end on THIS call. "unchanged" on a
+       *  retry, or when the 60-day backstop already comes sooner. */
+      action: "set" | "unchanged" | "ended-now";
+      notice: TrialCapEmailOutcome;
+    };
+
 /**
- * The candidate-cap trigger for ending a trial early (see FREE_CANDIDATE_CAP,
- * billing.ts). Deliberately does nothing but call Stripe: no DB writes, no
- * email. Every state change (billingStatus, trialEndedAt, the trial-ended
- * email) happens when the resulting webhook lands in applyStripeStatus above
- * — this function's only job is to be the thing that makes that webhook fire.
- * Re-checks billingStatus/stripeSubscriptionId defensively in case of a race
- * with a second candidate crossing the threshold concurrently.
+ * The candidate-cap trigger (see FREE_CANDIDATE_CAP, billing.ts). Instead of
+ * ending the trial on the spot, moves Stripe's trial_end to
+ * TRIAL_CAP_NOTICE_HOURS after the cap was reached and emails the operator
+ * the date, so the $4,788 never charges without warning. The charge itself,
+ * billingStatus, trialEndedAt and the trial-ended email all still happen when
+ * Stripe ends the trial and the webhook lands in applyStripeStatus — same
+ * single reconciliation path as the 60-day backstop.
+ *
+ * Safe to call any number of times (ingest retries, the reconcile job):
+ *  - trialCapReachedAt is claimed once and the target is derived from it, so
+ *    a retry computes the SAME trial_end rather than pushing it later;
+ *  - it never moves trial_end later than Stripe's current value, so the cap
+ *    can only shorten a trial, never extend it past the 60-day backstop;
+ *  - the notice email has its own claim (sendTrialEndNoticeOnce).
  */
-export async function endTrialForCandidateCap(
+export async function scheduleTrialEndForCandidateCap(
   prisma: PrismaClient,
   billing: BillingProvider,
   operatorId: string,
-): Promise<void> {
+): Promise<ScheduleTrialEndOutcome> {
+  const before = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+  if (before.billingStatus !== "trialing" || !before.stripeSubscriptionId || before.trialEndedAt) {
+    return { scheduled: false, reason: "not-trialing" };
+  }
+
+  await prisma.operator.updateMany({
+    where: { id: operatorId, trialCapReachedAt: null },
+    data: { trialCapReachedAt: new Date() },
+  });
   const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
-  if (operator.billingStatus !== "trialing" || !operator.stripeSubscriptionId) return;
-  await billing.endTrialNow(operator.stripeSubscriptionId);
+  const reachedAt = operator.trialCapReachedAt!;
+  const target = Math.floor(reachedAt.getTime() / 1000) + TRIAL_CAP_NOTICE_HOURS * 60 * 60;
+
+  const live = await billing.getSubscriptionStatus(before.stripeSubscriptionId);
+  if (live.stripeStatus !== "trialing") {
+    // Already ended (backstop, or a previous call's fallback) — the webhook
+    // owns everything from here.
+    return { scheduled: false, reason: "stripe-not-trialing" };
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  let effective: number;
+  let action: "set" | "unchanged" | "ended-now";
+  if (live.trialEnd != null && live.trialEnd <= target) {
+    effective = live.trialEnd;
+    action = "unchanged";
+  } else if (target <= nowSec + 60) {
+    // The notice window already passed before this ran (e.g. a reconcile
+    // catching a failure days late). Stripe rejects a past trial_end; end it
+    // now — the trial-ended email covers this operator.
+    await billing.endTrialNow(before.stripeSubscriptionId);
+    effective = nowSec;
+    action = "ended-now";
+  } else {
+    const res = await billing.setTrialEnd(before.stripeSubscriptionId, target);
+    effective = res.trialEnd ?? target;
+    action = "set";
+  }
+
+  const trialEndsAt = new Date(effective * 1000);
+  await prisma.operator.update({ where: { id: operatorId }, data: { trialEndsAt } });
+
+  const notice: TrialCapEmailOutcome =
+    action === "ended-now"
+      ? { sent: false, reason: "not-eligible" }
+      : await sendTrialEndNoticeOnce(prisma, operatorId, trialEndsAt, {
+          // The 7-day email already gave this exact date if the cap didn't
+          // move it — a second "your trial ends" email would only repeat it.
+          alreadyAnnounced: action === "unchanged" && live.trialEnd === effective && !!operator.trialEndingSoonEmailSentAt,
+        });
+  return { scheduled: true, trialEndsAt, action, notice };
+}
+
+// The charge moment as operators read it. Central time, with the hour: a
+// 72-hour window makes the time of day matter, and a bare UTC date can land
+// on the wrong calendar day for an evening charge.
+function formatTrialEnd(d: Date): string {
+  return (
+    d.toLocaleString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/Chicago",
+    }) + " CT"
+  );
+}
+
+/**
+ * The "your trial ends in 3 days" email, exactly once per operator. Claimed
+ * before send, same idiom as sendTrialEndedEmailOnce. The claim is taken even
+ * when the send is skipped (alreadyAnnounced) so the reconcile job stops
+ * retrying this operator.
+ */
+async function sendTrialEndNoticeOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+  trialEndsAt: Date,
+  opts: { alreadyAnnounced: boolean },
+): Promise<TrialCapEmailOutcome> {
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, trialEndNoticeEmailSentAt: null },
+    data: { trialEndNoticeEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return { sent: false, reason: "already-sent" };
+  if (opts.alreadyAnnounced) return { sent: false, reason: "covered-by-trial-ending-soon" };
+
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    const token = await createLoginToken(prisma, operatorId);
+    const cancelUrl = `${appBaseUrl()}/login/verify?token=${token}&to=billing`;
+    const daysRemaining = Math.max(1, Math.round((trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+    const result = await sendTrialEndNoticeEmail({
+      to: operator.email,
+      cancelUrl,
+      trialEndDate: formatTrialEnd(trialEndsAt),
+      daysRemaining,
+      cap: FREE_CANDIDATE_CAP,
+    });
+    console.log(`[trial-end-notice] operator ${operatorId}: sent=${result.sent} stub=${result.stub ?? false}`);
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] trial-end notice failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
+}
+
+/**
+ * The heads-up at TRIAL_CAP_WARNING_AT screened candidates, exactly once per
+ * operator. The claim's own WHERE re-checks eligibility (still trialing,
+ * still under the cap, cap not yet reached), so an operator who blows past
+ * both thresholds in a burst never gets a stale "you're at 15" after the
+ * real trial-end notice.
+ */
+export async function sendTrialCapWarningOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+): Promise<TrialCapEmailOutcome> {
+  const claim = await prisma.operator.updateMany({
+    where: {
+      id: operatorId,
+      trialCapWarningEmailSentAt: null,
+      trialCapReachedAt: null,
+      trialEndedAt: null,
+      billingStatus: "trialing",
+      screenedCandidateCount: { gte: TRIAL_CAP_WARNING_AT, lt: FREE_CANDIDATE_CAP },
+    },
+    data: { trialCapWarningEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) {
+    const op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    return { sent: false, reason: op.trialCapWarningEmailSentAt ? "already-sent" : "not-eligible" };
+  }
+
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    const token = await createLoginToken(prisma, operatorId);
+    const dashboardUrl = `${appBaseUrl()}/login/verify?token=${token}&to=billing`;
+    const result = await sendTrialCapWarningEmail({
+      to: operator.email,
+      dashboardUrl,
+      used: operator.screenedCandidateCount,
+      cap: FREE_CANDIDATE_CAP,
+      noticeDays: Math.round(TRIAL_CAP_NOTICE_HOURS / 24),
+    });
+    console.log(`[trial-cap-warning] operator ${operatorId}: sent=${result.sent} stub=${result.stub ?? false}`);
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] trial-cap warning failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
 }
 
 /**

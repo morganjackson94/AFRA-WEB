@@ -33,11 +33,19 @@ export const SETUP_FEE_CENTS = 14900;
 // whichever comes first. The 60-day backstop needs no app code of its own —
 // it's enforced by Stripe's own trial_period_days on the subscription
 // (createFoundingCheckout below); the candidate-cap trigger is the other,
-// app-driven way a trial can end, via endTrialNow. Both converge on the same
+// app-driven way a trial can end: reaching the cap shortens the trial to
+// TRIAL_CAP_NOTICE_HOURS from that moment (setTrialEnd), so the operator gets
+// warning before the charge rather than being billed on the spot. Both converge on the same
 // Stripe event (customer.subscription.updated) and the same reconciliation
 // path (applyStripeStatus, activation.ts) — see docs/CLAIMS.md.
 export const FREE_CANDIDATE_CAP = 20;
 export const TRIAL_DAYS_BACKSTOP = 60;
+// Notice between the FREE_CANDIDATE_CAP-th screened candidate and the
+// subscription starting (see scheduleTrialEndForCandidateCap, activation.ts).
+// Never extends a trial: if the 60-day backstop comes sooner, that stands.
+export const TRIAL_CAP_NOTICE_HOURS = 72;
+// The screened-candidate count that triggers the "you're close" heads-up.
+export const TRIAL_CAP_WARNING_AT = 15;
 // How many days before the 60-day backstop the "trial ending soon" email
 // fires (see /api/jobs/run-scheduled-emails). Stripe's own
 // customer.subscription.trial_will_end webhook fires a fixed 3 days before
@@ -164,14 +172,24 @@ export interface BillingProvider {
   getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
 
   /**
-   * End a subscription's trial immediately (the candidate-cap trigger — see
-   * FREE_CANDIDATE_CAP). Does nothing else: no DB writes, no email. The
+   * End a subscription's trial immediately. The candidate-cap trigger now
+   * uses setTrialEnd instead; this is only its fallback when the notice
+   * window has already passed by the time it runs (e.g. the reconcile job
+   * catching a failure days late). Does nothing else: no DB writes, no email. The
    * resulting Stripe status change is picked up by the webhook and
    * reconciled in ONE shared place, applyStripeStatus (activation.ts), the
    * same place the OTHER trial-end trigger (Stripe's own 60-day backstop)
    * lands — so both causes always produce identical, non-duplicated effects.
    */
   endTrialNow(subscriptionId: string): Promise<{ stripeStatus: string }>;
+
+  /**
+   * Move a trialing subscription's trial_end to `trialEnd` (unix seconds,
+   * must be in the future). The candidate-cap trigger's normal path — see
+   * scheduleTrialEndForCandidateCap (activation.ts). Callers must never pass
+   * a date later than the current trial_end; this method doesn't check.
+   */
+  setTrialEnd(subscriptionId: string, trialEnd: number): Promise<{ stripeStatus: string; trialEnd: number | null }>;
 }
 
 // --- Real Stripe (test mode) -------------------------------------------------
@@ -401,6 +419,14 @@ export class StripeBillingProvider implements BillingProvider {
     const sub = await this.stripe.subscriptions.update(subscriptionId, { trial_end: "now" });
     return { stripeStatus: sub.status };
   }
+
+  async setTrialEnd(subscriptionId: string, trialEnd: number) {
+    const sub = await this.stripe.subscriptions.update(subscriptionId, {
+      trial_end: trialEnd,
+      proration_behavior: "none",
+    });
+    return { stripeStatus: sub.status, trialEnd: sub.trial_end };
+  }
 }
 
 // A subscription that's already fully canceled has nothing scheduled. Newer
@@ -420,6 +446,7 @@ export class FakeBillingProvider implements BillingProvider {
   private statuses = new Map<string, string>();
   private cancelAts = new Map<string, number>();
   private periodEnds = new Map<string, number>();
+  private trialEnds = new Map<string, number>();
   private seq = 0;
 
   async createCustomer(args: { email: string; name?: string; operatorId: string }) {
@@ -451,7 +478,7 @@ export class FakeBillingProvider implements BillingProvider {
     const stripeStatus = this.statuses.get(subscriptionId) ?? "trialing";
     return {
       stripeStatus,
-      trialEnd: null,
+      trialEnd: stripeStatus === "trialing" ? (this.trialEnds.get(subscriptionId) ?? null) : null,
       cancelAt: stripeStatus === "canceled" ? null : (this.cancelAts.get(subscriptionId) ?? null),
       currentPeriodEnd: this.periodEnds.get(subscriptionId) ?? null,
     };
@@ -479,6 +506,16 @@ export class FakeBillingProvider implements BillingProvider {
     // outcome directly rather than relying on an async event to land later.
     this.statuses.set(subscriptionId, "active");
     return { stripeStatus: "active" };
+  }
+
+  async setTrialEnd(subscriptionId: string, trialEnd: number) {
+    this.trialEnds.set(subscriptionId, trialEnd);
+    return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing", trialEnd };
+  }
+
+  /** Test-only: seed the subscription's trial_end (unix seconds). */
+  setTrialEndForTest(subscriptionId: string, trialEnd: number): void {
+    this.trialEnds.set(subscriptionId, trialEnd);
   }
 
   async createFoundingCheckout(args: {

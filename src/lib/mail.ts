@@ -283,7 +283,7 @@ export async function sendTrialEndingSoonEmail(
   const subject = args.daysRemaining === 1 ? "Your trial ends tomorrow" : `Your trial ends in ${args.daysRemaining} days`;
   const text = `Hi there,
 
-${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (It ends sooner if you reach 20 screened candidates first.)
+${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)
 
 If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.
 
@@ -297,9 +297,83 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (It ends sooner if you reach 20 screened candidates first.)</p>
+    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)</p>
     <p>If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.</p>
     <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * The heads-up at TRIAL_CAP_WARNING_AT screened candidates (see
+ * sendTrialCapWarningOnce, activation.ts). Sent once, only while trialing and
+ * still under the cap. Says what happens at the cap without a date — the
+ * date doesn't exist until the cap is actually reached.
+ */
+export async function sendTrialCapWarningEmail(
+  args: { to: string; dashboardUrl: string; used: number; cap: number; noticeDays: number },
+): Promise<SendResult> {
+  const subject = `You've screened ${args.used} of your ${args.cap} trial candidates`;
+  const text = `Hi there,
+
+A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If your 60 days run out first, the trial ends then.)
+
+If everything's working the way you want, there's nothing to do. If it's not, cancel from your dashboard before your trial ends and you won't be charged the $4,788.
+
+Your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password).
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If your 60 days run out first, the trial ends then.)</p>
+    <p>If everything's working the way you want, there's nothing to do. If it's not, cancel from your dashboard before your trial ends and you won't be charged the $4,788.</p>
+    <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
+    <p>Reply any time. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
+/**
+ * Sent once when the operator reaches FREE_CANDIDATE_CAP screened candidates
+ * and the trial is shortened to TRIAL_CAP_NOTICE_HOURS out (see
+ * sendTrialEndNoticeOnce, activation.ts). trialEndDate is the trial_end
+ * actually set on the Stripe subscription — the moment the $4,788 charges.
+ * cancelUrl lands on the dashboard's billing section (?to=billing).
+ */
+export async function sendTrialEndNoticeEmail(
+  args: { to: string; cancelUrl: string; trialEndDate: string; daysRemaining: number; cap: number },
+): Promise<SendResult> {
+  const whenPhrase = args.daysRemaining === 1 ? "tomorrow" : `in ${args.daysRemaining} days`;
+  const subject = args.daysRemaining === 1 ? "Your trial ends tomorrow" : `Your trial ends in ${args.daysRemaining} days`;
+  const text = `Hi there,
+
+AFRA has now screened ${args.cap} candidates for you, so your trial ends ${whenPhrase}, on ${args.trialEndDate}. That's when we'll charge $4,788 for the year (about $399/month, every location included) to the card on file.
+
+If you want to keep going, there's nothing to do. If you don't, cancel before ${args.trialEndDate} and you won't be charged the $4,788:
+
+Cancel or manage billing: ${args.cancelUrl} (sign in with this email address, one-time link, no password).
+
+Reply any time. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+
+  const html = `
+    <p>Hi there,</p>
+    <p>AFRA has now screened ${args.cap} candidates for you, so your trial ends ${whenPhrase}, on <strong>${args.trialEndDate}</strong>. That's when we'll charge $4,788 for the year (about $399/month, every location included) to the card on file.</p>
+    <p>If you want to keep going, there's nothing to do. If you don't, cancel before ${args.trialEndDate} and you won't be charged the $4,788.</p>
+    <p><a href="${args.cancelUrl}">Cancel or manage billing</a> (sign in with this email address, one-time link, no password).</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
   `;

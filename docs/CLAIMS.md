@@ -15,6 +15,29 @@ possible, so the trial terms (`FREE_CANDIDATE_CAP`/`TRIAL_DAYS_BACKSTOP`) are co
 pass. There are no paying customers on the monthly interval at the time of this change, so this is a
 clean cutover, not a migration.
 
+## Trial end timing (October 6, 2026)
+
+**The subscription starts 72 hours after the 20th screened candidate, or at 60 days, whichever comes
+first.** Reaching the cap no longer ends the trial on the spot: `scheduleTrialEndForCandidateCap`
+(`src/lib/activation.ts`) moves the Stripe subscription's `trial_end` to `TRIAL_CAP_NOTICE_HOURS` (72)
+after the 20th candidate and emails the date, the $4,788 amount and a cancel link. It only ever shortens a
+trial — if the 60-day backstop is sooner, that date stands. Short-form marketing copy ("nothing more until
+20 screened candidates or 60 days") stays accurate: nothing is charged before either point, and the 72
+hours are notice time on top. Any surface that states *when* the charge happens must say 72 hours / 3 days
+after the 20th, not "at" the 20th.
+
+Lifecycle emails around it (each once per operator, claim-before-send):
+- **15 of 20 heads-up** — `sendTrialCapWarningEmail()` at `TRIAL_CAP_WARNING_AT` (15). Claim:
+  `trialCapWarningEmailSentAt`; never sent once the cap is reached.
+- **Trial ends in 3 days** — `sendTrialEndNoticeEmail()` at the cap. Claim: `trialEndNoticeEmailSentAt`.
+  States the exact charge time in Central time. Skipped only when the cap didn't move the date and the
+  7-day email already announced it.
+- **7-day "trial ending soon"** — unchanged, except it no longer sends once the cap is reached
+  (`trialCapReachedAt` set), since its day-60 date would be stale.
+- **Stripe's hosted trial reminder** (Dashboard → Settings → Billing → Subscriptions and emails, if
+  enabled) is live-mode only and generic; it states the same `trial_end`, so it can repeat but not
+  contradict. The app doesn't consume `customer.subscription.trial_will_end`.
+
 ## Audit methodology note (September 2026) — read before the next claims audit
 
 The July 2026 claims-audit pass checked every customer-facing number against this table and found no
@@ -45,7 +68,7 @@ Fixed September 2026 — see the canonical claims table below for the corrected 
 |---|---|---|
 | Price | $4,788/year — about $399/month — every location included | Flat, recurring, covers all locations. Standard, ongoing pricing — not an introductory or limited-time rate. The monthly figure is kept as an anchor alongside the real (annual) price and interval — never state the monthly figure alone, since that's not what the card is actually charged. |
 | Setup fee | $149, charged today, at checkout | September 2026: AFRA can't float the ManyChat Pro cost (~$39/mo) that's due before an operator's own subscription generates revenue, so both signup paths now charge this identically at checkout — phone (Stripe Payment Link `plink_1UEFYvDG3GjLuRJ6pvuZuArC`) and web (`createFoundingCheckout`, `SETUP_FEE_CENTS` in `src/lib/billing.ts`). Not part of the trial mechanism — it's charged immediately regardless of trial status. The welcome email (`sendWelcomeAwaitingSetupEmail`) states it'll be refunded if AFRA's own setup is at fault on the onboarding call — a founder-discretion remedy for a specific failure, not a blanket refund policy; don't generalize it into "money-back" language elsewhere. |
-| The trial | Your first 20 screened candidates are free, for up to 60 days | Whichever comes first. A card is required to start (Stripe's default for subscription-mode Checkout). The $149 setup fee above is charged immediately; the $4,788/yr subscription itself charges nothing further until the trial ends. `FREE_CANDIDATE_CAP` / `TRIAL_DAYS_BACKSTOP` in `src/lib/billing.ts` — unchanged by the September 2026 interval change; the trial mechanism doesn't depend on the subscription's interval. "Screened" means passed your screening (`Candidate.stage` reaching `"screened"` or beyond) — a candidate who doesn't pass never counts against the free 20. |
+| The trial | Your first 20 screened candidates are free, for up to 60 days | Whichever comes first. A card is required to start (Stripe's default for subscription-mode Checkout). The $149 setup fee above is charged immediately; the $4,788/yr subscription itself charges nothing further until the trial ends. `FREE_CANDIDATE_CAP` / `TRIAL_DAYS_BACKSTOP` in `src/lib/billing.ts` — unchanged by the September 2026 interval change; the trial mechanism doesn't depend on the subscription's interval. "Screened" means passed your screening (`Candidate.stage` reaching `"screened"` or beyond) — a candidate who doesn't pass never counts against the free 20. **October 6, 2026:** the subscription starts 72 hours after the 20th screened candidate (or at 60 days) — see "Trial end timing". |
 | Cancel anytime | You can cancel any time. During the trial, nothing further is owed beyond the $149 setup fee already charged at signup. After the trial, canceling stops the next renewal but does not end early or refund the year already paid for — you keep access through the end of that year. | Self-serve, from the dashboard (`cancelSubscriptionAction`, behind a confirm step that states the consequence) — a real Stripe cancellation, not a support-ticket process. Mechanism (`cancelBilling`, `src/lib/activation.ts`): an `active` subscription is set to `cancel_at_period_end` (access continues, `Operator.subscriptionCancelAt` shows the end date); `trialing`/`past_due` cancel immediately. Before September 14, 2026 every cancel was immediate, which made this row false for paid operators. The "stop paying immediately" reading was accurate under the monthly interval; it is NOT accurate under annual and must not be implied. The $149 setup fee (added after this section was last written) is separately non-refundable except the founder-discretion remedy described in the Setup fee row above — don't let "nothing is owed" language imply the setup fee itself was never charged. `content/legal/terms.md` §5(b), §6 and §7(c) corrected for the setup fee September 14, 2026 (`LEGAL_DOC_VERSION` 2026-09-14). |
 | Structural pricing advantage (landing page) | "One flat rate: no per-location fees, no per-seat charges. Most platforms charge per location; AFRA doesn't." | Punctuation updated in the August 2026 redesign pass (em-dash removed site-wide from customer-facing copy; substance unchanged). Static, location-agnostic — the landing page doesn't know an operator's location count yet. Describes the flat-vs-per-location *structure*, never a fabricated savings dollar amount or a named-competitor comparison. |
 | Per-location reflection (wizard, post location-count) | "Across your {bucket} locations, that's as low as ~${X}/location/month" | Personalized, decided 2026-08-01. `X` = `perLocationMonthlyDollars()` in `src/lib/qualification.ts`, which as of the September 2026 annual repricing divides `ANNUAL_PRICE_CENTS` by 12 *before* dividing by location count — this stays a MONTHLY-equivalent per-location figure even though the underlying price is annual (do not remove the /12; that's the exact bug this note exists to prevent). Computed off each location bucket's *upper* bound (honest floor — the true per-location cost for anyone in that bucket is at or below `X`). Suppressed entirely for the 1-2 location bucket, where the framing is weakest. Never fired on the landing page (no location count known there) — wizard step 4 only. |
@@ -155,7 +178,7 @@ date + 20 days) has passed and who hasn't received it yet. Filtered to `billingS
 
 **Trial ended** (new) — `sendTrialEndedEmail()`, sent by `applyStripeStatus()` (`src/lib/activation.ts`)
 the moment an operator's subscription leaves `"trialing"` — the single shared reconciliation point for
-BOTH ways a trial can end (crossing the candidate cap early, via `endTrialForCandidateCap`, or Stripe's
+BOTH ways a trial can end (the candidate cap, 72 hours after the 20th via `scheduleTrialEndForCandidateCap` — see "Trial end timing" above — or Stripe's
 own 60-day backstop, `trial_period_days` on the subscription — no app code triggers that one). States
 plainly that billing has started at $4,788/year (about $399/month); never a surprise. Idempotent via
 `trialEndedEmailSentAt`.
@@ -169,8 +192,9 @@ trial-end date via `billing.ts`'s `trialBackstopDate()`, the SAME function `desc
 dashboard display — one source of truth, not two that can drift. `daysRemaining` is computed fresh at
 send time (not hardcoded to 7), so the copy stays accurate even if the job runs a day or two late.
 Idempotent via `trialEndingSoonEmailSentAt` (same claim-before-send idiom as `trialEndedEmailSentAt`).
-Filtered to `billingStatus: "trialing"`, which deliberately excludes an operator whose trial already
-ended early via the candidate cap, and an operator who already canceled — neither has anything left to
+Filtered to `billingStatus: "trialing"` and `trialCapReachedAt: null`, which deliberately excludes an
+operator who reached the candidate cap (they get the 3-day notice with the real date instead), and an
+operator who already canceled — neither has anything left to
 warn about. `replyTo` set to `CONTACT_EMAIL`, same as every other lifecycle email — see "From address"
 note below.
 

@@ -17,5 +17,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   await createSession(result.operatorId);
-  return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Fixed allowlist, never a caller-supplied path (no open redirect): emails
+  // that point at cancel/billing pass ?to=billing to land on that section.
+  const to = request.nextUrl.searchParams.get("to") === "billing" ? "/dashboard#billing" : "/dashboard";
+  return NextResponse.redirect(new URL(to, request.url));
 }

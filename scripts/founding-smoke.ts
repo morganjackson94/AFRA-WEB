@@ -4,8 +4,8 @@ import { requireDevDatabase } from "./lib/guardDatabase";
 import {
   applyStripeStatus,
   confirmFoundingPayment,
-  endTrialForCandidateCap,
   recomputeOperatorReadiness,
+  scheduleTrialEndForCandidateCap,
   startFoundingCheckout,
 } from "../src/lib/activation";
 import { FakeBillingProvider, getBillingProvider } from "../src/lib/billing";
@@ -18,7 +18,7 @@ import { provision } from "../src/lib/provision";
 // on (simulated) webhook confirmation, via evaluateReadiness(). Abandoned
 // checkout stays unpaid. Trialing != live. The trial itself ends via ONE
 // shared path (applyStripeStatus) regardless of which of its two causes
-// triggered it — the candidate cap (endTrialForCandidateCap) or Stripe's own
+// triggered it — the candidate cap (scheduleTrialEndForCandidateCap) or Stripe's own
 // 60-day backstop — proven identical below.
 
 let prisma: PrismaClient;
@@ -123,12 +123,14 @@ async function main() {
   assert(op.billingStatus === "trialing", "re-confirming checkout does not disturb billingStatus");
 
   // ---- 7) Trial ends via the CANDIDATE-CAP trigger ----
-  console.log("\n7) Candidate #20 crosses the cap -> endTrialForCandidateCap -> Stripe ends the trial -> webhook lands in applyStripeStatus:");
-  await endTrialForCandidateCap(prisma, billing, operatorId);
-  const statusAfterEndTrialNow = await billing.getSubscriptionStatus(subscriptionId);
-  assert(statusAfterEndTrialNow.stripeStatus === "active", "billing.endTrialNow flipped the (fake) subscription to active");
-  // In real life, ending the trial fires customer.subscription.updated async;
-  // simulate that webhook landing here, synchronously, same as the real route does.
+  console.log("\n7) Candidate #20 crosses the cap -> scheduleTrialEndForCandidateCap moves trial_end 72h out -> Stripe ends the trial then -> webhook lands in applyStripeStatus:");
+  const scheduled = await scheduleTrialEndForCandidateCap(prisma, billing, operatorId);
+  assert(scheduled.scheduled && scheduled.action === "set", "the cap moved trial_end rather than ending the trial on the spot");
+  const statusAfterSchedule = await billing.getSubscriptionStatus(subscriptionId);
+  assert(statusAfterSchedule.stripeStatus === "trialing", "still trialing during the notice window");
+  // When trial_end arrives Stripe ends the trial and fires
+  // customer.subscription.updated; simulate both here, synchronously.
+  if (billing instanceof FakeBillingProvider) billing.setStatusForTest(subscriptionId, "active");
   const reconcile1 = await applyStripeStatus(prisma, billing, operatorId);
   op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
   assert(op.billingStatus === "active", "billingStatus is 'active' after the trial-end webhook lands");
@@ -146,7 +148,7 @@ async function main() {
   await prisma.operator.delete({ where: { id: operatorId } });
 
   // ---- 9) The OTHER trial-end cause (Stripe's own 60-day backstop) produces the IDENTICAL outcome ----
-  console.log("\n9) A fresh operator whose trial ends via the 60-day backstop instead (bypassing endTrialForCandidateCap entirely):");
+  console.log("\n9) A fresh operator whose trial ends via the 60-day backstop instead (bypassing scheduleTrialEndForCandidateCap entirely):");
   const email2 = "founder@backstopdemo.com";
   await prisma.operator.deleteMany({ where: { email: email2 } });
   const { operatorId: operatorId2 } = await provision(

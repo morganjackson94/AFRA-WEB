@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
-import { endTrialForCandidateCap } from "./activation";
-import { FREE_CANDIDATE_CAP, getBillingProvider } from "./billing";
+import { scheduleTrialEndForCandidateCap, sendTrialCapWarningOnce } from "./activation";
+import { FREE_CANDIDATE_CAP, getBillingProvider, TRIAL_CAP_WARNING_AT } from "./billing";
 import { buildAssembledQuestions, evaluateDisqualification, getQuestionSetForRole, snapshotAnswers } from "./screeningQuestions";
 
 // ManyChat bridge — candidate ingest. ManyChat cannot create flows, but a flow's
@@ -317,16 +317,19 @@ export async function ingestScreeningResult(
         data: { screenedCandidateCount: { increment: 1 } },
         select: { screenedCandidateCount: true, billingStatus: true, stripeSubscriptionId: true, trialEndedAt: true },
       });
-      if (
-        op.screenedCandidateCount >= FREE_CANDIDATE_CAP &&
-        op.billingStatus === "trialing" &&
-        op.stripeSubscriptionId &&
-        !op.trialEndedAt
-      ) {
+      const inTrial = op.billingStatus === "trialing" && !!op.stripeSubscriptionId && !op.trialEndedAt;
+      if (inTrial && op.screenedCandidateCount >= TRIAL_CAP_WARNING_AT && op.screenedCandidateCount < FREE_CANDIDATE_CAP) {
         try {
-          await endTrialForCandidateCap(prisma, getBillingProvider(), location.operatorId);
+          await sendTrialCapWarningOnce(prisma, location.operatorId);
         } catch (err) {
-          console.error(`[trial] failed to end trial early for operator ${location.operatorId}:`, err);
+          console.error(`[trial] cap warning failed for operator ${location.operatorId}:`, err);
+        }
+      }
+      if (inTrial && op.screenedCandidateCount >= FREE_CANDIDATE_CAP) {
+        try {
+          await scheduleTrialEndForCandidateCap(prisma, getBillingProvider(), location.operatorId);
+        } catch (err) {
+          console.error(`[trial] failed to schedule trial end for operator ${location.operatorId}:`, err);
           // Non-fatal — the day-60 backstop and the reconciliation job
           // (/api/jobs/reconcile-trials) both still catch this operator.
         }
