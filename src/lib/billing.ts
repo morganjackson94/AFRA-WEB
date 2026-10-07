@@ -370,11 +370,11 @@ export class StripeBillingProvider implements BillingProvider {
       // Matches the phone-signup Payment Link, which already collects this.
       consent_collection: { terms_of_service: "required" },
       // Stripe's own summary only shows "60 days free" — it knows nothing of
-      // the candidate cap, which ends the trial in app code. State both
-      // triggers on the payment page so it matches the pricing card.
+      // the candidate cap, which shortens the trial in app code. State both
+      // triggers on the payment page (wording per docs/CLAIMS.md).
       custom_text: {
         submit: {
-          message: `Your subscription starts after ${FREE_CANDIDATE_CAP} screened candidates or ${TRIAL_DAYS_BACKSTOP} days, whichever comes first.`,
+          message: `Your subscription starts ${Math.round(TRIAL_CAP_NOTICE_HOURS / 24)} days after your ${FREE_CANDIDATE_CAP}th screened candidate, or at ${TRIAL_DAYS_BACKSTOP} days, whichever comes first.`,
         },
       },
       subscription_data: {

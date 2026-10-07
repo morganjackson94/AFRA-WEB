@@ -243,7 +243,7 @@ export async function sendTrialEndedEmail(
   const subject = "Your trial's ended. You're on $4,788/year.";
   const text = `Hi there,
 
-Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
+Your trial has ended, either 3 days after your 20th screened candidate or because your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
 
 You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.
 
@@ -255,7 +255,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>Your free trial has ended, either because you've screened 20 candidates or your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
+    <p>Your trial has ended, either 3 days after your 20th screened candidate or because your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
     <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
@@ -283,7 +283,7 @@ export async function sendTrialEndingSoonEmail(
   const subject = args.daysRemaining === 1 ? "Your trial ends tomorrow" : `Your trial ends in ${args.daysRemaining} days`;
   const text = `Hi there,
 
-${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)
+${whenPhrase}, on ${args.trialEndDate}, your trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)
 
 If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.
 
@@ -297,7 +297,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>${whenPhrase}, on ${args.trialEndDate}, your free trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)</p>
+    <p>${whenPhrase}, on ${args.trialEndDate}, your trial ends and we'll charge $4,788 for the year to the card on file, unless you cancel before then. (If you reach 20 screened candidates first, it ends 3 days after that instead, and we'll email you the new date.)</p>
     <p>If everything's working the way you want, there's nothing to do. If it's not, or you're not sure, reply to this email or cancel from your dashboard before ${args.trialEndDate} and you won't be charged the $4,788.</p>
     <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Reply any time. This comes straight to me.</p>

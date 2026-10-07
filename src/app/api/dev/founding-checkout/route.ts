@@ -52,7 +52,7 @@ export async function GET(request: Request): Promise<Response> {
     <div class="badge">Test mode · dev stand-in</div>
     <h1>AFRA — Annual Plan</h1>
     <div class="amt">$4,788/yr</div>
-    <div class="sub">First 20 screened candidates free · 60-day trial cap</div>
+    <div class="sub">Subscription starts 3 days after 20 screened candidates, or at 60 days</div>
     <form method="post">
       <input type="hidden" name="action" value="pay"/>
       <input type="hidden" name="session_id" value="${sessionId}"/>

@@ -126,7 +126,7 @@ export default async function DashboardPage({
     operator.billingStatus === "active"
       ? "Your subscription won't renew. You keep full access until the end of the year you've paid for, with no partial refund."
       : operator.billingStatus === "trialing"
-        ? "This ends your free trial now. Nothing further is charged. The $149 setup fee isn't refunded."
+        ? "This ends your trial now. Nothing further is charged. The $149 setup fee isn't refunded."
         : "This ends your subscription now.";
   // isBillingActive (readiness.ts) is the SSOT predicate for "billing is in
   // a good state" — true for "trialing" as well as "active", since under the
@@ -522,8 +522,8 @@ export default async function DashboardPage({
             <SectionLabel>Booked interviews</SectionLabel>
             {bookingsView.length === 0 ? (
               <p className="mt-3 text-sm text-faint">
-                Booked interviews land here. Billing is $4,788/year flat, all locations. The first 20
-                screened candidates or 60 days, whichever comes first, are free.
+                Booked interviews land here. Billing is $4,788/year flat, all locations, starting 3 days
+                after your 20th screened candidate or at 60 days, whichever comes first.
               </p>
             ) : (
               <ul className="mt-3 space-y-1 text-sm text-ink">
@@ -567,7 +567,7 @@ export default async function DashboardPage({
               )}
             </div>
             <p className="mt-4 border-t border-line pt-3 text-xs text-faint">
-              Screened out. Only candidates who pass your screening count toward your free 20.
+              Screened out. Only candidates who pass your screening count toward your 20.
             </p>
           </div>
         </div>
@@ -621,11 +621,11 @@ export default async function DashboardPage({
             </ul>
           )}
           <p className="mt-2 text-xs text-faint">
-            Booked interviews land here. Billing is $4,788/year flat, all locations. The first 20
-            screened candidates or 60 days, whichever comes first, are free.
+            Booked interviews land here. Billing is $4,788/year flat, all locations, starting 3 days
+            after your 20th screened candidate or at 60 days, whichever comes first.
           </p>
           <p className="mt-2 text-xs text-faint">
-            Screened out. Only candidates who pass your screening count toward your free 20.
+            Screened out. Only candidates who pass your screening count toward your 20.
           </p>
         </div>
       </div>

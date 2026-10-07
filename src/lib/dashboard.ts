@@ -117,10 +117,10 @@ export function describeBilling(
             })
           : null;
         return {
-          label: "Free trial",
+          label: "Trial",
           detail: byDate
-            ? `${used} of ${FREE_CANDIDATE_CAP} free screened candidates used. Free until ${byDate} at the latest, then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`
-            : `${used} of ${FREE_CANDIDATE_CAP} free screened candidates used. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
+            ? `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th, or ${byDate}, whichever comes first. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`
+            : `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th, or 60 days, whichever comes first. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
         };
       }
       case "active":
@@ -139,7 +139,7 @@ export function describeBilling(
       case "past_due":
         return { label: "Payment failed", detail: "Update your card to keep your plan active." };
       case "trial_pending":
-        return { label: "Payment pending", detail: "Complete checkout ($149 setup fee, charged today) to start your free trial." };
+        return { label: "Payment pending", detail: "Complete checkout ($149 setup fee, charged today) to start your trial." };
       case "canceled":
         return { label: "Canceled", detail: "Your subscription has been canceled." };
       default:
