@@ -18,7 +18,7 @@ import { normalizeEmail } from "./constants";
 
 export type WizardFunnelEventType =
   | "landing_view" // homepage mount, once per session — see LandingViewTracker.tsx
-  | "cta_click" // a homepage CTA was tapped through to /onboarding — see CTA.tsx
+  | "cta_click" // a homepage CTA was tapped (CTA.tsx -> /onboarding; BookCallButton.tsx -> sales call, elementId "pricing_book_call")
   | "page_view" // wizard mount, every time (reloads included)
   | "session_started" // wizard mount, once per session
   | "intro_completed" // tapped "Start" on the pre-step-1 intro screen

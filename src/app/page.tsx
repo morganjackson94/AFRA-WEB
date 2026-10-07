@@ -2,6 +2,7 @@ import Image from "next/image";
 import { DemoModal } from "./DemoModal";
 import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
 import { CountUp } from "../components/CountUp";
+import { BookCallButton } from "../components/BookCallButton";
 import { CTA } from "../components/CTA";
 import { FaqItem } from "../components/FaqItem";
 import { Bolt, Check, Filter, Instagram } from "../components/Icons";
@@ -40,8 +41,10 @@ const PRICING = {
 // bookingLinkUrl (each operator's own candidate-interview booking link, set
 // during onboarding). Renders nothing when unset rather than a dead link.
 // Deliberately a quiet text link, never competing with the primary CTA.
+const SALES_CALL_URL = process.env.SALES_CALL_URL;
+
 function BookACallLink({ className = "" }: { className?: string }) {
-  const url = process.env.SALES_CALL_URL;
+  const url = SALES_CALL_URL;
   if (!url) return null;
   return (
     <a
@@ -376,52 +379,36 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      {/* Pricing — one unified panel, hairline-divided: price rail left,
-          what's-included right. Stacks to a single column on mobile. */}
+      {/* Pricing — one centered column that states the deal before the
+          button: what's charged today, when anything else starts, then the
+          one action. The annual price lives in the terms line under the
+          button, never as the last display number above it. Wording per
+          docs/CLAIMS.md (annual first, monthly figure only as its anchor;
+          no "free trial" — the $149 is charged on day one). */}
       <section className={SECTION_DIVIDED}>
         <Reveal>
-          <h2 className="t-title mb-12 max-w-[18ch]">Start with {PRICING.freeCandidateCap} free candidates.</h2>
-        </Reveal>
-        <Reveal>
-          <div className="grid grid-cols-1 overflow-hidden rounded-[24px] border border-line-strong bg-card md:grid-cols-[1.05fr_0.95fr]">
-            <div className="border-b border-line p-8 md:border-b-0 md:border-r md:p-12">
-              {/* What's paid, in the order it happens. Each claim appears once;
-                  wording per docs/CLAIMS.md (monthly figure never stands alone). */}
-              <dl className="divide-y divide-line">
-                {[
-                  { when: "Today", amount: PRICING.setupFee, note: "One-time setup" },
-                  {
-                    when: "Free trial",
-                    amount: "$0",
-                    note: `First ${PRICING.freeCandidateCap} screened candidates or ${PRICING.trialDaysBackstop} days, whichever comes first`,
-                  },
-                  {
-                    when: "Then",
-                    amount: `${PRICING.priceAnnual}/yr`,
-                    note: `About ${PRICING.priceMonthlyEquivalent}/mo. Every location, one flat rate.`,
-                  },
-                ].map((row) => (
-                  <div key={row.when} className="grid grid-cols-[5.5rem_1fr] items-baseline gap-x-5 py-5 first:pt-0 md:grid-cols-[6.5rem_1fr]">
-                    <dt className="t-label">{row.when}</dt>
-                    <dd>
-                      <div className="text-[2rem] leading-none text-ink [font-family:var(--font-display)] [font-variant-numeric:tabular-nums] md:text-[2.5rem]">
-                        {row.amount}
-                      </div>
-                      <div className="mt-2 text-[14px] leading-snug text-ink-soft">{row.note}</div>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+          <div className="mx-auto max-w-[560px] rounded-[24px] border border-line-strong bg-card p-5 sm:p-10">
+            <p className="t-label mb-4">Pricing</p>
+            <h2 className="text-[2rem] leading-[1.08] tracking-[-0.01em] text-ink [font-family:var(--font-display)] [font-weight:500] [text-wrap:balance] sm:text-[2.5rem]">
+              {PRICING.setupFee} to set up. Nothing more until {PRICING.freeCandidateCap} candidates or{" "}
+              {PRICING.trialDaysBackstop} days.
+            </h2>
 
-              <div className="mt-6">
-                <CTA id="pricing" size="lg" full />
-              </div>
-              <p className="mt-3 text-center text-[13px] text-faint">Card required. Cancel anytime.</p>
+            <div className="mt-8">
+              <CTA id="pricing" size="lg" full label={`Start setup · ${PRICING.setupFee}`} />
             </div>
+            <p className="mt-3 text-[13px] leading-snug text-ink-soft">
+              {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month) after ${PRICING.freeCandidateCap} screened candidates or ${PRICING.trialDaysBackstop} days. Cancel before then, pay nothing more. Card required.`}
+            </p>
+            {SALES_CALL_URL && (
+              <div className="mt-4">
+                <BookCallButton url={SALES_CALL_URL} />
+              </div>
+            )}
 
-            <div className="flex flex-col justify-center p-8 md:p-12">
+            <div className="mt-8 border-t border-line pt-8">
               <p className="t-label mb-5">What&apos;s included</p>
-              <ul className="flex flex-col gap-3.5">
+              <ul className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
                 {[
                   "Instant replies to every applicant",
                   "Automatic screening questions",
@@ -435,7 +422,6 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <BookACallLink className="mt-8" />
             </div>
           </div>
         </Reveal>

@@ -27,7 +27,7 @@
   --color-line: rgba(38, 38, 63, 0.13); /* ink hairline */
   --color-line-strong: rgba(38, 38, 63, 0.24); /* strong line */
   --color-accent: #c47628; /* candlelit amber — single accent per view */
-  --color-accent-ink: #1e1e33; /* deep periwinkle — text on amber (4.9:1) */
+  --color-accent-ink: #1e1e33; /* deep periwinkle — text on amber (4.63:1) */
   --color-accent-soft: rgba(196, 118, 40, 0.1); /* amber-tinted paper — honesty fill */
   --color-rose: #a3574b; /* dusty rose, deepened for paper (5.2:1) */
   --color-green: #c47628; /* back-compat alias → amber (green removed) */

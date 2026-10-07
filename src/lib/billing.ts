@@ -351,6 +351,14 @@ export class StripeBillingProvider implements BillingProvider {
       // (afravisibility.com/terms-of-service) — required for this to work.
       // Matches the phone-signup Payment Link, which already collects this.
       consent_collection: { terms_of_service: "required" },
+      // Stripe's own summary only shows "60 days free" — it knows nothing of
+      // the candidate cap, which ends the trial in app code. State both
+      // triggers on the payment page so it matches the pricing card.
+      custom_text: {
+        submit: {
+          message: `Your subscription starts after ${FREE_CANDIDATE_CAP} screened candidates or ${TRIAL_DAYS_BACKSTOP} days, whichever comes first.`,
+        },
+      },
       subscription_data: {
         trial_period_days: TRIAL_DAYS_BACKSTOP,
         // No card on file by the natural trial end -> cancel cleanly rather

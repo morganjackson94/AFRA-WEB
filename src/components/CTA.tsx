@@ -39,11 +39,11 @@ export function CTA({
         const attribution = captureAttribution();
         sendFunnelBeacon({ sessionId, eventType: "cta_click", step: 0, elementId: id, attribution });
       }}
-      className={`inline-flex items-center justify-center rounded-full font-medium transition duration-150 hover:opacity-90 active:scale-[0.98] ${
+      className={`inline-flex items-center justify-center rounded-full font-medium transition duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink active:scale-[0.98] ${
         tone === "accent"
           ? "border border-accent bg-accent text-accent-ink"
           : "border border-line-strong bg-transparent text-ink hover:bg-cream"
-      } ${size === "lg" ? "px-8 py-4 text-base" : "px-5 py-2.5 text-[14.5px]"} ${full ? "w-full" : ""}`}
+      } ${size === "lg" ? "px-4 py-4 text-base sm:px-8" : "px-5 py-2.5 text-[14.5px]"} ${full ? "w-full" : ""}`}
     >
       {label}
     </Link>
