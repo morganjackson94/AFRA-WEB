@@ -43,7 +43,11 @@ export function CTA({
         tone === "accent"
           ? "border border-accent bg-accent text-accent-ink"
           : "border border-line-strong bg-transparent text-ink hover:bg-cream"
-      } ${size === "lg" ? "px-4 py-4 text-base sm:px-8" : "px-5 py-2.5 text-[14.5px]"} ${full ? "w-full" : ""}`}
+      } ${size === "lg" ? "py-4 text-base" : "px-5 py-2.5 text-[14.5px]"} ${
+        // Full-width buttons get tighter side padding on phones so longer
+        // labels ("Start setup · $149") stay on one line; inline ones keep px-8.
+        size === "lg" ? (full ? "w-full px-4 sm:px-8" : "px-8") : full ? "w-full" : ""
+      }`}
     >
       {label}
     </Link>
