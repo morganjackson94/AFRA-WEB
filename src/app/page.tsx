@@ -14,7 +14,13 @@ import { RaceNarrative } from "../components/RaceNarrative";
 import { StepsSketch } from "../components/StepsSketch";
 import { Reveal } from "../components/Reveal";
 import { Stagger } from "../components/Stagger";
-import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, SETUP_FEE_CENTS, TRIAL_DAYS_BACKSTOP } from "../lib/billing";
+import {
+  ANNUAL_PRICE_CENTS,
+  FREE_CANDIDATE_CAP,
+  SETUP_FEE_CENTS,
+  TRIAL_CAP_NOTICE_HOURS,
+  TRIAL_DAYS_BACKSTOP,
+} from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
 
@@ -36,6 +42,7 @@ const PRICING = {
   setupFee: `$${SETUP_FEE_CENTS / 100}`, // $149
   freeCandidateCap: FREE_CANDIDATE_CAP,
   trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
+  capNoticeDays: Math.round(TRIAL_CAP_NOTICE_HOURS / 24), // 3
 };
 
 // The founder's own sales-call calendar — distinct from Operator.
@@ -138,7 +145,7 @@ const FAQ: { q: string; a: string | string[] }[] = [
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What counts as a candidate?", a: "Someone who completes your screening and passes it. Applicants who don't meet your bar don't count against your free 20." },
-  { q: "What happens after my free trial?", a: "Once you've screened 20 candidates or 60 days pass, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time. Canceling during the trial means nothing further is owed beyond the $149 setup fee charged at signup. Canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
+  { q: "What happens after my trial?", a: "Three days after your 20th screened candidate, or at 60 days, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time. Canceling during the trial means nothing further is owed beyond the $149 setup fee charged at signup. Canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
   { q: "How does billing work?", a: "A one-time $149 setup fee is charged at signup. Once your trial ends, it's $4,788/year (about $399/month), covering every location, billed to the card on file each year until you cancel. One flat rate, no per-location fees. Cancel any time from your dashboard. After the trial, canceling stops the next renewal but doesn't refund the year already paid for, and you keep access through the end of that year." },
   {
     q: "What exactly do I get?",
@@ -416,8 +423,12 @@ export default function LandingPage() {
               <CTA id="pricing" size="lg" full label={`Start setup · ${PRICING.setupFee}`} />
             </div>
             <p className="mt-3 text-[13px] leading-snug text-ink-soft">
-              {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month) after ${PRICING.freeCandidateCap} screened candidates or ${PRICING.trialDaysBackstop} days. Cancel before then, pay nothing more. Card required.`}
+              {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month), starting ${PRICING.capNoticeDays} days after your ${PRICING.freeCandidateCap}th screened candidate or at ${PRICING.trialDaysBackstop} days, whichever comes first. Cancel before then, pay nothing more. Card required.`}
             </p>
+            {/* Setup-fee disclosure, directly under the price (docs/CLAIMS.md,
+                Billing disclosure): any copy naming the price or trial states
+                the $149 charged at signup. */}
+            <p className="mt-1.5 text-[13px] leading-snug text-ink-soft">{`+ ${PRICING.setupFee} one-time setup, charged at signup.`}</p>
             <p className="mt-5 text-[15px] font-semibold text-ink">{COST_ANCHOR.head}</p>
             <p className="mt-1 text-[14.5px] leading-relaxed text-ink-soft">{COST_ANCHOR.body}</p>
             {SALES_CALL_URL && (

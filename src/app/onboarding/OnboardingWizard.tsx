@@ -674,7 +674,7 @@ export function OnboardingWizard({
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
                     The $149 is charged at checkout and covers your build. After that it&apos;s one flat
-                    rate, starting after 20 screened candidates or 60 days, whichever comes first. A few
+                    rate, starting 3 days after your 20th screened candidate or at 60 days, whichever comes first. A few
                     more questions and you&apos;re done.
                   </p>
                 </Reveal>
@@ -689,7 +689,7 @@ export function OnboardingWizard({
                   <ul className="space-y-3">
                     {[
                       "$149 one-time setup, then a flat $4,788/year (about $399/mo), every location covered",
-                      "Nothing more until 20 screened candidates or 60 days, whichever comes first",
+                      "Nothing more until 3 days after your 20th screened candidate or 60 days, whichever comes first",
                       "Cancel before then and you won't pay more than the $149",
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
@@ -972,8 +972,12 @@ export function OnboardingWizard({
             </p>
           )}
           {step === TOTAL && !restricted && (
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[13.5px] text-threshold-ink-soft">
-              <Check className="size-3.5 text-accent" /> $149 setup today · nothing more until 20 screened candidates or 60 days
+            <p className="mt-3 flex items-start justify-center gap-1.5 text-center text-[13.5px] leading-snug text-threshold-ink-soft">
+              <Check className="mt-0.5 size-3.5 flex-none text-accent" />
+              <span>
+                $149 setup fee charged today. Your $4,788/year subscription starts 3 days after your 20th screened
+                candidate, or at 60 days, whichever comes first.
+              </span>
             </p>
           )}
         </div>
