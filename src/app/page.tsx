@@ -116,6 +116,11 @@ const FOOTNOTE =
 
 const SITE_TITLE = "AFRA | Stop losing good applicants";
 
+// Approved risk-reversal line, verbatim (docs/CLAIMS.md, Billing disclosure).
+// The 60-day clause is mandatory: without it this would claim more than the
+// code does (the subscription also starts at 60 days regardless of count).
+const RISK_REVERSAL = "$149 to start. Pay for the year only after we've screened 20 candidates, or at 60 days.";
+
 export const metadata: Metadata = {
   description: PROOF.short,
   openGraph: { title: SITE_TITLE, description: PROOF.short },
@@ -189,9 +194,10 @@ export default function LandingPage() {
       {/* Hero — full-width poster headline (two lines, never more: the scale
           is planned around the line count, per the hero-scale discipline),
           then an asymmetric row: subtext + CTAs left, real product video
-          right. Max 4 text elements (headline, subtext, CTAs): guarantee and
-          setup reassurance live in pricing and the FAQ, not under the
-          buttons. */}
+          right. Text elements: headline, subtext, CTAs, plus the one
+          approved risk-reversal line under the buttons (RISK_REVERSAL,
+          docs/CLAIMS.md: always keep its 60-day clause). Fuller setup and
+          billing detail lives in pricing and the FAQ. */}
       <header className={`${SECTION} pb-16 pt-12 md:pb-20 md:pt-20`}>
         <Reveal hero delay={120}>
           {/* Scale is capped (not the global t-display max) so this exact
@@ -215,6 +221,7 @@ export default function LandingPage() {
                 </Magnetic>
                 <DemoModal variant="ghost" />
               </div>
+              <p className="mt-4 max-w-[46ch] text-[13.5px] leading-snug text-ink-soft">{RISK_REVERSAL}</p>
               <BookACallLink className="mt-5 block" />
             </Reveal>
           </div>
