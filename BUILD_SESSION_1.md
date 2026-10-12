@@ -32,7 +32,7 @@ Tables/objects, with relationships:
 - `CalendarConnection` (belongs to Location; **stub** — provider, status="stubbed")
 - `Candidate`, `Conversation`, `Booking` (booking = the billable record; build the tables now, populate later)
 
-**Done when:** schema migrates clean; a seed script creates a sample Operator (Sandoitchi) with 2 Locations (Dallas, Denver) and 1 Role.
+**Done when:** schema migrates clean; a seed script creates a sample Operator (sandoitchi) with 2 Locations (Dallas, Denver) and 1 Role.
 
 ### Step 2 — Provisioning function
 The core of self-serve: onboarding inputs → configured instance, no human.

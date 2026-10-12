@@ -84,7 +84,7 @@ const FEATURES = {
   },
 };
 
-// The single real result from Sandoitchi's pilot, approved by Sandoitchi for
+// The single real result from sandoitchi's pilot, approved by sandoitchi for
 // public use by name — do not fabricate or alter these numbers; if more proof
 // arrives later it becomes its own honest addition, not more content jammed in
 // here. Source + methodology: docs/CLAIMS.md. Copy is approved verbatim. Never
@@ -93,8 +93,8 @@ const FEATURES = {
 // FOOTNOTE on the same page.
 const PROOF = {
   stat: 58,
-  sub: "Sandoitchi, Dallas. $0 in ads. ~$4,000 in value.*",
-  short: "Sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads.",
+  sub: "sandoitchi, Dallas. $0 in ads. ~$4,000 in value.*",
+  short: "sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads.",
   caption: "sandoitchi, Dallas. One location.",
 };
 
@@ -112,7 +112,7 @@ const SITE_TITLE = "AFRA | Stop losing good applicants";
 export const metadata: Metadata = {
   description: PROOF.short,
   openGraph: { title: SITE_TITLE, description: PROOF.short },
-  twitter: { card: "summary", title: SITE_TITLE, description: PROOF.short },
+  twitter: { card: "summary_large_image", title: SITE_TITLE, description: PROOF.short },
 };
 
 const STEPS = [
@@ -243,7 +243,7 @@ export default function LandingPage() {
             Deliberately NOT the "Gen Z attention span" framing — that's a
             generational claim, not a fact about the application experience,
             and it's condescending to the exact people operators want to hire.
-            Sandoitchi's own numbers (PROOF) are a separate, distinct data
+            sandoitchi's own numbers (PROOF) are a separate, distinct data
             point — never blended into this industry-wide claim. */}
         <div className={`${SECTION} pb-24 md:pb-32`}>
           <Reveal>

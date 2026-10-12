@@ -17,22 +17,22 @@ async function main() {
   // 1) System-default template library (roleId = null).
   const systemDefault = await ensureSystemDefaultTemplate(prisma);
 
-  // 2) Operator: Sandoitchi, with two first-class locations + a stubbed channel.
+  // 2) Operator: sandoitchi, with two first-class locations + a stubbed channel.
   const sandoitchi = await prisma.operator.create({
     data: {
-      name: "Sandoitchi",
+      name: "sandoitchi",
       email: "owner@sandoitchi.com",
       billingStatus: "none",
       locations: {
         create: [
           {
-            name: "Sandoitchi — Dallas",
+            name: "sandoitchi — Dallas",
             address: "1500 Main St, Dallas, TX 75201",
             timezone: "America/Chicago",
             businessHours: DEFAULT_BUSINESS_HOURS,
           },
           {
-            name: "Sandoitchi — Denver",
+            name: "sandoitchi — Denver",
             address: "800 16th St, Denver, CO 80202",
             timezone: "America/Denver",
             businessHours: DEFAULT_BUSINESS_HOURS,

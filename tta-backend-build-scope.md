@@ -73,7 +73,7 @@ The hiring post (NOT the Meta ad creative — operators never touch those).
 Claude Code can write these in parallel, but they're inert until the Day-0 approvals land. Build against the APIs now; flip on when approved.
 
 ### B1. Meta Messaging integration — the conversation engine
-The actual product: the candidate screening conversation. Exists today **only** as a hand-built ManyChat flow on Sandoitchi's page. Does NOT exist as a self-serve, multi-tenant, auto-provisioned thing.
+The actual product: the candidate screening conversation. Exists today **only** as a hand-built ManyChat flow on sandoitchi's page. Does NOT exist as a self-serve, multi-tenant, auto-provisioned thing.
 
 **Build branches on the Day-0 ManyChat API check:**
 
@@ -92,12 +92,12 @@ The actual product: the candidate screening conversation. Exists today **only** 
 
 ## The bridge — concierge fulfillment (covers the approval gap)
 
-Because B1/B2 can't go live until approvals land, **a cold signup in that window is fulfilled by hand** — you wiring their screening flow exactly like Sandoitchi, behind the self-serve front. This is Option B operating *as the bridge to* Option A, not instead of it.
+Because B1/B2 can't go live until approvals land, **a cold signup in that window is fulfilled by hand** — you wiring their screening flow exactly like sandoitchi, behind the self-serve front. This is Option B operating *as the bridge to* Option A, not instead of it.
 
 - **The bridge mechanism IS ManyChat, used exactly as today.** You manually clone the STAFF flow into each new operator's ManyChat account and connect it to their page. **Zero new build** — the "integration" in this phase is your hands in ManyChat's UI. Fine for ~5 operators; does not scale to 50.
 - Ads run **small / capped** during this window (don't drive volume you can't hand-fulfill)
 - Flip from manual (ManyChat by hand) → automated (B1/P3 own engine) **per operator** as B1/B2 come online. When B1 is live and trusted, ManyChat comes out entirely.
-- This is also your real-world test that cold operators **activate and renew** — the one thing Sandoitchi can't tell you
+- This is also your real-world test that cold operators **activate and renew** — the one thing sandoitchi can't tell you
 
 ---
 
