@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { animate, motion, useInView, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 
 // Counts a real number up from zero the first time it scrolls into view —
-// used for the one sourced proof stat (58 candidates, docs/CLAIMS.md). The
+// used for the one sourced proof stat (58 applicants, docs/CLAIMS.md). The
 // animation exists to pull the eye to the page's single piece of real
 // evidence, nothing else on the page counts or ticks. Motion values only;
 // reduced-motion users see the final number immediately.

@@ -77,8 +77,10 @@ Fixed September 2026 — see the canonical claims table below for the corrected 
 | 7-day promise | If you're not live within 7 days, we'll help you get there | No longer backed by a money-back guarantee (retired below) — the trial itself is the risk reversal for the $4,788/yr subscription, which charges nothing regardless of the 7-day timeline (the $149 setup fee is separate — see the Setup fee row above, charged at signup either way). Do not restore "or you don't pay" wording; it implied a guarantee mechanism that no longer exists. |
 | Core outcome | Candidates are screened against your criteria, then book straight into your calendar | AFRA never books an interview itself — no calendar integration exists (confirmed in the Phase 1 audit: `UnbuiltCalendarProvider` throws, the live ManyChat flow has no scheduling node). The candidate books, using the operator's own booking link — required at onboarding step 7 specifically so this claim is true for every operator. |
 | Screening capability | Candidates are screened against the operator's own criteria before reaching them. Do not claim scoring, ranking, grading, or "top candidates." | Knockout qualification is automated and operator-specific (`evaluateDisqualification`, `src/lib/screeningQuestions.ts`); competency answers are stored as raw free text and read manually. No AI grading exists in this repo. |
-| Proof | sandoitchi, Dallas — 58 candidates in 3 days from one story post, zero ad spend | Raw pilot figure — never describe these as "qualified," never render 58 as a percentage. See sourcing note below. |
-| Delivery status | Describe what AFRA does structurally (screens applicants, feeds candidates into your existing process). Never state or imply that the self-serve platform currently has real operators running through it live, or that a real candidate has gone end-to-end via a live Instagram DM through a real ManyChat flow. | As of September 2026, the delivery chain is proven only as far as: a curl request to `/api/manychat/webhook` correctly creates/rejects a `Candidate`. No operator has ever connected a real, confirmed ManyChat flow end-to-end (`ChannelConnection.status` has never reached `"connected"` for any real operator). The Sandoitchi proof numbers (58 candidates/3 days; 58% completion/10 qualified in 7 days) are from the original *manual* pilot, true and usable as-is, and are a separate claim from "the current platform is live" — don't let copy blend the two. Structural/mechanism claims ("it runs on the Instagram you already use," "candidates get screened") are fine since that's what the code does when exercised; volume or liveness claims about the current customer base are not, until this changes. |
+| Proof | **One Instagram story. 58 applicants. 4 hires. 3 days.** / Sandoitchi, Dallas. $0 in ads. ~$4,000 in value.* — short form (stat strips, badges, meta/OG description): "Sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads." | Approved verbatim (October 2026); Sandoitchi approved being named publicly with these figures. Raw pilot figures — never describe these as "qualified," never render 58 as a percentage. **No retention claims in public copy** ("stayed," "retained," percentages). See sourcing note below. |
+| Cost anchor | **Pays for itself at five hires.*** / Every open shift gets covered at overtime. AFRA fills it in days, not weeks. | Approved verbatim (October 2026). Sits directly beside the $4,788/year price on the landing page's pricing card. Not added to billing, legal, dashboard, email, or checkout surfaces. |
+| Footnote | *Est. from time-to-fill and overtime at $20/hr, per NRA and Black Box 2025 benchmarks. Results vary. | Required once, in small muted text, on any page that shows a line ending in "*" (the ~$4,000 value and the five-hires anchor are both estimates). |
+| Delivery status | Describe what AFRA does structurally (screens applicants, feeds candidates into your existing process). Never state or imply that the self-serve platform currently has real operators running through it live, or that a real candidate has gone end-to-end via a live Instagram DM through a real ManyChat flow. | As of September 2026, the delivery chain is proven only as far as: a curl request to `/api/manychat/webhook` correctly creates/rejects a `Candidate`. No operator has ever connected a real, confirmed ManyChat flow end-to-end (`ChannelConnection.status` has never reached `"connected"` for any real operator). The Sandoitchi proof numbers (58 applicants/4 hires/3 days; 58% completion/10 qualified in 7 days) are from the original *manual* pilot, true and usable as-is, and are a separate claim from "the current platform is live" — don't let copy blend the two. Structural/mechanism claims ("it runs on the Instagram you already use," "candidates get screened") are fine since that's what the code does when exercised; volume or liveness claims about the current customer base are not, until this changes. |
 
 ## Retired claims (do not resurrect without a new pricing decision)
 
@@ -133,12 +135,18 @@ not customer-facing, not renamed as part of this repricing (same precedent as th
 ## Proof stat — sourcing note (not customer-facing)
 
 - **Location:** sandoitchi, Dallas, TX — one location.
-- **Figure:** 58 candidates, 3 days, sourced from a single Instagram story post, zero paid ad spend.
+- **Figure:** 58 applicants, 4 front-of-house hires, 3 days, sourced from a single Instagram story,
+  $0 ad spend. Hires figure and public naming approved October 2026.
+- **Value estimates:** "~$4,000 in value" and "pays for itself at five hires" ($4,788/yr) are estimates
+  from time-to-fill and overtime at $20/hr per NRA and Black Box 2025 benchmarks, as supplied with the
+  approved copy. Always footnoted on-page.
+- **Retention:** two of the four hires are still there; two moved on. Internal/sales-only, answered only
+  if asked — never in public copy.
 - **Measurement:** as reported to the implementer during the claims-audit brief (July 2026). No independent
   date range or raw data export was available at the time this file was written — if a more precise
   date range or backing data becomes available, add it here rather than in any customer-facing copy.
-- Implemented in `src/components/HeroLineBand.tsx`'s `PROOF` constant — that component's own comment
-  repeats the "do not fabricate or alter these numbers" rule.
+- Implemented in `src/app/page.tsx`'s `PROOF`, `COST_ANCHOR` and `FOOTNOTE` constants — the `PROOF`
+  comment repeats the "do not fabricate or alter these numbers" rule.
 
 ## Lifecycle emails
 
