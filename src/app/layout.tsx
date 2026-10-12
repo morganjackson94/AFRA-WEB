@@ -30,8 +30,15 @@ const overpassMono = Overpass_Mono({
 // Resolves relative OG/social image URLs against the real deployed origin.
 // Reuses APP_BASE_URL (same var Stripe redirects + hiring links use) rather
 // than a second hardcoded domain — see .env.example for the production value.
+// APP_BASE_URL is Production-only, so previews fall back to their own
+// deployment URL (VERCEL_URL) and og:image/twitter:image stay absolute and
+// reachable there instead of pointing at localhost.
+const METADATA_BASE =
+  process.env.APP_BASE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_BASE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(METADATA_BASE),
   title: "AFRA | Stop losing good applicants",
   description:
     "You already get applicants on Instagram. We answer every one in seconds, and candidates book their interview straight into your calendar.",
