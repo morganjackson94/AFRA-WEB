@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { DemoModal } from "./DemoModal";
 import { BackgroundSlideshow } from "../components/BackgroundSlideshow";
@@ -83,16 +84,35 @@ const FEATURES = {
   },
 };
 
-// The single real result from Sandoitchi's pilot — do not fabricate or alter
-// these numbers; if more proof arrives later it becomes its own honest
-// addition, not more content jammed in here. Source + methodology:
-// docs/CLAIMS.md. Deliberately never rendered as a percentage and never
-// described as "qualified" — "58" here is a raw candidate count, not a rate.
+// The single real result from Sandoitchi's pilot, approved by Sandoitchi for
+// public use by name — do not fabricate or alter these numbers; if more proof
+// arrives later it becomes its own honest addition, not more content jammed in
+// here. Source + methodology: docs/CLAIMS.md. Copy is approved verbatim. Never
+// described as "qualified", never rendered as a percentage, and no retention
+// claims ("stayed", "retained") in public copy. Every line ending in "*" needs
+// FOOTNOTE on the same page.
 const PROOF = {
   stat: 58,
-  statLabel: "candidates in 3 days",
-  statSub: "From one Instagram story post. Zero ad spend.",
+  sub: "Sandoitchi, Dallas. $0 in ads. ~$4,000 in value.*",
+  short: "Sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads.",
   caption: "sandoitchi, Dallas. One location.",
+};
+
+// Cost anchor — sits directly beside the annual price (docs/CLAIMS.md).
+const COST_ANCHOR = {
+  head: "Pays for itself at five hires.*",
+  body: "Every open shift gets covered at overtime. AFRA fills it in days, not weeks.",
+};
+
+const FOOTNOTE =
+  "*Est. from time-to-fill and overtime at $20/hr, per NRA and Black Box 2025 benchmarks. Results vary.";
+
+const SITE_TITLE = "AFRA | Stop losing good applicants";
+
+export const metadata: Metadata = {
+  description: PROOF.short,
+  openGraph: { title: SITE_TITLE, description: PROOF.short },
+  twitter: { card: "summary", title: SITE_TITLE, description: PROOF.short },
 };
 
 const STEPS = [
@@ -284,14 +304,12 @@ export default function LandingPage() {
           </figure>
 
           <div className="md:pt-2">
-            <div className="flex items-baseline gap-4">
-              <CountUp
-                to={PROOF.stat}
-                className="font-display text-[clamp(5rem,12vw,10rem)] font-medium leading-none tracking-[-0.01em] text-accent"
-              />
-              <span className="t-heading max-w-[10ch] text-ink">{PROOF.statLabel}</span>
-            </div>
-            <p className="mt-5 max-w-[38ch] text-[17px] leading-relaxed text-ink-soft">{PROOF.statSub}</p>
+            {/* "58" keeps the counting amber numeral as the view's one accent. */}
+            <p className="font-display text-[clamp(2.25rem,4.6vw,3.5rem)] font-medium leading-[1.06] tracking-[-0.01em] text-ink [text-wrap:balance]">
+              One Instagram story. <CountUp to={PROOF.stat} className="text-accent" /> applicants. 4 hires.
+              3 days.
+            </p>
+            <p className="mt-5 max-w-[38ch] text-[17px] leading-relaxed text-ink-soft">{PROOF.sub}</p>
 
             {/* The applicant's side — a FACTUAL description of the product
                 experience. Never format this as a quotation or attribute it
@@ -400,6 +418,8 @@ export default function LandingPage() {
             <p className="mt-3 text-[13px] leading-snug text-ink-soft">
               {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month) after ${PRICING.freeCandidateCap} screened candidates or ${PRICING.trialDaysBackstop} days. Cancel before then, pay nothing more. Card required.`}
             </p>
+            <p className="mt-5 text-[15px] font-semibold text-ink">{COST_ANCHOR.head}</p>
+            <p className="mt-1 text-[14.5px] leading-relaxed text-ink-soft">{COST_ANCHOR.body}</p>
             {SALES_CALL_URL && (
               <div className="mt-4">
                 <BookCallButton url={SALES_CALL_URL} />
@@ -424,6 +444,8 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
+          {/* One footnote for the page's "*" lines (proof + cost anchor). */}
+          <p className="mx-auto mt-5 max-w-[560px] text-[12.5px] leading-snug text-faint">{FOOTNOTE}</p>
         </Reveal>
       </section>
 
