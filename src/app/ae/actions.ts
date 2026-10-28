@@ -49,7 +49,9 @@ export async function aeLoginAction(_prev: AeLoginState, formData: FormData): Pr
     secure: process.env.NODE_ENV === "production",
     maxAge: AE_COOKIE_MAX_AGE_S,
   });
-  redirect("/ae/new");
+  // Only ever back into our own team pages — never an arbitrary URL.
+  const next = String(formData.get("next") ?? "");
+  redirect(/^\/(admin|ae)(\/[A-Za-z0-9_-]*)*$/.test(next) ? next : "/ae/new");
 }
 
 export async function aeLogoutAction(): Promise<void> {
@@ -73,6 +75,7 @@ export async function createPrefillAction(_prev: AeIntakeState, formData: FormDa
 
   const result = await createPrefill(prisma, aeId, {
     email: String(formData.get("email") ?? ""),
+    businessName: String(formData.get("businessName") ?? ""),
     locationsBucket: String(formData.get("locationsBucket") ?? ""),
     primaryState: String(formData.get("primaryState") ?? ""),
     hasNycLocation: formData.get("hasNycLocation") === "on",

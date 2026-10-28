@@ -67,6 +67,10 @@ export function AeIntakeForm({ aeId }: { aeId: string }) {
       </p>
 
       <form action={formAction} className="space-y-6">
+        <Field label="Business name">
+          <input name="businessName" required autoComplete="off" className={inputClass} placeholder="Juniper & Salt" />
+        </Field>
+
         <Field label="Their email">
           <input type="email" name="email" required autoComplete="off" className={inputClass} placeholder="owner@venue.com" />
         </Field>

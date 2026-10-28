@@ -223,6 +223,11 @@ model Operator {
   /// AE_ACCOUNTS key). Null for self-serve signups. Used for commission.
   sourceAe String?
 
+  /// Idempotency claim for the internal handoff email to the Fulfillment Rep
+  /// (sendHandoffEmailOnce, activation.ts) — same claim-before-send idiom as
+  /// welcomeEmailSentAt. Null until a genuine payment confirmation.
+  handoffEmailSentAt DateTime?
+
   locations          Location[]
   channelConnections ChannelConnection[]
   conversations      Conversation[]

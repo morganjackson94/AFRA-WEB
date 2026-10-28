@@ -234,6 +234,11 @@ export async function startOnboardingAction(
     operatorId = result.operatorId;
 
     if (prefill) {
+      // The AE's business name (provision() otherwise names the operator
+      // after their Instagram handle). Feeds the handoff email and the
+      // ManyChat business-name blank.
+      const businessName = typeof prefill.answers.businessName === "string" ? prefill.answers.businessName.trim() : "";
+      if (businessName) await prisma.operator.update({ where: { id: operatorId }, data: { name: businessName } });
       // Commission attribution: the AE who made the code. Never overwrites
       // an existing value (a retried checkout keeps the original AE).
       if (prefill.aeRef) {

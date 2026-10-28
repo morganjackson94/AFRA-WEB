@@ -5,13 +5,14 @@ import { aeLoginAction, type AeLoginState } from "../actions";
 
 const INITIAL: AeLoginState = {};
 
-export function AeLoginForm() {
+export function AeLoginForm({ next }: { next: string }) {
   const [state, formAction, pending] = useActionState(aeLoginAction, INITIAL);
   return (
     <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-6 py-16 text-ink">
       <h1 className="t-title mb-2">AE sign in</h1>
       <p className="mb-8 text-[15px] leading-relaxed text-ink-soft">For AFRA reps. Use your own passphrase.</p>
       <form action={formAction} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <label className="block">
           <span className="t-label mb-2 block">Passphrase</span>
           <input

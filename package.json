@@ -33,7 +33,8 @@
     "trial-counter:smoke": "tsx scripts/trial-counter-smoke.ts",
     "renewal-notice:smoke": "tsx scripts/renewal-notice-smoke.ts",
     "trial-cap:e2e": "tsx scripts/trial-cap-e2e.ts",
-    "ae-prefill:smoke": "tsx scripts/ae-prefill-smoke.ts"
+    "ae-prefill:smoke": "tsx scripts/ae-prefill-smoke.ts",
+    "setup-checker:smoke": "tsx scripts/setup-checker-smoke.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
