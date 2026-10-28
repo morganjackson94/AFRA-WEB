@@ -415,3 +415,90 @@ Dallas, TX`;
 
   return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
 }
+
+/** Escape for interpolating operator-entered text into the handoff email's HTML. */
+function esc(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Internal handoff to the Fulfillment Rep — sent from confirmFoundingPayment()
+ * (activation.ts) when a payment is genuinely confirmed. Everything the Rep
+ * needs to build the operator's ManyChat without retyping anything: the three
+ * values for the copied Master Flow's first step, the keyword, the caption,
+ * and a link to the setup checker. Goes to FULFILLMENT_EMAIL (falls back to
+ * CONTACT_EMAIL). Never sent to the operator.
+ */
+export async function sendHandoffEmail(args: {
+  to?: string;
+  businessName: string;
+  operatorEmail: string;
+  handle: string | null;
+  sourceAe: string | null;
+  locationsLabel: string;
+  state: string | null;
+  roles: { title: string; pay: string | null }[];
+  dealBreakers: string[];
+  followersLabel: string;
+  lowReach: boolean;
+  hiringLabel: string;
+  calendar: string | null;
+  bookingLinkUrl: string | null;
+  locationIds: string[];
+  manychatBlanks: { businessName: string; bookingLink: string; locationId: string };
+  keyword: string;
+  caption: string;
+  checkerUrl: string;
+}): Promise<SendResult> {
+  const to = args.to ?? process.env.FULFILLMENT_EMAIL ?? CONTACT_EMAIL;
+  const missingLink = !args.bookingLinkUrl;
+  const subject = `New client to set up: ${args.businessName}${missingLink ? " (booking link missing)" : ""}`;
+  const roles = args.roles.map((r) => (r.pay ? `${r.title} (${r.pay})` : r.title)).join(", ") || "None";
+  const lines: [string, string][] = [
+    ["Business", args.businessName],
+    ["Email", args.operatorEmail],
+    ["Instagram", args.handle ?? "Missing"],
+    ["Closed by", args.sourceAe ?? "Self-serve (no AE)"],
+    ["Locations", `${args.locationsLabel}${args.state ? `, ${args.state}` : ""}`],
+    ["Roles", roles],
+    ["Deal-breakers", args.dealBreakers.join(", ") || "None"],
+    ["Followers", `${args.followersLabel}${args.lowReach ? " (LOW REACH: agree an in-store QR or link-in-bio plan)" : ""}`],
+    ["Hires", args.hiringLabel],
+    ["Calendar", args.calendar ?? "Not picked"],
+    ["Booking link", args.bookingLinkUrl ?? "MISSING: get it before you build"],
+    ["Location IDs", args.locationIds.join(", ")],
+  ];
+  const blanks = `Business name: ${args.manychatBlanks.businessName}\nBooking link:  ${args.manychatBlanks.bookingLink}\nLocation ID:   ${args.manychatBlanks.locationId}`;
+
+  const text = `They paid the $149. Build their setup before the 10-minute call.
+
+${lines.map(([k, v]) => `${k}: ${v}`).join("\n")}
+
+PASTE INTO THE FIRST STEP OF THEIR COPY OF "AFRA Master Flow v1":
+${blanks}
+
+Keyword: ${args.keyword}
+
+Caption to text them on the call:
+${args.caption}
+
+Setup checker (open it on the call; every line must be green before you finish):
+${args.checkerUrl}
+
+The important one: the webhook step. If it's skipped, everything still looks fine to them, but we never see their candidates and never bill them.`;
+
+  const html = `
+    <p>They paid the $149. Build their setup before the 10-minute call.</p>
+    ${missingLink ? `<p style="color:#b42318"><strong>Booking link is missing.</strong> Get it before you build.</p>` : ""}
+    <table cellpadding="4" style="border-collapse:collapse;font-size:14px">
+      ${lines.map(([k, v]) => `<tr><td style="color:#666;padding-right:12px">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+    </table>
+    <p><strong>Paste into the first step of their copy of "AFRA Master Flow v1":</strong></p>
+    <pre style="background:#f4f4f6;padding:12px;border-radius:8px;font-size:13px">${esc(blanks)}</pre>
+    <p><strong>Keyword:</strong> ${esc(args.keyword)}</p>
+    <p><strong>Caption to text them on the call:</strong><br/>${esc(args.caption)}</p>
+    <p><a href="${esc(args.checkerUrl)}">Open the setup checker</a>. Every line must be green before you finish the call.</p>
+    <p style="color:#666;font-size:13px">The important one: the webhook step. If it's skipped, everything still looks fine to them, but we never see their candidates and never bill them.</p>
+  `;
+  return sendViaResend({ to, subject, html, text });
+}

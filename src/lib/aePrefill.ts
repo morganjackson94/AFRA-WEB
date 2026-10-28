@@ -121,6 +121,9 @@ export function verifyAeCookie(value: string | undefined, accounts = parseAeAcco
 
 export type AePrefillInput = {
   email: string;
+  /** What the restaurant calls itself. Becomes Operator.name (it otherwise
+   *  defaults to the Instagram handle) and ManyChat's business-name blank. */
+  businessName?: string;
   locationsBucket: string;
   primaryState: string;
   hasNycLocation: boolean;
@@ -187,8 +190,11 @@ export async function createPrefill(
     return { ok: false, error: "Already a customer. Send them to log in at afravisibility.com/login." };
   }
 
+  const businessName = (input.businessName ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
+
   const answers = {
     email,
+    businessName,
     locationsBucket: input.locationsBucket,
     primaryState: input.primaryState,
     hasNycLocation: input.primaryState === "NY" ? input.hasNycLocation : false,

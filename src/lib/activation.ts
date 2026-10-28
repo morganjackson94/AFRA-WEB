@@ -7,6 +7,7 @@ import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
 import { OPERATOR_ONBOARDING_CALL_URL } from "./constants";
 import {
+  sendHandoffEmail,
   sendTrialCapWarningEmail,
   sendTrialEndedEmail,
   sendTrialEndNoticeEmail,
@@ -15,6 +16,7 @@ import {
   sendYoureLiveLowReachEmail,
 } from "./mail";
 import { CONNECTED, evaluateReadiness } from "./readiness";
+import { getSetupSummary } from "./setupCheck";
 
 // Day-20 check-in fuse (see the checkin job, /api/jobs/run-scheduled-emails).
 const CHECKIN_DELAY_MS = 20 * 24 * 60 * 60 * 1000;
@@ -323,7 +325,69 @@ export async function confirmFoundingPayment(
     welcomeEmail = await sendWelcomeEmailOnce(prisma, operatorId, ids.livemode);
   }
 
-  return { billingStatus, recompute, flowAssignment: assignment, welcomeEmail };
+  // Internal handoff to the Fulfillment Rep (same once-only, non-blocking rules).
+  const handoffEmail: HandoffEmailOutcome = isGenuineConfirmation
+    ? await sendHandoffEmailOnce(prisma, operatorId, ids.livemode)
+    : { sent: false, reason: "stale-confirmation" };
+
+  return { billingStatus, recompute, flowAssignment: assignment, welcomeEmail, handoffEmail };
+}
+
+export type HandoffEmailOutcome =
+  | { sent: true }
+  | { sent: false; reason: "not-livemode" | "already-sent" | "stub" | "error" | "stale-confirmation" };
+
+/**
+ * Emails the Fulfillment Rep everything needed to build this operator's
+ * setup (see sendHandoffEmail, mail.ts) — exactly once, at the first genuine
+ * payment confirmation, so the handoff never depends on the AE remembering
+ * to send it. Same two guards as sendWelcomeEmailOnce: test-mode payments
+ * don't send unless SEND_TEST_HANDOFF_EMAIL=1 (set it on Preview to rehearse
+ * the flow), and handoffEmailSentAt is claimed before the send so webhook
+ * retries can't send twice. Never throws.
+ */
+async function sendHandoffEmailOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+  livemode: boolean,
+): Promise<HandoffEmailOutcome> {
+  if (!livemode && process.env.SEND_TEST_HANDOFF_EMAIL !== "1") return { sent: false, reason: "not-livemode" };
+
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, handoffEmailSentAt: null },
+    data: { handoffEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return { sent: false, reason: "already-sent" };
+
+  try {
+    const s = await getSetupSummary(prisma, operatorId);
+    if (!s) return { sent: false, reason: "error" };
+    const result = await sendHandoffEmail({
+      businessName: s.businessName,
+      operatorEmail: s.email,
+      handle: s.handle,
+      sourceAe: s.sourceAe,
+      locationsLabel: s.locationsLabel,
+      state: s.state,
+      roles: s.roles,
+      dealBreakers: s.dealBreakers,
+      followersLabel: s.followersLabel,
+      lowReach: s.lowReach,
+      hiringLabel: s.hiringLabel,
+      calendar: s.calendar,
+      bookingLinkUrl: s.bookingLinkUrl,
+      locationIds: s.locations.map((l) => l.id),
+      manychatBlanks: s.manychatBlanks,
+      keyword: s.keyword,
+      caption: s.caption,
+      checkerUrl: `${appBaseUrl()}/admin/setup/${operatorId}`,
+    });
+    if (!result.sent) console.error(`[handoff-email] send did not complete for operator ${operatorId} (stub=${result.stub ?? false})`);
+    return result.sent ? { sent: true } : { sent: false, reason: result.stub ? "stub" : "error" };
+  } catch (err) {
+    console.error(`[mail] handoff email failed for operator ${operatorId}:`, err);
+    return { sent: false, reason: "error" };
+  }
 }
 
 export type FlowAssignmentOutcome =
