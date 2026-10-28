@@ -219,6 +219,10 @@ model Operator {
   /// the cap is reached (see sendTrialEndNoticeOnce, activation.ts).
   trialEndNoticeEmailSentAt DateTime?
 
+  /// The AE who closed this operator via a pre-filled setup link (an
+  /// AE_ACCOUNTS key). Null for self-serve signups. Used for commission.
+  sourceAe String?
+
   locations          Location[]
   channelConnections ChannelConnection[]
   conversations      Conversation[]
@@ -343,6 +347,28 @@ model OnboardingDraft {
   answers   Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // --- AE pre-filled setup link (see src/lib/aePrefill.ts) -------------------
+  // Set only when an AE fills the draft in on a sales call. The operator opens
+  // it with a short spoken code (afravisibility.com/go), reviews and pays.
+  /// SHA-256 of the 6-character code; the raw code is never stored.
+  prefillCodeHash  String?   @unique
+  /// The code stops working after this (72h from creation).
+  prefillExpiresAt DateTime?
+  /// First time the operator opened the code (for the AE's follow-up).
+  prefillOpenedAt  DateTime?
+  /// Which AE created it (an AE_ACCOUNTS key, e.g. "david").
+  aeRef            String?
+}
+
+/// One FAILED /go code lookup, for rate limiting guesses (see aePrefill.ts).
+/// Only a hash of the client IP is stored.
+model PrefillAttempt {
+  id        String   @id @default(cuid())
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
 }
 
 // ---------------------------------------------------------------------------

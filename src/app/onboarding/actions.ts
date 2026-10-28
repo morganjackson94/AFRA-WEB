@@ -1,12 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { countActiveFoundingOperators, startFoundingCheckout } from "../../lib/activation";
+import { checkoutTargetForEmail, loadPrefillDraft, PREFILL_COOKIE } from "../../lib/aePrefill";
 import { FOUNDING_SPOTS_TOTAL, getBillingProvider } from "../../lib/billing";
 import { CONTACT_EMAIL, normalizeEmail } from "../../lib/constants";
 import { isRestrictedJurisdiction } from "../../lib/jurisdiction";
 import { type DraftAnswers, deleteDraft, loadDraft, saveDraft } from "../../lib/onboardingDraft";
 import { prisma } from "../../lib/prisma";
+import { CALENDAR_IDS, ROLE_TITLES as SHARED_ROLE_TITLES } from "../../lib/onboardingOptions";
 import { provision } from "../../lib/provision";
 import { computeReachFlag, locationCountForBucket } from "../../lib/qualification";
 import { appBaseUrl, createSession } from "../../lib/session";
@@ -16,8 +19,8 @@ import { type Attribution, logWizardFunnelEvent, type WizardFunnelEventType } fr
 export type OnboardingState = { error?: string };
 export type LeadState = { submitted?: boolean; error?: string };
 
-const ROLE_TITLES = ["Front of House", "Back of House", "Barista", "Line Cook"];
-const CALENDAR_CHOICES = ["google", "microsoft", "other"];
+const ROLE_TITLES: readonly string[] = SHARED_ROLE_TITLES;
+const CALENDAR_CHOICES = CALENDAR_IDS;
 
 // Progressive-save actions (Onboarding Wizard redesign) — called directly by
 // the client component after every step, not via a <form> submit. Both are
@@ -126,9 +129,21 @@ export async function startOnboardingAction(
   const locationStates = primaryState ? [primaryState] : [];
   const hasNycLocation = formData.get("hasNycLocation") === "true";
 
+  // AE pre-filled link (src/lib/aePrefill.ts): present when the operator
+  // arrived through /go/<code> on a sales call. It only relaxes the booking
+  // link (collected on the setup call instead, so it can't stall a phone
+  // close) and carries the AE's id onto the Operator. Every other gate below
+  // applies exactly as it does for self-serve.
+  const prefill = await loadPrefillDraft(prisma, (await cookies()).get(PREFILL_COOKIE)?.value).catch((err) => {
+    console.error("[onboarding] prefill lookup failed (continuing as self-serve):", err);
+    return null;
+  });
+
   if (roleTitles.length === 0) return { error: "Pick at least one role you're hiring for." };
   if (!CALENDAR_CHOICES.includes(calendarChoice)) return { error: "Choose a calendar." };
-  if (!bookingLinkUrl) return { error: "Add your booking link. It's what lets candidates book their interview." };
+  if (!bookingLinkUrl && !prefill) {
+    return { error: "Add your booking link. It's what lets candidates book their interview." };
+  }
   if (!instagramHandle) return { error: "Add the Instagram handle you use for hiring." };
   // Required: it's how you log back in. No email, no way to send a magic
   // link, no way back into your own dashboard after closing the tab.
@@ -177,7 +192,20 @@ export async function startOnboardingAction(
       }
     }
 
-    const result = await provision(
+    // Someone who backed out of Stripe already has an unpaid Operator for
+    // this email, and Operator.email is unique — provisioning again would
+    // throw and show them a generic error with no way forward. Reuse the
+    // unpaid one and start a fresh Checkout instead. A paid customer is sent
+    // to log in rather than charged twice.
+    const target = await checkoutTargetForEmail(prisma, email);
+    if (target.kind === "paid") {
+      return { error: "You already have an AFRA account. Log in at afravisibility.com/login." };
+    }
+
+    const result =
+      target.kind === "unpaid" && isFounding
+        ? { operatorId: target.operatorId }
+        : await provision(
       prisma,
       {
         instagramHandle,
@@ -205,9 +233,30 @@ export async function startOnboardingAction(
     );
     operatorId = result.operatorId;
 
-    // Draft has served its purpose — this operator is now a real, queryable
-    // instance (see provision()'s tree); nothing left to resume.
-    await deleteDraft(prisma, email);
+    if (prefill) {
+      // Commission attribution: the AE who made the code. Never overwrites
+      // an existing value (a retried checkout keeps the original AE).
+      if (prefill.aeRef) {
+        await prisma.operator.updateMany({
+          where: { id: operatorId, sourceAe: null },
+          data: { sourceAe: prefill.aeRef },
+        });
+      }
+      // Keep the AE's draft (and so the code) alive until payment is
+      // confirmed: if they back out of Stripe, cancelUrl brings them back to
+      // the review screen with everything still filled in. loadPrefillDraft
+      // retires the code once billing shows paid — which it checks by the
+      // draft's email, so if they changed their email on the review screen,
+      // re-key the draft to the email they actually paid with.
+      if (prefill.email !== email) {
+        await deleteDraft(prisma, email);
+        await prisma.onboardingDraft.update({ where: { id: prefill.draftId }, data: { email } });
+      }
+    } else {
+      // Draft has served its purpose — this operator is now a real, queryable
+      // instance (see provision()'s tree); nothing left to resume.
+      await deleteDraft(prisma, email);
+    }
 
     if (isFounding) {
       // Set the session before leaving for Stripe so they're logged in on return.
@@ -220,7 +269,7 @@ export async function startOnboardingAction(
         // Meta Purchase pixel event (eventID = that session id) then hands
         // off to the existing dashboard post-payment welcome UX.
         successUrl: `${base}/welcome?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${base}/onboarding?canceled=1`,
+        cancelUrl: prefill ? `${base}/onboarding?review=1&canceled=1` : `${base}/onboarding?canceled=1`,
       });
       checkoutUrl = checkout.checkoutUrl;
     }
