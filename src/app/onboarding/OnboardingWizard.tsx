@@ -34,6 +34,7 @@ import {
   sendFunnelBeacon,
 } from "../../lib/sessionAttribution";
 import { validateOtherRoleText } from "../../lib/textSanitize";
+import { DISQUALIFIERS, ROLE_TITLES } from "../../lib/onboardingOptions";
 import { SectionLabel } from "../../components/SectionLabel";
 
 const SESSION_STARTED_KEY = "afraWizardSessionStartedFired";
@@ -51,20 +52,9 @@ const SESSION_STARTED_KEY = "afraWizardSessionStartedFired";
 // submission, which still flows through this component's own React state at
 // the final step, same as the old 4-step version always did.
 
-const ROLES = ["Front of House", "Back of House", "Barista", "Line Cook"];
+const ROLES: readonly string[] = ROLE_TITLES;
 const OTHER_ROLE = "__other__";
 const ROLE_OPTIONS = [...ROLES.map((r) => ({ value: r, label: r })), { value: OTHER_ROLE, label: "Other" }];
-
-const DISQUALIFIERS = [
-  { value: "no_weekends", label: "No weekend availability" },
-  { value: "no_evenings", label: "No evening availability" },
-  { value: "under_6mo_experience", label: "Under 6 months experience" },
-  { value: "no_transportation", label: "No reliable transportation" },
-  { value: "cant_open", label: "Can't work opening shifts" },
-  { value: "cant_close", label: "Can't work closing shifts" },
-  { value: "no_food_handler_cert", label: "No food handler cert" },
-  { value: "wont_commit_3mo", label: "Won't commit to 3+ months" },
-] as const;
 
 const CALENDARS: { id: string; label: string; Icon: typeof Calendar }[] = [
   { id: "google", label: "Google Calendar", Icon: Calendar },
@@ -94,21 +84,40 @@ const STEP_NAMES = [
 const inputClass =
   "w-full rounded-xl border border-threshold-line bg-threshold-soft px-3.5 py-3.5 text-[16px] text-threshold-ink placeholder:text-threshold-ink-soft/60 focus:border-threshold-ink focus:outline-2 focus:outline-threshold-ink";
 
+/** Present when the operator arrived through an AE's pre-filled setup link
+ *  (/go/<code>, see src/lib/aePrefill.ts): the wizard opens on a review
+ *  screen with the AE's answers instead of step 1. */
+export type WizardPrefill = {
+  answers: Record<string, unknown>;
+  aeRef: string | null;
+  /** They came back from Stripe without paying. */
+  canceled: boolean;
+};
+
 export function OnboardingWizard({
   termsContent,
   privacyContent,
+  prefill = null,
 }: {
   termsContent: string;
   privacyContent: string;
+  prefill?: WizardPrefill | null;
 }) {
-  const [step, setStep] = useState(1);
+  const prefillRef = useRef(prefill);
+  const [step, setStep] = useState(prefill ? TOTAL : 1);
+  // Review mode (AE pre-filled link): one summary screen, Edit per section.
+  // returnToReview: an Edit is in progress — that step's Continue goes back
+  // to the review screen instead of on to the next step.
+  const [reviewing, setReviewing] = useState(prefill !== null);
+  const [returnToReview, setReturnToReview] = useState(false);
+  const [prefillApplied, setPrefillApplied] = useState(prefill === null);
   // The beat before step one: a zero-input welcome screen — one button,
   // nothing to type — so a cold visitor's first act is a free tap, not a
   // form. Deliberately NOT a numbered step: the progress dots stay unlit
   // until step 1 actually begins, and the funnel's "started" event still
   // fires on mount (landing), so the step-1 completion rate keeps measuring
   // the same thing it always did.
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(prefill === null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [resumeChecked, setResumeChecked] = useState(false);
   const [resumedBanner, setResumedBanner] = useState(false);
@@ -157,14 +166,19 @@ export function OnboardingWizard({
   const lastFieldRef = useRef<string>("none");
   const pendingRef = useRef(false);
   const stepRef = useRef(1);
-  const showIntroRef = useRef(true);
+  const showIntroRef = useRef(prefill === null);
   const abandonFiredRef = useRef(false);
 
   useEffect(() => {
     if (mountEffectRanRef.current) return;
     mountEffectRanRef.current = true;
     const id = getOrCreateSessionId();
-    const attribution = captureAttribution();
+    // AE-closed deals are tagged so the funnel report separates them from
+    // ad and organic traffic (utm_source=ae, campaign = which AE).
+    const pf = prefillRef.current;
+    const attribution: Attribution = pf
+      ? { utmSource: "ae", utmMedium: "phone", utmCampaign: pf.aeRef ?? undefined, landingPath: "/go" }
+      : captureAttribution();
     wizardSessionIdRef.current = id;
     attributionRef.current = attribution;
 
@@ -308,6 +322,24 @@ export function OnboardingWizard({
     if (typeof a.tosAccepted === "boolean") setTosAccepted(a.tosAccepted);
   }
 
+  // AE pre-filled link: load the AE's answers once, on mount.
+  useEffect(() => {
+    const pf = prefillRef.current;
+    if (!pf) return;
+    const a = pf.answers;
+    if (typeof a.email === "string") setEmail(a.email);
+    applyDraftAnswers(a);
+    setResumeChecked(true); // the draft IS the resume; don't re-check on blur
+    setPrefillApplied(true);
+  }, []);
+
+  function editStep(n: number) {
+    setRestricted(false);
+    setReviewing(false);
+    setReturnToReview(true);
+    setStep(n);
+  }
+
   // Resume-on-mount: fires once, on the step-1 email field losing focus.
   // Pre-purchase, low-stakes data — no auth needed, same trust level as Lead
   // capture. Re-entering the same email is the whole "login."
@@ -337,6 +369,11 @@ export function OnboardingWizard({
       return;
     }
     logStepCompleted(step);
+    if (returnToReview) {
+      setReturnToReview(false);
+      setReviewing(true);
+      return;
+    }
     setStep((s) => s + 1);
   }
 
@@ -353,7 +390,10 @@ export function OnboardingWizard({
               ? true
               : step === 6
                 ? handle.trim() !== ""
-                : calendarChoice !== "" && bookingLinkUrl.trim() !== "" && tosAccepted;
+                : returnToReview
+                  ? calendarChoice !== "" // booking link optional on the AE path; terms are on review
+                  : calendarChoice !== "" && bookingLinkUrl.trim() !== "" && tosAccepted;
+  const canPay = prefillApplied && calendarChoice !== "" && tosAccepted && finalRoleTitles.length > 0 && handle.trim() !== "";
 
   return (
     // Flex column so the footer sits BELOW the content (no fixed-overlap bug).
@@ -409,9 +449,14 @@ export function OnboardingWizard({
           type="button"
           onClick={() => {
             setRestricted(false);
+            if (returnToReview) {
+              setReturnToReview(false);
+              setReviewing(true);
+              return;
+            }
             setStep((s) => Math.max(1, s - 1));
           }}
-          className={`grid size-9 place-items-center rounded-lg text-threshold-ink-soft hover:bg-threshold-soft hover:text-threshold-ink ${showIntro || step === 1 ? "invisible" : ""}`}
+          className={`grid size-9 place-items-center rounded-lg text-threshold-ink-soft hover:bg-threshold-soft hover:text-threshold-ink ${showIntro || reviewing || (step === 1 && !returnToReview) ? "invisible" : ""}`}
           aria-label="Back"
         >
           <ArrowLeft className="size-5" />
@@ -442,7 +487,7 @@ export function OnboardingWizard({
 
       {/* Content — flex-1 pushes the footer to the bottom; tall steps just scroll.
           key={step} remounts on step change so the staggered reveal re-runs. */}
-      <div key={showIntro ? "intro" : `${step}-${restricted}`} className="mx-auto w-full max-w-[460px] flex-1 px-6 pb-10 pt-12">
+      <div key={showIntro ? "intro" : reviewing ? "review" : `${step}-${restricted}`} className="mx-auto w-full max-w-[460px] flex-1 px-6 pb-10 pt-12">
         {/* The beat before step one — zero inputs, one button (in the footer).
             Question count is exact: of the 7 screens, six ask questions
             (locations, market, roles, dealbreakers, socials, interview
@@ -462,6 +507,80 @@ export function OnboardingWizard({
               <p className="mt-5 max-w-[34ch] text-[16px] leading-relaxed text-threshold-ink-soft">
                 Six quick questions and a straight look at the price.
               </p>
+            </Reveal>
+          </div>
+        ) : reviewing ? (
+          <div>
+            <Reveal delay={0}>
+              <SectionLabel index="✓" tone="dark">Review</SectionLabel>
+            </Reveal>
+            <Reveal hero delay={90}>
+              <h2 className="t-title mt-6 mb-4 text-threshold-ink">Check your details.</h2>
+            </Reveal>
+            <Reveal delay={200}>
+              <p className="mb-6 text-[16px] leading-relaxed text-threshold-ink-soft">
+                Your AFRA rep filled these in with you. Fix anything that&apos;s wrong, then pay to get set up.
+              </p>
+            </Reveal>
+            {prefill?.canceled && (
+              <p className="mb-6 rounded-xl border border-threshold-line bg-threshold-soft px-3.5 py-3 text-sm text-threshold-ink">
+                Your payment wasn&apos;t finished, so nothing was charged. You can try again below.
+              </p>
+            )}
+            <Reveal delay={260}>
+              <div className="divide-y divide-threshold-line rounded-2xl border border-threshold-line">
+                <ReviewRow
+                  label="Locations"
+                  value={`${labelFor(LOCATION_BUCKETS, locationsBucket)} · ${email || "No email"}`}
+                  onEdit={() => editStep(1)}
+                />
+                <ReviewRow
+                  label="Where"
+                  value={`${labelFor(US_STATES, primaryState)}${primaryState === "NY" && hasNycLocation ? " (NYC)" : ""}`}
+                  onEdit={() => editStep(2)}
+                />
+                <ReviewRow
+                  label="Roles"
+                  value={`${finalRoleTitles.join(", ") || "None picked"}${pay ? ` · ${pay}` : ""}`}
+                  onEdit={() => editStep(3)}
+                />
+                <ReviewRow
+                  label="Deal-breakers"
+                  value={
+                    disqualifiers.length
+                      ? disqualifiers.map((d) => labelFor(DISQUALIFIERS, d)).join(", ")
+                      : "None"
+                  }
+                  onEdit={() => editStep(5)}
+                />
+                <ReviewRow
+                  label="Instagram"
+                  value={`${handle || "Missing"} · ${labelFor(FOLLOWER_BANDS, followerBand)} followers · hires ${labelFor(HIRING_FREQUENCIES, hiringFrequency).toLowerCase()}`}
+                  onEdit={() => editStep(6)}
+                />
+                <ReviewRow
+                  label="Interviews"
+                  value={`${CALENDARS.find((c) => c.id === calendarChoice)?.label ?? "No calendar picked"} · ${
+                    bookingLinkUrl.trim() || "Booking link: add it on your setup call"
+                  }`}
+                  onEdit={() => editStep(7)}
+                />
+              </div>
+            </Reveal>
+            <Reveal delay={320}>
+              <label className="mt-6 flex items-start gap-3 text-[13.5px] leading-relaxed text-threshold-ink-soft">
+                <input
+                  type="checkbox"
+                  data-field="tosAccepted"
+                  checked={tosAccepted}
+                  onChange={(e) => setTosAccepted(e.target.checked)}
+                  className="mt-0.5 size-4 flex-none rounded border-threshold-line bg-threshold-soft accent-accent"
+                />
+                <span>
+                  I agree to the{" "}
+                  <LegalLinks termsContent={termsContent} privacyContent={privacyContent} variant="consent" />.
+                </span>
+              </label>
             </Reveal>
           </div>
         ) : /* Step 2's restricted exit overrides everything else at that step. */
@@ -939,14 +1058,26 @@ export function OnboardingWizard({
                 {leadPending ? "Sending…" : "Keep me posted"}
               </button>
             )
-          ) : step < TOTAL ? (
+          ) : reviewing ? (
+            <button
+              type="submit"
+              disabled={!canPay || pending}
+              onClick={() => {
+                logStepCompleted(7);
+                trackMetaEvent("InitiateCheckout");
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-threshold-ink px-6 py-3.5 text-base font-medium text-threshold transition duration-300 ease-editorial hover:opacity-90 disabled:opacity-40"
+            >
+              {pending ? "Setting up your account…" : "Pay $149 and get set up"}
+            </button>
+          ) : step < TOTAL || returnToReview ? (
             <button
               type="button"
               disabled={!canContinue || savingDraft}
               onClick={() => void goNext()}
               className="w-full rounded-full bg-threshold-ink px-6 py-3.5 text-base font-medium text-threshold transition duration-300 ease-editorial hover:opacity-90 disabled:opacity-40"
             >
-              {savingDraft ? "Saving…" : "Continue"}
+              {savingDraft ? "Saving…" : returnToReview ? "Back to review" : "Continue"}
             </button>
           ) : (
             <button
@@ -971,7 +1102,10 @@ export function OnboardingWizard({
               {locationsBucket === "" ? "Pick a location count to continue" : "Add your email to continue"}
             </p>
           )}
-          {step === TOTAL && !restricted && (
+          {!showIntro && reviewing && !tosAccepted && (
+            <p className="mt-3 text-center text-[13.5px] text-threshold-ink-soft">Tick the box above to continue</p>
+          )}
+          {(reviewing || (step === TOTAL && !returnToReview)) && !restricted && (
             <p className="mt-3 flex items-start justify-center gap-1.5 text-center text-[13.5px] leading-snug text-threshold-ink-soft">
               <Check className="mt-0.5 size-3.5 flex-none text-accent" />
               <span>
@@ -983,6 +1117,28 @@ export function OnboardingWizard({
         </div>
       </div>
     </form>
+  );
+}
+
+function labelFor(options: readonly { value: string; label: string }[], value: string): string {
+  return options.find((o) => o.value === value)?.label ?? "Not answered";
+}
+
+function ReviewRow({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3.5">
+      <div className="min-w-0 flex-1">
+        <p className="t-label text-threshold-ink-soft">{label}</p>
+        <p className="mt-1 break-words text-[15px] leading-snug text-threshold-ink">{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="flex-none rounded-lg px-2.5 py-1.5 text-[13.5px] font-medium text-threshold-ink underline underline-offset-4 hover:bg-threshold-soft"
+      >
+        Edit
+      </button>
+    </div>
   );
 }
 

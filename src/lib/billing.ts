@@ -150,6 +150,8 @@ export interface BillingProvider {
     name?: string;
     successUrl: string;
     cancelUrl: string;
+    /** Reuse this Stripe customer (a retried checkout) instead of creating a new one. */
+    existingCustomerId?: string;
   }): Promise<{ checkoutUrl: string; sessionId: string; customerId: string }>;
 
   /**
@@ -321,16 +323,22 @@ export class StripeBillingProvider implements BillingProvider {
     name?: string;
     successUrl: string;
     cancelUrl: string;
+    /** Reuse this Stripe customer (a retried checkout) instead of creating a new one. */
+    existingCustomerId?: string;
   }) {
     // Create the customer up front so we persist its id. Stripe Checkout
     // collects the card on its own page — required up front by default for
     // subscription-mode Checkout, even with a trial (no payment_method_
-    // collection override needed; Stripe's default is "always").
-    const customer = await this.stripe.customers.create({
-      email: args.email,
-      name: args.name,
-      metadata: { operatorId: args.operatorId },
-    });
+    // collection override needed; Stripe's default is "always"). A retried
+    // checkout (they backed out of Stripe and came back) reuses the customer
+    // from the first attempt instead of orphaning it.
+    const customer = args.existingCustomerId
+      ? { id: args.existingCustomerId }
+      : await this.stripe.customers.create({
+          email: args.email,
+          name: args.name,
+          metadata: { operatorId: args.operatorId },
+        });
 
     // A pre-made annual price id wins; else build a recurring price_data line.
     const priceId = process.env.STRIPE_FOUNDING_PRICE_ID;
@@ -524,6 +532,8 @@ export class FakeBillingProvider implements BillingProvider {
     name?: string;
     successUrl: string;
     cancelUrl: string;
+    /** Reuse this Stripe customer (a retried checkout) instead of creating a new one. */
+    existingCustomerId?: string;
   }) {
     // Offline: there's no Stripe-hosted page and no webhook. Route to a DEV-ONLY
     // confirm endpoint that stands in for both — it calls the same server-side

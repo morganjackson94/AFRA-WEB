@@ -192,6 +192,8 @@ export async function startFoundingCheckout(
     name: operator.name,
     successUrl: urls.successUrl,
     cancelUrl: urls.cancelUrl,
+    // Set when this is a retry (they backed out of Stripe the first time).
+    existingCustomerId: operator.stripeCustomerId ?? undefined,
   });
   await prisma.operator.update({
     where: { id: operatorId },
