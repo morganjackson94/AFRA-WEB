@@ -129,8 +129,10 @@ export interface BillingProvider {
 
   /**
    * Create a Stripe-HOSTED Checkout Session for the $4,788/yr subscription,
-   * with a trial (see TRIAL_DAYS_BACKSTOP) so nothing is charged until the
-   * trial ends. The operator enters their card on Stripe's page (required
+   * with a trial (see TRIAL_DAYS_BACKSTOP). $149 setup fee charged at
+   * checkout as a one-time line item; the $4,788/yr subscription first
+   * charges 3 days after the 20th screened candidate or at 60 days,
+   * whichever comes first. The operator enters their card on Stripe's page (required
    * up front — subscription-mode Checkout collects a payment method by
    * default even during a trial) — our code never sees raw card data.
    * Returns the hosted URL to redirect to, plus the session + customer ids
