@@ -104,7 +104,7 @@ const PROOF = {
   stat: 7,
   sub: "sandoitchi, Houston. 38 applicants. $0 in ads.",
   short: "sandoitchi: 7 hires in two weeks from one post and a story. $0 in ads.",
-  caption: "sandoitchi. One location.",
+  caption: "The post. sandoitchi, Houston, October 23.",
 };
 
 // Cost anchor — sits directly beside the annual price (docs/CLAIMS.md).
@@ -287,7 +287,7 @@ export default function LandingPage() {
           does. A real sequence, so the numbers carry information. */}
       <StepsSketch title="Three steps. Then it runs itself." steps={STEPS} note={STEPS_NOTE} />
 
-      {/* Proof — image-led asymmetric split: the real storefront on one side,
+      {/* Proof — image-led asymmetric split: the real Houston hiring post on one side,
           the one sourced number counting up on the other. Amber stays
           reserved for that numeral — the single accent this view carries. */}
       <section className={SECTION_DIVIDED}>
@@ -302,8 +302,8 @@ export default function LandingPage() {
           <figure>
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-line">
               <Image
-                src="/sandoitchi-storefront.jpg"
-                alt="sandoitchi storefront"
+                src="/sandoitchi-houston-post.jpg"
+                alt="sandoitchi's Houston hiring post on Instagram, with 100 comments, 6 reposts and 56 shares"
                 fill
                 sizes="(max-width: 768px) 100vw, 420px"
                 className="object-cover"
