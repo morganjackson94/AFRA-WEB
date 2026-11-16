@@ -302,7 +302,7 @@ export default function LandingPage() {
           <figure>
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-line">
               <Image
-                src="/sandoitchi-houston-post.jpg"
+                src="/sandoitchi-houston-post-v2.jpg"
                 alt="sandoitchi's Houston hiring post on Instagram, with 100 comments, 6 reposts and 56 shares"
                 fill
                 sizes="(max-width: 768px) 100vw, 420px"
