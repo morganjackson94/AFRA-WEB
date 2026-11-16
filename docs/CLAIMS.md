@@ -32,6 +32,8 @@ What changed, for every signup confirmed on or after this release:
   behind the daily job. If Stripe ever ends a trial first, `applyStripeStatus` refunds and cancels anyway.
 - **Canceling yourself before day 30** still doesn't refund the $149. The refund is for AFRA not delivering
   20, not a cancel-for-any-reason guarantee. Never call it a "money-back guarantee" without that scope.
+  The dashboard's cancel screen says so before they cancel: while the refund is still ahead, it tells
+  them waiting gets the $149 back automatically and canceling now doesn't (`guaranteeRefundStillAhead`).
 - **Legacy operators** (signed up before this release, `guaranteeEndsAt` null) keep their original 60-day
   trial and the 7-day "trial ending soon" email; nothing about their subscription is changed.
 - **Phone signups:** the Stripe Payment Link (`plink_1UEFYvDG3GjLuRJ6pvuZuArC`) still has a 60-day trial

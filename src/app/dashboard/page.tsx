@@ -9,8 +9,9 @@ import { SafeModeHandoff } from "../../components/SafeModeHandoff";
 import { SectionLabel } from "../../components/SectionLabel";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { OPERATOR_ONBOARDING_CALL_URL } from "../../lib/constants";
-import { describeBilling, describeReadiness } from "../../lib/dashboard";
+import { describeBilling, describeReadiness, guaranteeRefundStillAhead } from "../../lib/dashboard";
 import { prisma } from "../../lib/prisma";
+import { FREE_CANDIDATE_CAP } from "../../lib/billing";
 import { isBillingActive } from "../../lib/readiness";
 import { getQuestionSetForRole } from "../../lib/screeningQuestions";
 import { resolveOperatorId } from "../../lib/session";
@@ -117,12 +118,22 @@ export default async function DashboardPage({
   });
   const canCancel =
     operator.billingStatus !== "canceled" && operator.billingStatus !== "none" && !operator.subscriptionCancelAt;
+  // During a guarantee-era trial, say plainly that waiting gets the $149 back
+  // automatically and canceling now doesn't (docs/CLAIMS.md, 30-day guarantee).
+  const guaranteeStillOpen = guaranteeRefundStillAhead(operator);
+  const guaranteeDate = operator.guaranteeEndsAt?.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "America/Chicago",
+  });
   const cancelExplanation =
     operator.billingStatus === "active"
       ? "Your subscription won't renew. You keep full access until the end of the year you've paid for, with no partial refund."
-      : operator.billingStatus === "trialing"
-        ? "This ends your trial now. Nothing further is charged. Canceling yourself doesn't refund the $149 setup fee. The 30-day refund applies when your trial is still running on day 30 without 20 screened candidates."
-        : "This ends your subscription now.";
+      : guaranteeStillOpen
+        ? `You don't need to cancel to get your money back. If you're under ${FREE_CANDIDATE_CAP} screened candidates on ${guaranteeDate}, we refund your $149 and cancel for you automatically. If you cancel now, nothing further is charged, but the $149 isn't refunded.`
+        : operator.billingStatus === "trialing"
+          ? "This ends your trial now. Nothing further is charged. The $149 setup fee isn't refunded."
+          : "This ends your subscription now.";
   // isBillingActive (readiness.ts) is the SSOT predicate for "billing is in
   // a good state" — true for "trialing" as well as "active", since under the
   // trial model a successful checkout redirect lands on "trialing", not

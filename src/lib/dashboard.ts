@@ -174,3 +174,29 @@ export function describeBilling(
 export function hiringLinkFor(locationId: string, baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/apply?location_id=${encodeURIComponent(locationId)}`;
 }
+
+/**
+ * True while an operator in a guarantee-era trial would still get the $149
+ * back automatically by waiting (under the cap, deadline not yet passed, not
+ * already refunded). Drives the cancel screen's honest "you don't need to
+ * cancel" note. Same eligibility as honorGuarantee (activation.ts).
+ */
+export function guaranteeRefundStillAhead(
+  op: {
+    billingStatus: string;
+    guaranteeEndsAt: Date | null;
+    guaranteeRefundedAt: Date | null;
+    trialCapReachedAt: Date | null;
+    screenedCandidateCount: number;
+  },
+  now: Date = new Date(),
+): boolean {
+  return (
+    op.billingStatus === "trialing" &&
+    op.guaranteeEndsAt !== null &&
+    op.guaranteeEndsAt.getTime() > now.getTime() &&
+    !op.guaranteeRefundedAt &&
+    !op.trialCapReachedAt &&
+    op.screenedCandidateCount < FREE_CANDIDATE_CAP
+  );
+}
