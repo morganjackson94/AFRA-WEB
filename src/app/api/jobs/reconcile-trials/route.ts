@@ -1,4 +1,4 @@
-import { scheduleTrialEndForCandidateCap } from "../../../../lib/activation";
+import { honorGuarantee, scheduleTrialEndForCandidateCap } from "../../../../lib/activation";
 import { FREE_CANDIDATE_CAP, getBillingProvider } from "../../../../lib/billing";
 import { prisma } from "../../../../lib/prisma";
 
@@ -12,10 +12,11 @@ import { prisma } from "../../../../lib/prisma";
 // date (or, if the notice window has already passed, ends the trial now), and
 // the notice email has its own once-only claim.
 //
-// The 60-day backstop needs NO job of its own — Stripe's own
-// trial_period_days already ends that trial with zero app code, firing a
-// webhook straight into applyStripeStatus. This job only ever needs to act
-// on the OTHER trigger, the one this app itself initiates.
+// It also runs the 30-day guarantee (see GUARANTEE_DAYS, billing.ts): every
+// trialing operator past guaranteeEndsAt who never reached the cap gets the
+// $149 refunded and the subscription canceled (honorGuarantee, activation.ts).
+// The cap reconciliation runs FIRST, so an operator whose cap crossing just
+// failed to sync is handled as a cap, never refunded by mistake.
 //
 // Same shared-secret pattern as /api/jobs/run-scheduled-emails.
 
@@ -73,5 +74,33 @@ async function runJob(request: Request): Promise<Response> {
     }
   }
 
-  return Response.json({ ok: true, found: stuck.length, reconciled, errors });
+  const guaranteeDue = await prisma.operator.findMany({
+    where: {
+      plan: "founding_annual",
+      billingStatus: "trialing",
+      guaranteeEndsAt: { lte: new Date() },
+      guaranteeRefundedAt: null,
+      trialCapReachedAt: null,
+      screenedCandidateCount: { lt: FREE_CANDIDATE_CAP },
+    },
+    select: { id: true },
+  });
+  let refunded = 0;
+  for (const { id } of guaranteeDue) {
+    try {
+      const outcome = await honorGuarantee(prisma, billing, id);
+      if (outcome.honored) refunded++;
+    } catch (err) {
+      console.error(`[reconcile-trials] guarantee refund failed for operator ${id}:`, err);
+      errors.push(`guarantee ${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return Response.json({
+    ok: true,
+    found: stuck.length,
+    reconciled,
+    guarantee: { due: guaranteeDue.length, refunded },
+    errors,
+  });
 }

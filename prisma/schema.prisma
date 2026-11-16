@@ -218,6 +218,12 @@ model Operator {
   /// Idempotency claim for the "your trial ends in 3 days" email sent when
   /// the cap is reached (see sendTrialEndNoticeOnce, activation.ts).
   trialEndNoticeEmailSentAt DateTime?
+  // The 30-day guarantee (docs/CLAIMS.md): set once at checkout confirmation.
+  // If the candidate cap isn't reached by then, the $149 is refunded and the
+  // subscription canceled (honorGuarantee, activation.ts).
+  guaranteeEndsAt DateTime?
+  guaranteeRefundedAt DateTime?
+  guaranteeRefundEmailSentAt DateTime?
 
   /// The AE who closed this operator via a pre-filled setup link (an
   /// AE_ACCOUNTS key). Null for self-serve signups. Used for commission.

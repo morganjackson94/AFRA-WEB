@@ -1,6 +1,6 @@
 # AFRA Terms of Service
 
-**Effective Date:** September 14, 2026
+**Effective Date:** November 16, 2026
 
 These Terms of Service ("Terms") govern your access to and use of the AFRA software-as-a-service ("SaaS") platform and related services (collectively, the "Service") provided by AFRA Visibility, LLC ("AFRA," "we," "us," or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Service.
 
@@ -36,9 +36,11 @@ You acknowledge and agree that for the purposes of data protection laws, you are
 
 a. **Subscription Fee:** The Service is billed at a flat rate of $4,788 per year (approximately $399 per month), covering all of your locations.
 
-b. **Setup Fee:** A one-time setup fee of $149 is charged to your payment method at signup, when you complete checkout. The setup fee is separate from your subscription and from the free trial described in Section 5(c): it is charged immediately, whether or not you are in a trial, and it is non-refundable except where AFRA, in its sole discretion, agrees in writing to refund it.
+b. **Setup Fee:** A one-time setup fee of $149 is charged to your payment method at signup, when you complete checkout. The setup fee is separate from your subscription and from the free trial described in Section 5(c): it is charged immediately, whether or not you are in a trial. The setup fee is refunded under the 30-day guarantee in Section 5(c). Otherwise it is non-refundable, including if you cancel, except where AFRA, in its sole discretion, agrees in writing to refund it.
 
-c. **Free Trial:** New accounts begin with a free trial of the subscription: apart from the setup fee in Section 5(b), no subscription charge is made to your payment method until whichever comes first of (i) your account has had 20 candidates reach a "screened" status (a candidate who completes and passes your screening), or (ii) 60 days have passed since your trial began. Candidates who do not pass your screening do not count toward this limit. Once the trial ends, your subscription begins billing at the rate in Section 5(a) to the payment method on file, and renews each year until canceled (see Section 7).
+c. **Free Trial and 30-Day Guarantee:** New accounts begin with a free trial of the subscription: apart from the setup fee in Section 5(b), no subscription charge is made to your payment method until your account has had 20 candidates reach a "screened" status (a candidate who completes and passes your screening). Candidates who do not pass your screening do not count toward this limit. When your account reaches 20 screened candidates, we will email you, and your trial ends 3 days later. Your subscription then begins billing at the rate in Section 5(a) to the payment method on file, and renews each year until canceled (see Section 7).
+
+If your account has not reached 20 screened candidates within 30 days after your signup is completed, we will refund the $149 setup fee (and any other amount charged to you for the Service) to your original payment method and cancel your subscription, and you will owe nothing further. This happens automatically; you do not need to ask. Accounts that signed up before November 16, 2026 keep the trial terms they agreed to, under which the trial also ends after 60 days.
 
 d. **Payment Method Required:** A valid payment method is required to start your trial, in accordance with standard practice for trial subscriptions. Other than the setup fee charged at signup (Section 5(b)), you will not be charged during the trial itself.
 
@@ -48,7 +50,7 @@ f. **Taxes:** You are responsible for all applicable taxes associated with your 
 
 ## 6. No Subscription Charge Until Your Trial Ends
 
-Because no subscription charge is made during your free trial (Section 5(c)), there is no refund mechanism for the trial period itself. Instead, you may cancel at any time before the trial ends and your subscription will never be charged. The $149 setup fee charged at signup (Section 5(b)) is not affected by canceling during the trial. If you choose to continue past the trial, your subscription is billed annually and you may cancel at any time thereafter (Section 7(c)); canceling stops future renewal charges but does not refund the year already billed, and you keep access through the end of that year.
+Because no subscription charge is made during your free trial (Section 5(c)), you may cancel at any time before the trial ends and your subscription will never be charged. Canceling during the trial does not refund the $149 setup fee (Section 5(b)); it is refunded only under the 30-day guarantee in Section 5(c). If you choose to continue past the trial, your subscription is billed annually and you may cancel at any time thereafter (Section 7(c)); canceling stops future renewal charges but does not refund the year already billed, and you keep access through the end of that year.
 
 We aim to have every operator fully live — Instagram connected, screening questions active, and able to receive candidates — within 7 days of your trial starting. If that timeline is missed, contact morgan@afravisibility.com and we will work with you directly to resolve it.
 
@@ -58,7 +60,7 @@ a. **Recurring Billing:** Once your free trial ends (Section 5(c)), your subscri
 
 b. **Price Changes:** We may change our pricing over time. We will give you at least 30 days' written notice (by email) before any price change takes effect for your account.
 
-c. **Cancellation:** You may cancel your subscription at any time, either directly from your account dashboard or by contacting morgan@afravisibility.com. Canceling during your free trial means your subscription is never charged; the $149 setup fee already charged at signup (Section 5(b)) is not refunded by canceling.
+c. **Cancellation:** You may cancel your subscription at any time, either directly from your account dashboard or by contacting morgan@afravisibility.com. Canceling during your free trial means your subscription is never charged; the $149 setup fee already charged at signup (Section 5(b)) is not refunded by canceling, except under the 30-day guarantee in Section 5(c).
 
 Canceling after your trial has ended stops your subscription from renewing. It does not end your current billing period early. You retain full access to the Service through the end of the year you already paid for, and no further charges will occur after that. For example: if you cancel three months into a paid year, you are not charged again, but you keep full access to the Service for the remaining nine months already paid for; access ends, and the subscription fully terminates, only at the end of that twelve-month period. Canceling does not entitle you to a partial refund for the unused portion of a billing period.
 

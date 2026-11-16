@@ -59,7 +59,7 @@ export async function logWizardFunnelEventAction(
 // set a session. Then:
 //   founding (default — what the landing sells): provision WITHOUT the monthly-
 //     path trial below, then redirect to Stripe-hosted Checkout for the $4,788/yr
-//     subscription (first 20 screened candidates free, 60-day cap). Billing
+//     subscription (nothing more until 20 screened candidates; 30-day guarantee). Billing
 //     flips to "trialing" only on the webhook-confirmed checkout (gateBilling
 //     honest) — see confirmFoundingPayment/applyStripeStatus in activation.ts.
 //   monthly (kept intact): provision starts the $199/mo trial, land on dashboard.

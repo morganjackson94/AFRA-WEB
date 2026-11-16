@@ -1,12 +1,13 @@
 import type { PrismaClient } from "../generated/prisma/client";
 import type { BillingProvider } from "./billing";
-import { FREE_CANDIDATE_CAP, mapStripeStatus, TRIAL_CAP_NOTICE_HOURS, TRIAL_CAP_WARNING_AT } from "./billing";
+import { FREE_CANDIDATE_CAP, guaranteeDeadline, mapStripeStatus, TRIAL_CAP_NOTICE_HOURS, TRIAL_CAP_WARNING_AT } from "./billing";
 import type { CalendarProvider } from "./calendar";
 import type { ChannelProvider } from "./channel";
 import { createLoginToken } from "./auth";
 import { emitEvent } from "./events";
 import { OPERATOR_ONBOARDING_CALL_URL } from "./constants";
 import {
+  sendGuaranteeRefundEmail,
   sendHandoffEmail,
   sendTrialCapWarningEmail,
   sendTrialEndedEmail,
@@ -146,7 +147,7 @@ export async function startTrial(
   return { customerId, subscriptionId: sub.subscriptionId, billingStatus, recompute };
 }
 
-// --- Founding subscription ($4,788/yr, first 20 screened candidates free, 60-day cap) ----------
+// --- Founding subscription ($4,788/yr, nothing more until 20 screened candidates; 30-day guarantee) ----------
 
 /**
  * Real count of founding operators who have actually paid — the single
@@ -231,7 +232,7 @@ export async function startFoundingCheckout(
  * already-resolved subscription reconciles billingStatus but does not
  * re-trigger onboarding.
  *
- * The trial's own end (candidate cap or the 60-day backstop) is reconciled
+ * The trial's own end (candidate cap, or Stripe's own backstop) is reconciled
  * separately, in ONE shared place — applyStripeStatus below — not here.
  */
 export async function confirmFoundingPayment(
@@ -292,6 +293,9 @@ export async function confirmFoundingPayment(
       // guarded to only set it the first time regardless, so a delayed retry
       // can't push it out).
       ...(op.checkinEmailDueAt ? {} : { checkinEmailDueAt: new Date(Date.now() + CHECKIN_DELAY_MS) }),
+      // The 30-day guarantee clock (see GUARANTEE_DAYS, billing.ts). Set once,
+      // at the first genuine confirmation; a webhook retry never moves it.
+      ...(op.guaranteeEndsAt || billingStatus !== "trialing" ? {} : { guaranteeEndsAt: guaranteeDeadline(new Date()) }),
     },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
@@ -627,7 +631,7 @@ export type TrialEndedEmailOutcome =
  * shared reconciliation point for BOTH ways that trial can end: hitting the
  * candidate cap early (scheduleTrialEndForCandidateCap below moves Stripe's
  * trial_end TRIAL_CAP_NOTICE_HOURS out; when it arrives Stripe fires a
- * webhook that lands here) and Stripe's own natural 60-day backstop
+ * webhook that lands here) and Stripe's own natural trial end
  * (trial_period_days on the subscription — no app code triggers it, but it
  * fires the exact same customer.subscription.updated webhook, which also
  * lands here). Both causes are indistinguishable by the time they reach this
@@ -676,8 +680,115 @@ export async function applyStripeStatus(
     },
   });
   const recompute = await recomputeOperatorReadiness(prisma, operatorId);
+
+  // Safety net for the guarantee: Stripe's own trial (TRIAL_DAYS_BACKSTOP) is
+  // set a few days past the guarantee so the daily job normally gets there
+  // first. If it didn't, and the trial ended without the candidate cap ever
+  // being reached, the operator is owed the guarantee: refund everything
+  // (including the subscription charge Stripe just took) and cancel.
+  if (
+    justEndedTrial &&
+    operator.guaranteeEndsAt &&
+    !operator.trialCapReachedAt &&
+    operator.screenedCandidateCount < FREE_CANDIDATE_CAP
+  ) {
+    const guarantee = await honorGuarantee(prisma, billing, operatorId);
+    return { billingStatus: "canceled", recompute, trialEndedEmail: undefined, guarantee };
+  }
+
   const trialEndedEmail = justEndedTrial ? await sendTrialEndedEmailOnce(prisma, operatorId) : undefined;
   return { billingStatus, recompute, trialEndedEmail };
+}
+
+export type GuaranteeOutcome =
+  | { honored: false; reason: "not-eligible" | "already-honored" }
+  | { honored: true; refundedCents: number; email: "sent" | "stub" | "error" };
+
+/**
+ * The 30-day guarantee (see GUARANTEE_DAYS, billing.ts; docs/CLAIMS.md): the
+ * operator didn't reach FREE_CANDIDATE_CAP screened candidates by
+ * guaranteeEndsAt, so the $149 setup fee (and anything else charged) is
+ * refunded and the subscription is canceled now. Called by the daily job
+ * (/api/jobs/reconcile-trials) at the deadline, and by applyStripeStatus as a
+ * safety net if Stripe ended the trial first.
+ *
+ * Once-only: guaranteeRefundedAt is claimed before any money moves, under the
+ * same eligibility conditions, so a retry or a race can't refund twice (the
+ * Stripe refund itself is also idempotency-keyed per charge). If the refund
+ * call throws, the claim is released so the next run retries.
+ */
+export async function honorGuarantee(
+  prisma: PrismaClient,
+  billing: BillingProvider,
+  operatorId: string,
+): Promise<GuaranteeOutcome> {
+  const claim = await prisma.operator.updateMany({
+    where: {
+      id: operatorId,
+      guaranteeRefundedAt: null,
+      guaranteeEndsAt: { not: null },
+      trialCapReachedAt: null,
+      screenedCandidateCount: { lt: FREE_CANDIDATE_CAP },
+    },
+    data: { guaranteeRefundedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    const op = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    return { honored: false, reason: op.guaranteeRefundedAt ? "already-honored" : "not-eligible" };
+  }
+
+  const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+  let refundedCents = 0;
+  try {
+    if (operator.stripeSubscriptionId) {
+      const live = await billing.getSubscriptionStatus(operator.stripeSubscriptionId);
+      if (live.stripeStatus !== "canceled") {
+        await billing.cancelSubscription(operator.stripeSubscriptionId, { atPeriodEnd: false });
+      }
+    }
+    if (operator.stripeCustomerId) {
+      ({ refundedCents } = await billing.refundAllCharges(operator.stripeCustomerId));
+    }
+  } catch (err) {
+    await prisma.operator.update({ where: { id: operatorId }, data: { guaranteeRefundedAt: null } });
+    throw err;
+  }
+
+  await prisma.operator.update({
+    where: { id: operatorId },
+    data: { billingStatus: "canceled", subscriptionCancelAt: null, subscriptionRenewsAt: null },
+  });
+  await recomputeOperatorReadiness(prisma, operatorId);
+  console.log(`[guarantee] operator ${operatorId}: refunded ${refundedCents} cents, subscription canceled`);
+
+  const email = await sendGuaranteeRefundEmailOnce(prisma, operatorId, refundedCents);
+  return { honored: true, refundedCents, email };
+}
+
+async function sendGuaranteeRefundEmailOnce(
+  prisma: PrismaClient,
+  operatorId: string,
+  refundedCents: number,
+): Promise<"sent" | "stub" | "error"> {
+  const claim = await prisma.operator.updateMany({
+    where: { id: operatorId, guaranteeRefundEmailSentAt: null },
+    data: { guaranteeRefundEmailSentAt: new Date() },
+  });
+  if (claim.count === 0) return "sent";
+  try {
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } });
+    const result = await sendGuaranteeRefundEmail({
+      to: operator.email,
+      screened: operator.screenedCandidateCount,
+      cap: FREE_CANDIDATE_CAP,
+      refundedCents,
+    });
+    console.log(`[guarantee-refund-email] operator ${operatorId}: sent=${result.sent} stub=${result.stub ?? false}`);
+    return result.sent ? "sent" : result.stub ? "stub" : "error";
+  } catch (err) {
+    console.error(`[mail] guarantee refund email failed for operator ${operatorId}:`, err);
+    return "error";
+  }
 }
 
 export type TrialCapEmailOutcome =
@@ -690,7 +801,7 @@ export type ScheduleTrialEndOutcome =
       scheduled: true;
       trialEndsAt: Date;
       /** What was done to Stripe's trial_end on THIS call. "unchanged" on a
-       *  retry, or when the 60-day backstop already comes sooner. */
+       *  retry, or when Stripe's own trial end already comes sooner. */
       action: "set" | "unchanged" | "ended-now";
       notice: TrialCapEmailOutcome;
     };
@@ -702,13 +813,13 @@ export type ScheduleTrialEndOutcome =
  * the date, so the $4,788 never charges without warning. The charge itself,
  * billingStatus, trialEndedAt and the trial-ended email all still happen when
  * Stripe ends the trial and the webhook lands in applyStripeStatus — same
- * single reconciliation path as the 60-day backstop.
+ * single reconciliation path as Stripe's own trial end.
  *
  * Safe to call any number of times (ingest retries, the reconcile job):
  *  - trialCapReachedAt is claimed once and the target is derived from it, so
  *    a retry computes the SAME trial_end rather than pushing it later;
  *  - it never moves trial_end later than Stripe's current value, so the cap
- *    can only shorten a trial, never extend it past the 60-day backstop;
+ *    can only shorten a trial, never extend it past Stripe's own trial end;
  *  - the notice email has its own claim (sendTrialEndNoticeOnce).
  */
 export async function scheduleTrialEndForCandidateCap(
@@ -873,7 +984,7 @@ export async function sendTrialCapWarningOnce(
 /**
  * Fires the trial-ended email exactly once per operator, the moment
  * applyStripeStatus detects a trialing -> non-trialing transition (candidate
- * cap or the 60-day backstop — see that function's doc comment). Same
+ * cap, or Stripe's own trial end — see that function's doc comment). Same
  * claim-before-send idiom as sendWelcomeEmailOnce/sendLiveEmailOnce.
  */
 async function sendTrialEndedEmailOnce(

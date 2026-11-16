@@ -21,11 +21,12 @@ export const LEGAL_DOC_TITLES: Record<LegalDocId, string> = {
   candidateNotice: "Candidate Data Notice",
 };
 
-// The "Effective Date" shared by all three documents as of this writing. Bump
+// The latest legal "Effective Date" (Terms, November 16, 2026: 30-day
+// guarantee). The three documents' dates can differ; this is the newest. Bump
 // this (and re-check it still matches all three files) whenever the legal
 // docs are revised, so recorded consent (Operator.tosVersion) stays
 // distinguishable from what a later revision says.
-export const LEGAL_DOC_VERSION = "2026-09-14";
+export const LEGAL_DOC_VERSION = "2026-11-16";
 
 /** Reads a legal document's markdown source. Server-only (uses fs). */
 export function getLegalDocContent(id: LegalDocId): string {

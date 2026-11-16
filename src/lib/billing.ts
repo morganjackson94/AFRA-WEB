@@ -20,54 +20,45 @@ export const ANNUAL_PRICE_CENTS = 478800;
 // float the ManyChat Pro cost (~$39/mo) that's due before the operator's own
 // subscription generates revenue. The phone path already charges this via
 // Stripe Payment Link plink_1UDxwIDG3GjLuRJ6gzoujN7f (annual price + this fee
-// as a one-off + the same 60-day trial). createFoundingCheckout below must
+// as a one-off + a 60-day trial — that link predates the guarantee and must be
+// updated or retired in the Stripe dashboard). createFoundingCheckout below must
 // charge the identical $149 at checkout, live-mode price already exists as
 // product "AFRA — Setup" (price_1UDxvUDG3GjLuRJ6SN3jiBWQ) — reused via
 // STRIPE_SETUP_PRICE_ID, never recreated (see ensureSetupProductId, which
 // only auto-creates a stand-in product/price for the STRIPE_SETUP_PRICE_ID-
 // unset test-mode case, same fallback pattern as the annual price).
 export const SETUP_FEE_CENTS = 14900;
-// The trial: free until the operator has had this many candidates reach
-// "screened" or beyond (see Candidate.countedTowardTrial, incremented in
-// ingestScreeningResult, manychat.ts), or TRIAL_DAYS_BACKSTOP days pass,
-// whichever comes first. The 60-day backstop needs no app code of its own —
-// it's enforced by Stripe's own trial_period_days on the subscription
-// (createFoundingCheckout below); the candidate-cap trigger is the other,
-// app-driven way a trial can end: reaching the cap shortens the trial to
+// The guarantee (November 2026, replaces the 60-day backstop): nothing more is
+// charged until the operator has had this many candidates reach "screened" or
+// beyond (see Candidate.countedTowardTrial, incremented in
+// ingestScreeningResult, manychat.ts). Reaching the cap shortens the trial to
 // TRIAL_CAP_NOTICE_HOURS from that moment (setTrialEnd), so the operator gets
-// warning before the charge rather than being billed on the spot. Both converge on the same
-// Stripe event (customer.subscription.updated) and the same reconciliation
-// path (applyStripeStatus, activation.ts) — see docs/CLAIMS.md.
+// warning before the charge. If the cap ISN'T reached within GUARANTEE_DAYS of
+// signup, the $149 setup fee is refunded and the subscription is canceled
+// (honorGuarantee, activation.ts, run daily by /api/jobs/reconcile-trials) —
+// the subscription never charges. See docs/CLAIMS.md.
 export const FREE_CANDIDATE_CAP = 20;
-export const TRIAL_DAYS_BACKSTOP = 60;
+export const GUARANTEE_DAYS = 30;
+// Stripe's own trial length on the subscription. Deliberately a few days
+// LONGER than GUARANTEE_DAYS so the daily guarantee job always runs before
+// Stripe could end the trial on its own. If it somehow didn't (a multi-day
+// outage), applyStripeStatus refunds and cancels on the trial-ended webhook
+// instead (see honorGuarantee) — the operator is never kept on a charge the
+// guarantee says they don't owe.
+export const TRIAL_DAYS_BACKSTOP = GUARANTEE_DAYS + 3;
 // Notice between the FREE_CANDIDATE_CAP-th screened candidate and the
 // subscription starting (see scheduleTrialEndForCandidateCap, activation.ts).
-// Never extends a trial: if the 60-day backstop comes sooner, that stands.
+// Never extends a trial: if Stripe's own trial end comes sooner, that stands.
 export const TRIAL_CAP_NOTICE_HOURS = 72;
 // The screened-candidate count that triggers the "you're close" heads-up.
 export const TRIAL_CAP_WARNING_AT = 15;
-// How many days before the 60-day backstop the "trial ending soon" email
-// fires (see /api/jobs/run-scheduled-emails). Stripe's own
-// customer.subscription.trial_will_end webhook fires a fixed 3 days before
-// end and isn't configurable — inadequate notice for a $4,788 charge. This
-// is a genuinely separate, earlier communication, not a replacement.
-export const TRIAL_ENDING_SOON_DAYS_BEFORE = 7;
 // Renewal notice lead time for the annual subscription. Inside the 15-45 day
 // window some state auto-renewal laws require for terms of a year or longer.
 export const RENEWAL_NOTICE_DAYS_BEFORE = 30;
 
-/**
- * The single source of truth for "when does this trial hit its 60-day
- * backstop" — used by describeBilling() (dashboard display) and the
- * trial-ending-soon job (src/app/api/jobs/run-scheduled-emails) so both
- * derive the same date from the same formula rather than each computing it
- * independently and risking drift if TRIAL_DAYS_BACKSTOP ever changes.
- * Does NOT account for the candidate-cap trigger ending a trial early —
- * that's a real Stripe-side event (billingStatus leaves "trialing"), not a
- * date computable in advance; callers filter on billingStatus separately.
- */
-export function trialBackstopDate(trialStartedAt: Date): Date {
-  return new Date(trialStartedAt.getTime() + TRIAL_DAYS_BACKSTOP * 24 * 60 * 60 * 1000);
+/** The guarantee deadline for a signup confirmed at `signedUpAt`. */
+export function guaranteeDeadline(signedUpAt: Date): Date {
+  return new Date(signedUpAt.getTime() + GUARANTEE_DAYS * 24 * 60 * 60 * 1000);
 }
 // Internal capacity gate only — no longer a marketed "first N only" cohort
 // (that ended with the August 2026 repricing). Kept as an operational
@@ -168,7 +159,7 @@ export interface BillingProvider {
    * The trial->paid conversion pixel event (the real revenue signal) is a
    * deliberately descoped fast-follow — the existing "redirect to a page that
    * fires client-side fbq" pattern has no equivalent for an async webhook
-   * event (candidate cap or the 60-day backstop) with nobody on a page; the
+   * event (candidate cap or Stripe's own trial end) with nobody on a page; the
    * correct long-term fix is server-side Conversions API, not built here.
    */
   getCheckoutSessionAmount(sessionId: string): Promise<{ amountTotal: number; currency: string } | null>;
@@ -180,7 +171,7 @@ export interface BillingProvider {
    * catching a failure days late). Does nothing else: no DB writes, no email. The
    * resulting Stripe status change is picked up by the webhook and
    * reconciled in ONE shared place, applyStripeStatus (activation.ts), the
-   * same place the OTHER trial-end trigger (Stripe's own 60-day backstop)
+   * same place the OTHER trial-end trigger (Stripe's own trial end)
    * lands — so both causes always produce identical, non-duplicated effects.
    */
   endTrialNow(subscriptionId: string): Promise<{ stripeStatus: string }>;
@@ -192,6 +183,14 @@ export interface BillingProvider {
    * a date later than the current trial_end; this method doesn't check.
    */
   setTrialEnd(subscriptionId: string, trialEnd: number): Promise<{ stripeStatus: string; trialEnd: number | null }>;
+
+  /**
+   * The guarantee refund: refunds every succeeded, not-yet-refunded charge on
+   * this customer (the $149 setup fee, and the subscription charge too if
+   * Stripe somehow ended the trial first). Idempotent: already-refunded
+   * charges are skipped. Returns the total refunded, in cents.
+   */
+  refundAllCharges(customerId: string): Promise<{ refundedCents: number; refundIds: string[] }>;
 }
 
 // --- Real Stripe (test mode) -------------------------------------------------
@@ -377,12 +376,12 @@ export class StripeBillingProvider implements BillingProvider {
       // (afravisibility.com/terms-of-service) — required for this to work.
       // Matches the phone-signup Payment Link, which already collects this.
       consent_collection: { terms_of_service: "required" },
-      // Stripe's own summary only shows "60 days free" — it knows nothing of
-      // the candidate cap, which shortens the trial in app code. State both
-      // triggers on the payment page (wording per docs/CLAIMS.md).
+      // Stripe's own summary only shows "N days free" — it knows nothing of
+      // the candidate cap or the guarantee, which app code enforces. State
+      // the real terms on the payment page (wording per docs/CLAIMS.md).
       custom_text: {
         submit: {
-          message: `Your subscription starts ${Math.round(TRIAL_CAP_NOTICE_HOURS / 24)} days after your ${FREE_CANDIDATE_CAP}th screened candidate, or at ${TRIAL_DAYS_BACKSTOP} days, whichever comes first.`,
+          message: `Nothing else charges until we've screened ${FREE_CANDIDATE_CAP} applicants for you. Your subscription starts ${Math.round(TRIAL_CAP_NOTICE_HOURS / 24)} days after the ${FREE_CANDIDATE_CAP}th. If we can't get you ${FREE_CANDIDATE_CAP} in the first ${GUARANTEE_DAYS} days, we refund the $149 and cancel, and you owe nothing.`,
         },
       },
       subscription_data: {
@@ -434,6 +433,24 @@ export class StripeBillingProvider implements BillingProvider {
       proration_behavior: "none",
     });
     return { stripeStatus: sub.status, trialEnd: sub.trial_end };
+  }
+
+  async refundAllCharges(customerId: string) {
+    const refundIds: string[] = [];
+    let refundedCents = 0;
+    for await (const charge of this.stripe.charges.list({ customer: customerId, limit: 100 })) {
+      if (charge.status !== "succeeded" || charge.refunded) continue;
+      const remaining = charge.amount - charge.amount_refunded;
+      if (remaining <= 0) continue;
+      const refund = await this.stripe.refunds.create(
+        { charge: charge.id, reason: "requested_by_customer", metadata: { reason: "afra-guarantee" } },
+        // One refund per charge, even if this runs twice.
+        { idempotencyKey: `afra-guarantee-${charge.id}` },
+      );
+      refundIds.push(refund.id);
+      refundedCents += refund.amount;
+    }
+    return { refundedCents, refundIds };
   }
 }
 
@@ -494,7 +511,7 @@ export class FakeBillingProvider implements BillingProvider {
 
   /** Test-only: seed a subscription's tracked status directly, for smoke
    *  scripts simulating a Stripe-side change that didn't happen via any other
-   *  method on this class (e.g. dunning, or the natural 60-day backstop with
+   *  method on this class (e.g. dunning, or Stripe's natural trial end with
    *  no app-initiated endTrialNow call) — exercises applyStripeStatus's
    *  re-fetch-before-write behavior against a status this fake wouldn't
    *  otherwise know about. Not part of BillingProvider; real Stripe has no
@@ -519,6 +536,15 @@ export class FakeBillingProvider implements BillingProvider {
   async setTrialEnd(subscriptionId: string, trialEnd: number) {
     this.trialEnds.set(subscriptionId, trialEnd);
     return { stripeStatus: this.statuses.get(subscriptionId) ?? "trialing", trialEnd };
+  }
+
+  private refunded = new Set<string>();
+
+  async refundAllCharges(customerId: string) {
+    // Fake mode: the only charge is the setup fee taken at checkout.
+    if (this.refunded.has(customerId)) return { refundedCents: 0, refundIds: [] };
+    this.refunded.add(customerId);
+    return { refundedCents: SETUP_FEE_CENTS, refundIds: [`re_fake_${customerId}`] };
   }
 
   /** Test-only: seed the subscription's trial_end (unix seconds). */

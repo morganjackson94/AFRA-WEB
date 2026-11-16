@@ -21,7 +21,7 @@ import { startFoundingCheckout } from "../src/lib/activation";
 // FREE_CANDIDATE_CAP moves trial_end to TRIAL_CAP_NOTICE_HOURS out (observed
 // via the fake billing provider) and claims the trial-end notice exactly once
 // — never ending the trial on the spot, never re-scheduling on retry, never
-// extending a trial whose 60-day backstop comes sooner.
+// extending a trial whose Stripe trial end comes sooner.
 
 // Same pattern as checkin-job-smoke.ts: the jobs route needs a secret to run.
 process.env.JOBS_ADMIN_SECRET ??= "smoke-test-secret";
@@ -135,7 +135,7 @@ async function main() {
     return { id: o.id, sub };
   };
 
-  console.log("\n6) The 60-day backstop comes sooner than cap + 72h: never extended, and no repeat of the 7-day email:");
+  console.log("\n6) Stripe's own trial end comes sooner than cap + 72h: never extended, and no repeat of the 7-day email:");
   const soon = await edgeOperator("soon");
   const backstop = Math.floor(Date.now() / 1000) + 24 * 3600;
   if (billing instanceof FakeBillingProvider) billing.setTrialEndForTest(soon.sub, backstop);
@@ -164,12 +164,14 @@ async function main() {
   assert(!pastWarn.sent && pastWarn.reason === "not-eligible", "heads-up refused once the cap is reached");
   await prisma.operator.delete({ where: { id: past.id } });
 
-  console.log("\n8b) The 7-day 'trial ending soon' job skips an operator who already reached the cap:");
+  // Both are LEGACY (pre-guarantee) operators: guaranteeEndsAt null. New
+  // signups never get the 7-day email (no day-60 clock).
+  console.log("\n8b) The legacy 7-day 'trial ending soon' job skips an operator who already reached the cap:");
   const capped = await edgeOperator("capped7d");
   const uncapped = await edgeOperator("uncapped7d");
   const day55 = new Date(Date.now() - 55 * 24 * 3600 * 1000);
-  await prisma.operator.update({ where: { id: capped.id }, data: { createdAt: day55, screenedCandidateCount: FREE_CANDIDATE_CAP, trialCapReachedAt: new Date() } });
-  await prisma.operator.update({ where: { id: uncapped.id }, data: { createdAt: day55 } });
+  await prisma.operator.update({ where: { id: capped.id }, data: { createdAt: day55, screenedCandidateCount: FREE_CANDIDATE_CAP, trialCapReachedAt: new Date(), guaranteeEndsAt: null } });
+  await prisma.operator.update({ where: { id: uncapped.id }, data: { createdAt: day55, guaranteeEndsAt: null } });
   const { POST } = await import("../src/app/api/jobs/run-scheduled-emails/route");
   const jobRes = await POST(new Request("http://localhost:3000/api/jobs/run-scheduled-emails", {
     method: "POST",
@@ -181,6 +183,19 @@ async function main() {
   assert(cappedAfter.trialEndingSoonEmailSentAt === null, "capped operator: no 7-day email (it would carry the stale day-60 date)");
   assert(uncappedAfter.trialEndingSoonEmailSentAt !== null, "uncapped operator at day 55: 7-day email claimed as before");
   await prisma.operator.deleteMany({ where: { id: { in: [capped.id, uncapped.id] } } });
+
+  console.log("\n8c) A guarantee-era operator at day 55 never gets the legacy 7-day email:");
+  const modern = await edgeOperator("modern7d");
+  const modernBefore = await prisma.operator.findUniqueOrThrow({ where: { id: modern.id } });
+  assert(modernBefore.guaranteeEndsAt !== null, "confirmFoundingPayment set guaranteeEndsAt");
+  await prisma.operator.update({ where: { id: modern.id }, data: { createdAt: day55 } });
+  await POST(new Request("http://localhost:3000/api/jobs/run-scheduled-emails", {
+    method: "POST",
+    headers: { "x-admin-secret": process.env.JOBS_ADMIN_SECRET! },
+  }));
+  const modernAfter = await prisma.operator.findUniqueOrThrow({ where: { id: modern.id } });
+  assert(modernAfter.trialEndingSoonEmailSentAt === null, "guarantee-era operator: no 7-day email");
+  await prisma.operator.delete({ where: { id: modern.id } });
 
   console.log("\n9) Duplicate delivery: re-ingesting an ALREADY-counted candidate must not double-count:");
   const beforeCount = op.screenedCandidateCount;

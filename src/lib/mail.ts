@@ -73,7 +73,7 @@ export async function sendWelcomeAwaitingSetupEmail(
 
 You're in. Welcome to AFRA.
 
-$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year (about $399 a month), every location included.
+$149 was charged today for your setup. Nothing else is charged until we've screened 20 candidates for you. If we can't get you 20 in the first 30 days, we refund the $149 and cancel, and you owe nothing. Once you have your 20, it's $4,788 a year (about $399 a month), every location included.
 
 We're building your setup now. One thing to do: book your ten-minute call.
 
@@ -97,7 +97,7 @@ Dallas, TX`;
   const html = `
     <p>Hi there,</p>
     <p>You're in. Welcome to AFRA.</p>
-    <p>$149 was charged today for your setup. Nothing else is charged until you've had 20 screened candidates or 60 days go by, whichever comes first. After that it's $4,788 a year (about $399 a month), every location included.</p>
+    <p>$149 was charged today for your setup. Nothing else is charged until we've screened 20 candidates for you. If we can't get you 20 in the first 30 days, we refund the $149 and cancel, and you owe nothing. Once you have your 20, it's $4,788 a year (about $399 a month), every location included.</p>
     <p><strong>We're building your setup now. One thing to do: book your ten-minute call.</strong></p>
     <p><a href="${args.bookingUrl}">${args.bookingUrl}</a></p>
     <p>On that call you connect your Instagram (you log into Facebook and click yes) and watch a test candidate land in your spreadsheet. That's the whole call.</p>
@@ -233,8 +233,8 @@ Dallas, TX`;
 /**
  * Sent once, by sendTrialEndedEmailOnce (activation.ts), the moment
  * applyStripeStatus detects the operator's subscription has left "trialing"
- * — whichever of the two causes triggered it (hit the 20-candidate cap early,
- * or the 60-day backstop passed). The operator has just had their first real
+ * — 3 days after the 20th screened candidate (or, for accounts that signed
+ * up before the 30-day guarantee, when their 60-day trial ran out). The operator has just had their first real
  * charge; this is the honest "billing has started" moment, not a surprise.
  */
 export async function sendTrialEndedEmail(
@@ -243,7 +243,7 @@ export async function sendTrialEndedEmail(
   const subject = "Your trial's ended. You're on $4,788/year.";
   const text = `Hi there,
 
-Your trial has ended, either 3 days after your 20th screened candidate or because your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
+Your trial has ended. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.
 
 You can cancel any time from your dashboard: ${args.dashboardUrl} (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.
 
@@ -255,7 +255,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>Your trial has ended, either 3 days after your 20th screened candidate or because your 60 days ran out. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
+    <p>Your trial has ended. You're now on the standard $4,788/year plan (about $399/month), billed to the card on file.</p>
     <p>You can cancel any time from your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password). Canceling stops future renewals; it doesn't refund the year already charged.</p>
     <p>Reply any time. This comes straight to me.</p>
     <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
@@ -265,10 +265,10 @@ Dallas, TX`;
 }
 
 /**
- * Sent once, by /api/jobs/run-scheduled-emails, TRIAL_ENDING_SOON_DAYS_BEFORE
- * days before the trial's 60-day backstop (see billing.ts's
- * trialBackstopDate() — the same date describeBilling derives for dashboard
- * display, so there's one source of truth for when the trial ends). Exists
+ * LEGACY: only for accounts that signed up before the 30-day guarantee and are
+ * still on the old 60-day trial (guaranteeEndsAt null). Sent once, by
+ * /api/jobs/run-scheduled-emails, LEGACY_TRIAL_ENDING_SOON_DAYS_BEFORE days
+ * before day 60. Exists
  * because Stripe's own customer.subscription.trial_will_end fires a fixed 3
  * days out and isn't configurable — inadequate notice for a $4,788 charge.
  * daysRemaining is computed fresh at send time rather than hardcoded to
@@ -319,7 +319,7 @@ export async function sendTrialCapWarningEmail(
   const subject = `You've screened ${args.used} of your ${args.cap} trial candidates`;
   const text = `Hi there,
 
-A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If your 60 days run out first, the trial ends then.)
+A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If you don't reach ${args.cap} within 30 days of signing up, we refund your $149 and cancel instead, and you owe nothing.)
 
 If everything's working the way you want, there's nothing to do. If it's not, cancel from your dashboard before your trial ends and you won't be charged the $4,788.
 
@@ -333,7 +333,7 @@ Dallas, TX`;
 
   const html = `
     <p>Hi there,</p>
-    <p>A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If your 60 days run out first, the trial ends then.)</p>
+    <p>A heads-up: AFRA has screened ${args.used} candidates for you so far. When you reach ${args.cap}, your trial ends ${args.noticeDays} days later and we'll charge $4,788 for the year (about $399/month, every location included) to the card on file. We'll email you the exact date the moment you hit ${args.cap}. (If you don't reach ${args.cap} within 30 days of signing up, we refund your $149 and cancel instead, and you owe nothing.)</p>
     <p>If everything's working the way you want, there's nothing to do. If it's not, cancel from your dashboard before your trial ends and you won't be charged the $4,788.</p>
     <p>Your dashboard: <a href="${args.dashboardUrl}">${args.dashboardUrl}</a> (sign in with this email address, one-time link, no password).</p>
     <p>Reply any time. This comes straight to me.</p>
@@ -429,6 +429,37 @@ function esc(v: string): string {
  * and a link to the setup checker. Goes to FULFILLMENT_EMAIL (falls back to
  * CONTACT_EMAIL). Never sent to the operator.
  */
+/**
+ * The 30-day guarantee was honored (see honorGuarantee, activation.ts): the
+ * operator didn't reach 20 screened candidates in 30 days, so the $149 (and
+ * anything else charged) was refunded and the subscription canceled.
+ */
+export async function sendGuaranteeRefundEmail(
+  args: { to: string; screened: number; cap: number; refundedCents: number },
+): Promise<SendResult> {
+  const amount = `$${(args.refundedCents / 100).toFixed(2).replace(/\.00$/, "")}`;
+  const subject = "We've refunded your $149.";
+  const text = `Hi there,
+
+We promised ${args.cap} screened candidates in your first 30 days. We got you ${args.screened}, so we kept our word: we've refunded ${amount} to your card and canceled your AFRA subscription. Nothing else will be charged.
+
+Refunds usually show up on your statement in 5 to 10 business days.
+
+If you'd like to try again later, just reply. This comes straight to me.
+
+Morgan
+AFRA Visibility
+Dallas, TX`;
+  const html = `
+    <p>Hi there,</p>
+    <p>We promised ${args.cap} screened candidates in your first 30 days. We got you ${args.screened}, so we kept our word: we've refunded ${amount} to your card and canceled your AFRA subscription. Nothing else will be charged.</p>
+    <p>Refunds usually show up on your statement in 5 to 10 business days.</p>
+    <p>If you'd like to try again later, just reply. This comes straight to me.</p>
+    <p>Morgan<br/>AFRA Visibility<br/>Dallas, TX</p>
+  `;
+  return sendViaResend({ to: args.to, subject, html, text, replyTo: CONTACT_EMAIL });
+}
+
 export async function sendHandoffEmail(args: {
   to?: string;
   businessName: string;

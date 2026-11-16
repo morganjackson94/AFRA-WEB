@@ -3,7 +3,7 @@
 // does NOT recompute gates. Its whole job is to turn that honest state into copy
 // without blurring "ready" (configured, NOT accepting applicants) into "live".
 
-import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP, trialBackstopDate } from "./billing";
+import { ANNUAL_PRICE_CENTS, FREE_CANDIDATE_CAP } from "./billing";
 
 const ANNUAL_PRICE_DISPLAY = `$${(ANNUAL_PRICE_CENTS / 100).toLocaleString("en-US")}`; // $4,788
 const MONTHLY_EQUIVALENT_DISPLAY = `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`; // $399
@@ -93,9 +93,11 @@ export function describeBilling(
   plan: string = "monthly",
   extra?: {
     screenedCandidateCount?: number;
-    trialStartedAt?: Date;
     trialEndsAt?: Date | null;
     subscriptionCancelAt?: Date | null;
+    /** 30-day guarantee deadline (null for pre-guarantee signups). */
+    guaranteeEndsAt?: Date | null;
+    guaranteeRefundedAt?: Date | null;
   },
 ): { label: string; detail: string } {
   if (plan === "founding_annual") {
@@ -109,18 +111,18 @@ export function describeBilling(
             detail: `You've reached ${FREE_CANDIDATE_CAP} screened candidates. Your trial ends ${endsOn}, then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month). Cancel before then and you won't be charged.`,
           };
         }
-        const startedAt = extra?.trialStartedAt;
-        const byDate = startedAt
-          ? trialBackstopDate(startedAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })
-          : null;
+        const deadline = extra?.guaranteeEndsAt;
+        if (deadline) {
+          const byDate = deadline.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          return {
+            label: "Trial",
+            detail: `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th. If you don't reach ${FREE_CANDIDATE_CAP} by ${byDate}, we refund your $149 and cancel. Once you have your ${FREE_CANDIDATE_CAP}, it's ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
+          };
+        }
+        // Pre-guarantee signups: still on the original 60-day trial.
         return {
           label: "Trial",
-          detail: byDate
-            ? `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th, or ${byDate}, whichever comes first. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`
-            : `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th, or 60 days, whichever comes first. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
+          detail: `${used} of ${FREE_CANDIDATE_CAP} screened candidates. Nothing more is charged until 3 days after your ${FREE_CANDIDATE_CAP}th, or the end of your 60-day trial, whichever comes first. Then ${ANNUAL_PRICE_DISPLAY}/year (about ${MONTHLY_EQUIVALENT_DISPLAY}/month).`,
         };
       }
       case "active":
@@ -141,6 +143,12 @@ export function describeBilling(
       case "trial_pending":
         return { label: "Payment pending", detail: "Complete checkout ($149 setup fee, charged today) to start your trial." };
       case "canceled":
+        if (extra?.guaranteeRefundedAt) {
+          return {
+            label: "Refunded",
+            detail: `We didn't reach ${FREE_CANDIDATE_CAP} screened candidates in 30 days, so we refunded your $149 and canceled. Nothing else will be charged.`,
+          };
+        }
         return { label: "Canceled", detail: "Your subscription has been canceled." };
       default:
         return { label: "No plan", detail: "No active subscription." };
@@ -165,4 +173,30 @@ export function describeBilling(
 /** Location-scoped hiring link. MUST carry location_id so routing works later. */
 export function hiringLinkFor(locationId: string, baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/apply?location_id=${encodeURIComponent(locationId)}`;
+}
+
+/**
+ * True while an operator in a guarantee-era trial would still get the $149
+ * back automatically by waiting (under the cap, deadline not yet passed, not
+ * already refunded). Drives the cancel screen's honest "you don't need to
+ * cancel" note. Same eligibility as honorGuarantee (activation.ts).
+ */
+export function guaranteeRefundStillAhead(
+  op: {
+    billingStatus: string;
+    guaranteeEndsAt: Date | null;
+    guaranteeRefundedAt: Date | null;
+    trialCapReachedAt: Date | null;
+    screenedCandidateCount: number;
+  },
+  now: Date = new Date(),
+): boolean {
+  return (
+    op.billingStatus === "trialing" &&
+    op.guaranteeEndsAt !== null &&
+    op.guaranteeEndsAt.getTime() > now.getTime() &&
+    !op.guaranteeRefundedAt &&
+    !op.trialCapReachedAt &&
+    op.screenedCandidateCount < FREE_CANDIDATE_CAP
+  );
 }

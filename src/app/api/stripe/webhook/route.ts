@@ -107,8 +107,8 @@ export async function POST(request: Request): Promise<Response> {
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      // This is also where a trial's end (candidate cap or the 60-day
-      // backstop) gets reconciled — applyStripeStatus handles both causes
+      // This is also where a trial's end (candidate cap, or Stripe's own
+      // trial end) gets reconciled — applyStripeStatus handles both causes
       // identically. See its doc comment in activation.ts.
       const sub = event.data.object as Stripe.Subscription;
       const operatorId =

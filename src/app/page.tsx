@@ -18,8 +18,8 @@ import {
   ANNUAL_PRICE_CENTS,
   FREE_CANDIDATE_CAP,
   SETUP_FEE_CENTS,
+  GUARANTEE_DAYS,
   TRIAL_CAP_NOTICE_HOURS,
-  TRIAL_DAYS_BACKSTOP,
 } from "../lib/billing";
 import { CONTACT_EMAIL } from "../lib/constants";
 import { getLegalDocContent } from "../lib/legalDocs";
@@ -30,8 +30,8 @@ const SECTION_DIVIDED = `${SECTION} border-t border-line py-24 md:py-32`;
 
 // Standing annual price (see docs/CLAIMS.md, entry dated 2026-09 reversing
 // the prior ban on annual framing). $399/mo was a real subscription too — a
-// genuine free trial (FREE_CANDIDATE_CAP screened candidates, up to
-// TRIAL_DAYS_BACKSTOP days) needs a subscription, not a one-time charge,
+// genuine free trial (nothing more until FREE_CANDIDATE_CAP screened
+// candidates; GUARANTEE_DAYS refund if not reached) needs a subscription, not a one-time charge,
 // regardless of interval — so switching the interval to annual doesn't
 // disturb the trial mechanism at all. Approved framing keeps the monthly
 // figure as an anchor: "$4,788/year — about $399/month" — so both are
@@ -41,7 +41,7 @@ const PRICING = {
   priceMonthlyEquivalent: `$${Math.round(ANNUAL_PRICE_CENTS / 12 / 100)}`, // $399
   setupFee: `$${SETUP_FEE_CENTS / 100}`, // $149
   freeCandidateCap: FREE_CANDIDATE_CAP,
-  trialDaysBackstop: TRIAL_DAYS_BACKSTOP,
+  guaranteeDays: GUARANTEE_DAYS, // 30
   capNoticeDays: Math.round(TRIAL_CAP_NOTICE_HOURS / 24), // 3
 };
 
@@ -98,11 +98,13 @@ const FEATURES = {
 // described as "qualified", never rendered as a percentage, and no retention
 // claims ("stayed", "retained") in public copy. Every line ending in "*" needs
 // FOOTNOTE on the same page.
+// November 2026: Houston figures (docs/CLAIMS.md, Proof row), replacing the
+// Dallas pilot's 58/4/3. Leads with hires, the strongest number.
 const PROOF = {
-  stat: 58,
-  sub: "sandoitchi, Dallas. $0 in ads. ~$4,000 in value.*",
-  short: "sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads.",
-  caption: "sandoitchi, Dallas. One location.",
+  stat: 7,
+  sub: "sandoitchi, Houston. 38 applicants. $0 in ads.",
+  short: "sandoitchi: 7 hires in two weeks from one post and a story. $0 in ads.",
+  caption: "sandoitchi. One location.",
 };
 
 // Cost anchor — sits directly beside the annual price (docs/CLAIMS.md).
@@ -138,14 +140,14 @@ const STEPS_NOTE =
 const FAQ: { q: string; a: string | string[] }[] = [
   { q: "Do I need to run ads?", a: "No. It works with the Instagram posts you already make: comment-to-apply, link in bio, or a QR in your window." },
   { q: "How fast can I actually fill a shift?", a: "As fast as good applicants reply. AFRA answers them instantly, and candidates can book their interview the same day, so you're not waiting days to fill the floor." },
-  { q: "What if it doesn't work for me?", a: "Your first 20 screened candidates are free, for up to 60 days. If it's not working, cancel any time before then and nothing further is owed beyond the $149 setup fee charged at signup. The $4,788/year subscription only starts once your trial ends." },
+  { q: "What if it doesn't work for me?", a: "Nothing more is charged until we've screened 20 candidates for you. If we can't get you 20 in your first 30 days, we refund the $149 and cancel, and you owe nothing. You can also cancel any time before your 20th; nothing further is owed beyond the $149 setup fee." },
   { q: "How does follow-up work?", a: "AFRA replies to every applicant instantly and runs your screening questions on its own. It doesn't send reminders or chase candidates for you. To follow up with someone, message them in the same Instagram chat, where the whole conversation already is." },
   { q: "How long does setup take?", a: "Setup takes about a minute: connect Instagram, pick your role and calendar. You're live within 7 days." },
   { q: "How do applicants start the conversation?", a: "They comment or message a keyword on your hiring post. We set it up for you, so there's nothing to configure. If you want a specific word, just ask and we'll change it." },
   { q: "I run several locations. How does that work?", a: "Your plan covers all of them. Each location gets its own hiring link and its own pipeline, so applicants land in the right place." },
   { q: "Do I need to connect this to my POS or scheduling system?", a: "No. AFRA works alongside whatever you already use. Candidates and interviews live in your dashboard and your calendar. There is nothing to integrate." },
   { q: "What counts as a candidate?", a: "Someone who completes your screening and passes it. Applicants who don't meet your bar don't count against your free 20." },
-  { q: "What happens after my trial?", a: "Three days after your 20th screened candidate, or at 60 days, whichever comes first, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time. Canceling during the trial means nothing further is owed beyond the $149 setup fee charged at signup. Canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
+  { q: "What happens after my trial?", a: "Three days after your 20th screened candidate, billing starts at $4,788/year (about $399/month) on the card you added at signup. You can cancel any time. Canceling during the trial means nothing further is owed beyond the $149 setup fee charged at signup. Canceling after means you're not renewed the following year, and you keep access through the year you paid for." },
   { q: "How does billing work?", a: "A one-time $149 setup fee is charged at signup. Once your trial ends, it's $4,788/year (about $399/month), covering every location, billed to the card on file each year until you cancel. One flat rate, no per-location fees. Cancel any time from your dashboard. After the trial, canceling stops the next renewal but doesn't refund the year already paid for, and you keep access through the end of that year." },
   {
     q: "What exactly do I get?",
@@ -301,7 +303,7 @@ export default function LandingPage() {
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-line">
               <Image
                 src="/sandoitchi-storefront.jpg"
-                alt="sandoitchi storefront, Dallas"
+                alt="sandoitchi storefront"
                 fill
                 sizes="(max-width: 768px) 100vw, 420px"
                 className="object-cover"
@@ -311,10 +313,9 @@ export default function LandingPage() {
           </figure>
 
           <div className="md:pt-2">
-            {/* "58" keeps the counting amber numeral as the view's one accent. */}
+            {/* The hires count keeps the counting amber numeral as the view's one accent. */}
             <p className="font-display text-[clamp(2.25rem,4.6vw,3.5rem)] font-medium leading-[1.06] tracking-[-0.01em] text-ink [text-wrap:balance]">
-              One Instagram story. <CountUp to={PROOF.stat} className="text-accent" /> applicants. 4 hires.
-              3 days.
+              <CountUp to={PROOF.stat} className="text-accent" /> hires in two weeks. One post and a story.
             </p>
             <p className="mt-5 max-w-[38ch] text-[17px] leading-relaxed text-ink-soft">{PROOF.sub}</p>
 
@@ -415,15 +416,14 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[560px] rounded-[24px] border border-line-strong bg-card p-5 sm:p-10">
             <p className="t-label mb-4">Pricing</p>
             <h2 className="text-[2rem] leading-[1.08] tracking-[-0.01em] text-ink [font-family:var(--font-display)] [font-weight:500] [text-wrap:balance] sm:text-[2.5rem]">
-              {PRICING.setupFee} to set up. Nothing more until {PRICING.freeCandidateCap} candidates or{" "}
-              {PRICING.trialDaysBackstop} days.
+              {PRICING.setupFee} to set up. Nothing more until {PRICING.freeCandidateCap} screened candidates.
             </h2>
 
             <div className="mt-8">
               <CTA id="pricing" size="lg" full label={`Start setup · ${PRICING.setupFee}`} />
             </div>
             <p className="mt-3 text-[13px] leading-snug text-ink-soft">
-              {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month), starting ${PRICING.capNoticeDays} days after your ${PRICING.freeCandidateCap}th screened candidate or at ${PRICING.trialDaysBackstop} days, whichever comes first. Cancel before then, pay nothing more. Card required.`}
+              {`Then ${PRICING.priceAnnual}/year (about ${PRICING.priceMonthlyEquivalent}/month), starting ${PRICING.capNoticeDays} days after your ${PRICING.freeCandidateCap}th screened candidate. No ${PRICING.freeCandidateCap} in your first ${PRICING.guaranteeDays} days? We refund the ${PRICING.setupFee} and cancel. Card required.`}
             </p>
             {/* Setup-fee disclosure, directly under the price (docs/CLAIMS.md,
                 Billing disclosure): any copy naming the price or trial states
