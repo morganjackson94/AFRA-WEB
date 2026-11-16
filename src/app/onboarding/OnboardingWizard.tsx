@@ -793,7 +793,7 @@ export function OnboardingWizard({
                 <Reveal delay={200}>
                   <p className="mb-8 text-[16px] leading-relaxed text-threshold-ink-soft">
                     The $149 is charged at checkout and covers your build. After that it&apos;s one flat
-                    rate, starting 3 days after your 20th screened candidate or at 60 days, whichever comes first. A few
+                    rate, starting 3 days after your 20th screened candidate. No 20 in your first 30 days, and we refund the $149. A few
                     more questions and you&apos;re done.
                   </p>
                 </Reveal>
@@ -808,8 +808,8 @@ export function OnboardingWizard({
                   <ul className="space-y-3">
                     {[
                       "$149 one-time setup, then a flat $4,788/year (about $399/mo), every location covered",
-                      "Nothing more until 3 days after your 20th screened candidate or 60 days, whichever comes first",
-                      "Cancel before then and you won't pay more than the $149",
+                      "Nothing more until 3 days after your 20th screened candidate",
+                      "No 20 screened candidates in your first 30 days? We refund the $149 and cancel",
                     ].map((line) => (
                       <li key={line} className="flex items-start gap-2.5 text-[15px] text-threshold-ink-soft">
                         <Check className="mt-0.5 size-[16px] flex-none text-accent" />
@@ -1110,7 +1110,7 @@ export function OnboardingWizard({
               <Check className="mt-0.5 size-3.5 flex-none text-accent" />
               <span>
                 $149 setup fee charged today. Your $4,788/year subscription starts 3 days after your 20th screened
-                candidate, or at 60 days, whichever comes first.
+                candidate. No 20 in 30 days: we refund the $149.
               </span>
             </p>
           )}

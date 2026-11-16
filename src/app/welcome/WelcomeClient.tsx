@@ -44,8 +44,9 @@ export function WelcomeClient({
       <Reveal>
         <h1 className="t-title mb-3">You&apos;re in.</h1>
         <p className="mb-8 text-[15px] leading-relaxed text-ink-soft">
-          Your $149 setup fee was charged today. Nothing else is charged until you&apos;ve had 20
-          screened candidates or 60 days go by, whichever comes first. Head to your dashboard to
+          Your $149 setup fee was charged today. Nothing else is charged until we&apos;ve screened 20
+          candidates for you. If we can&apos;t get you 20 in the first 30 days, we refund the $149
+          and cancel. Head to your dashboard to
           book your onboarding call and finish setup.
         </p>
         <Link

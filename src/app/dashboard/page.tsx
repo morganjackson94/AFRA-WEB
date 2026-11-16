@@ -107,14 +107,9 @@ export default async function DashboardPage({
   const bookings = operator.locations.flatMap((l) => l.bookings);
   const billing = describeBilling(operator.billingStatus, operator.plan, {
     screenedCandidateCount: operator.screenedCandidateCount,
-    // Approximate, not a live Stripe read: computed from when the checkout
-    // record was created (a few seconds before the trial actually starts, in
-    // practice) rather than fetching the subscription's real trial_end on
-    // every dashboard load. Close enough for a "free until ~<date>" display;
-    // if the trial is ever manually adjusted in Stripe this display can lag,
-    // but that's an acceptable tradeoff against adding a live Stripe network
-    // call to a page render that must keep working even if Stripe hiccups.
-    trialStartedAt: operator.createdAt,
+    // The 30-day guarantee deadline, stored at checkout confirmation.
+    guaranteeEndsAt: operator.guaranteeEndsAt,
+    guaranteeRefundedAt: operator.guaranteeRefundedAt,
     // Set once the candidate cap is reached: the real, already-scheduled
     // trial end (stored when Stripe's trial_end was moved), so no lag here.
     trialEndsAt: operator.trialEndsAt,
@@ -126,7 +121,7 @@ export default async function DashboardPage({
     operator.billingStatus === "active"
       ? "Your subscription won't renew. You keep full access until the end of the year you've paid for, with no partial refund."
       : operator.billingStatus === "trialing"
-        ? "This ends your trial now. Nothing further is charged. The $149 setup fee isn't refunded."
+        ? "This ends your trial now. Nothing further is charged. Canceling yourself doesn't refund the $149 setup fee. The 30-day refund applies when your trial is still running on day 30 without 20 screened candidates."
         : "This ends your subscription now.";
   // isBillingActive (readiness.ts) is the SSOT predicate for "billing is in
   // a good state" — true for "trialing" as well as "active", since under the
@@ -523,7 +518,7 @@ export default async function DashboardPage({
             {bookingsView.length === 0 ? (
               <p className="mt-3 text-sm text-faint">
                 Booked interviews land here. Billing is $4,788/year flat, all locations, starting 3 days
-                after your 20th screened candidate or at 60 days, whichever comes first.
+                after your 20th screened candidate. No 20 in your first 30 days: we refund the $149.
               </p>
             ) : (
               <ul className="mt-3 space-y-1 text-sm text-ink">
@@ -622,7 +617,7 @@ export default async function DashboardPage({
           )}
           <p className="mt-2 text-xs text-faint">
             Booked interviews land here. Billing is $4,788/year flat, all locations, starting 3 days
-            after your 20th screened candidate or at 60 days, whichever comes first.
+            after your 20th screened candidate. No 20 in your first 30 days: we refund the $149.
           </p>
           <p className="mt-2 text-xs text-faint">
             Screened out. Only candidates who pass your screening count toward your 20.

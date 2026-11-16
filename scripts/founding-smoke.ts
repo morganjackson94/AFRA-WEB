@@ -4,6 +4,7 @@ import { requireDevDatabase } from "./lib/guardDatabase";
 import {
   applyStripeStatus,
   confirmFoundingPayment,
+  honorGuarantee,
   recomputeOperatorReadiness,
   scheduleTrialEndForCandidateCap,
   startFoundingCheckout,
@@ -19,7 +20,7 @@ import { provision } from "../src/lib/provision";
 // checkout stays unpaid. Trialing != live. The trial itself ends via ONE
 // shared path (applyStripeStatus) regardless of which of its two causes
 // triggered it — the candidate cap (scheduleTrialEndForCandidateCap) or Stripe's own
-// 60-day backstop — proven identical below.
+// Stripe trial end — see steps 9-11 for the 30-day guarantee.
 
 let prisma: PrismaClient;
 const billing = getBillingProvider();
@@ -147,39 +148,86 @@ async function main() {
 
   await prisma.operator.delete({ where: { id: operatorId } });
 
-  // ---- 9) The OTHER trial-end cause (Stripe's own 60-day backstop) produces the IDENTICAL outcome ----
-  console.log("\n9) A fresh operator whose trial ends via the 60-day backstop instead (bypassing scheduleTrialEndForCandidateCap entirely):");
-  const email2 = "founder@backstopdemo.com";
-  await prisma.operator.deleteMany({ where: { email: email2 } });
-  const { operatorId: operatorId2 } = await provision(
-    prisma,
-    { instagramHandle: "@backstopdemo", role: { title: "Barista" }, calendarChoice: "google", operatorEmail: email2 },
-    { startTrial: false },
-  );
-  const checkout2 = await startFoundingCheckout(prisma, billing, operatorId2, {
-    successUrl: "http://localhost:3000/dashboard?checkout=success",
-    cancelUrl: "http://localhost:3000/onboarding?canceled=1",
+  // ---- 9) The 30-day guarantee, via the daily job ----
+  console.log("\n9) Day 30 without 20 screened candidates: the daily job refunds the $149 and cancels:");
+  const freshOperator = async (tag: string) => {
+    const email = `founder@${tag}demo.com`;
+    await prisma.operator.deleteMany({ where: { email } });
+    const { operatorId: id } = await provision(
+      prisma,
+      { instagramHandle: `@${tag}demo`, role: { title: "Barista" }, calendarChoice: "google", operatorEmail: email },
+      { startTrial: false },
+    );
+    const co = await startFoundingCheckout(prisma, billing, id, {
+      successUrl: "http://localhost:3000/dashboard?checkout=success",
+      cancelUrl: "http://localhost:3000/onboarding?canceled=1",
+    });
+    const sub = `sub_test_${id}`;
+    await confirmFoundingPayment(prisma, billing, id, {
+      customerId: `cus_test_${id}`,
+      subscriptionId: sub,
+      checkoutSessionId: co.sessionId,
+      livemode: false,
+    });
+    return { id, sub };
+  };
+  const g = await freshOperator("guarantee");
+  let gop = await prisma.operator.findUniqueOrThrow({ where: { id: g.id } });
+  assert(gop.guaranteeEndsAt !== null, "guaranteeEndsAt set at checkout confirmation");
+  const days = (gop.guaranteeEndsAt!.getTime() - Date.now()) / (24 * 3600 * 1000);
+  assert(days > 29.9 && days <= 30, "guaranteeEndsAt is 30 days out");
+  // Not due yet: the job leaves it alone.
+  const { POST: reconcile } = await import("../src/app/api/jobs/reconcile-trials/route");
+  const runJob = () =>
+    reconcile(new Request("http://localhost:3000/api/jobs/reconcile-trials", {
+      method: "POST",
+      headers: { "x-admin-secret": process.env.JOBS_ADMIN_SECRET! },
+    }));
+  await runJob();
+  gop = await prisma.operator.findUniqueOrThrow({ where: { id: g.id } });
+  assert(gop.guaranteeRefundedAt === null && gop.billingStatus === "trialing", "before day 30: untouched");
+  // Day 30 passes with 12 screened.
+  await prisma.operator.update({
+    where: { id: g.id },
+    data: { guaranteeEndsAt: new Date(Date.now() - 60_000), screenedCandidateCount: 12 },
   });
-  const subscriptionId2 = `sub_test_${operatorId2}`;
-  await confirmFoundingPayment(prisma, billing, operatorId2, {
-    customerId: `cus_test_${operatorId2}`,
-    subscriptionId: subscriptionId2,
-    checkoutSessionId: checkout2.sessionId,
-    livemode: false,
+  const jobRes = await runJob();
+  const jobBody = (await jobRes.json()) as { guarantee: { due: number; refunded: number } };
+  assert(jobBody.guarantee.refunded >= 1, "job reports the refund");
+  gop = await prisma.operator.findUniqueOrThrow({ where: { id: g.id } });
+  assert(gop.guaranteeRefundedAt !== null, "guaranteeRefundedAt stamped");
+  assert(gop.billingStatus === "canceled", "billingStatus is 'canceled'");
+  assert(gop.guaranteeRefundEmailSentAt !== null, "refund email claimed");
+  if (billing instanceof FakeBillingProvider) {
+    const live = await billing.getSubscriptionStatus(g.sub);
+    assert(live.stripeStatus === "canceled", "subscription canceled on the billing side");
+  }
+  // Idempotent: a second run refunds nothing more.
+  const again = await honorGuarantee(prisma, billing, g.id);
+  assert(!again.honored && again.reason === "already-honored", "second run is a no-op");
+  await prisma.operator.delete({ where: { id: g.id } });
+
+  // ---- 10) Reached the cap before day 30: never refunded ----
+  console.log("\n10) An operator who reached 20 is never refunded, even past day 30:");
+  const c = await freshOperator("capreached");
+  await prisma.operator.update({
+    where: { id: c.id },
+    data: { guaranteeEndsAt: new Date(Date.now() - 60_000), screenedCandidateCount: 20, trialCapReachedAt: new Date() },
   });
-  // Stripe's own day-60 transition fires customer.subscription.updated with
-  // NO app-initiated endTrialNow call anywhere in this path — simulate that
-  // directly, proving the shared reconciliation path is real, not aspirational.
-  // applyStripeStatus now re-fetches live status rather than trusting a
-  // passed-in string, so the fake has to be told directly that Stripe's side
-  // changed (real Stripe would have actually done this on its own).
-  if (billing instanceof FakeBillingProvider) billing.setStatusForTest(subscriptionId2, "active");
-  const backstopReconcile = await applyStripeStatus(prisma, billing, operatorId2);
-  const op2 = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId2 } });
-  assert(op2.billingStatus === "active", "billingStatus is 'active' after the natural backstop transition");
-  assert(op2.trialEndedAt !== null, "trialEndedAt stamped identically to the candidate-cap path");
-  assert(backstopReconcile.trialEndedEmail?.sent === false && backstopReconcile.trialEndedEmail.reason === "stub", "the SAME trial-ended email fires for the backstop cause");
-  await prisma.operator.delete({ where: { id: operatorId2 } });
+  const capRes = await honorGuarantee(prisma, billing, c.id);
+  assert(!capRes.honored && capRes.reason === "not-eligible", "not eligible once the cap is reached");
+  await prisma.operator.delete({ where: { id: c.id } });
+
+  // ---- 11) Safety net: Stripe ends the trial on its own before the job ran ----
+  console.log("\n11) Stripe's own trial end with fewer than 20: applyStripeStatus refunds and cancels instead of billing:");
+  const s2 = await freshOperator("backstop");
+  await prisma.operator.update({ where: { id: s2.id }, data: { screenedCandidateCount: 5 } });
+  if (billing instanceof FakeBillingProvider) billing.setStatusForTest(s2.sub, "active");
+  const net = await applyStripeStatus(prisma, billing, s2.id);
+  const op2 = await prisma.operator.findUniqueOrThrow({ where: { id: s2.id } });
+  assert(net.trialEndedEmail === undefined, "no 'you're on $4,788/year' email");
+  assert(op2.guaranteeRefundedAt !== null && op2.billingStatus === "canceled", "refunded and canceled");
+  await prisma.operator.delete({ where: { id: s2.id } });
 
   console.log("\nFounding subscription smoke test PASSED.");
 }

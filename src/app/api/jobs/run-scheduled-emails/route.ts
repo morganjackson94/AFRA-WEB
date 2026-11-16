@@ -1,16 +1,18 @@
 import { applyStripeStatus } from "../../../../lib/activation";
 import { createLoginToken } from "../../../../lib/auth";
-import {
-  getBillingProvider,
-  RENEWAL_NOTICE_DAYS_BEFORE,
-  TRIAL_DAYS_BACKSTOP,
-  TRIAL_ENDING_SOON_DAYS_BEFORE,
-  trialBackstopDate,
-} from "../../../../lib/billing";
+import { getBillingProvider, RENEWAL_NOTICE_DAYS_BEFORE } from "../../../../lib/billing";
 import { sendCheckinEmail, sendRenewalNoticeEmail, sendTrialEndingSoonEmail } from "../../../../lib/mail";
 import { prisma } from "../../../../lib/prisma";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// LEGACY (pre-guarantee signups only). Operators who signed up before the
+// 30-day guarantee still have a 60-day trial on their Stripe subscription;
+// they keep getting the 7-day heads-up before day 60. New signups have
+// guaranteeEndsAt set and are excluded — their trial never charges without
+// the candidate cap (see honorGuarantee, activation.ts).
+const LEGACY_TRIAL_DAYS = 60;
+const LEGACY_TRIAL_ENDING_SOON_DAYS_BEFORE = 7;
 
 // Duplicated from session.ts's appBaseUrl() rather than imported: session.ts
 // pulls in next/headers (cookies()), which breaks when this route module is
@@ -30,8 +32,8 @@ function appBaseUrl(): string {
 // job (cron overlap, manual retry) can never double-send.
 //
 // billingStatus in ("trialing", "active"): under the trial model (see
-// FREE_CANDIDATE_CAP/TRIAL_DAYS_BACKSTOP, billing.ts), day 20 lands almost
-// always WHILE still trialing (the trial runs up to 60 days) — that's
+// FREE_CANDIDATE_CAP/GUARANTEE_DAYS, billing.ts), day 20 lands almost
+// always WHILE still trialing (before the 30-day guarantee deadline) — that's
 // exactly when this personal how's-it-going touch is most useful, so
 // "trialing" must be included, not just "active". Excludes canceled/
 // past_due/trial_pending, since there's no point checking in on an operator
@@ -126,10 +128,8 @@ async function runJob(request: Request): Promise<Response> {
   });
 }
 
-// Trial-ending-soon job. TRIAL_ENDING_SOON_DAYS_BEFORE days before the
-// trial's 60-day backstop (see billing.ts's trialBackstopDate — the SAME
-// derivation describeBilling uses for dashboard display, so there's one
-// source of truth for the trial-end date, not two that can drift).
+// LEGACY trial-ending-soon job: LEGACY_TRIAL_ENDING_SOON_DAYS_BEFORE days
+// before day 60, for pre-guarantee signups only (guaranteeEndsAt: null).
 //
 // billingStatus: "trialing" does the real work of handling both edge cases
 // where the 7-day date should never fire a warning:
@@ -142,13 +142,13 @@ async function runJob(request: Request): Promise<Response> {
 //   - operator cancels before the email fires: cancelBilling sets
 //     billingStatus to "canceled", same exclusion, same reasoning — don't
 //     warn about a charge that will never happen.
-// An operator with fewer than TRIAL_ENDING_SOON_DAYS_BEFORE days left "for
+// An operator with fewer than LEGACY_TRIAL_ENDING_SOON_DAYS_BEFORE days left "for
 // any reason" (a missed cron run, a delayed deploy) is still caught by the
 // `createdAt <= cutoff` comparison (it's `<=`, not `===`) — daysRemaining is
 // computed fresh per-operator at send time, not hardcoded to 7, so the copy
 // stays accurate even when the job runs late.
 async function runTrialEndingSoonJob() {
-  const cutoff = new Date(Date.now() - (TRIAL_DAYS_BACKSTOP - TRIAL_ENDING_SOON_DAYS_BEFORE) * ONE_DAY_MS);
+  const cutoff = new Date(Date.now() - (LEGACY_TRIAL_DAYS - LEGACY_TRIAL_ENDING_SOON_DAYS_BEFORE) * ONE_DAY_MS);
   const due = await prisma.operator.findMany({
     where: {
       plan: "founding_annual",
@@ -156,6 +156,7 @@ async function runTrialEndingSoonJob() {
       createdAt: { lte: cutoff },
       trialEndingSoonEmailSentAt: null,
       trialCapReachedAt: null,
+      guaranteeEndsAt: null,
     },
     select: { id: true },
   });
@@ -169,7 +170,7 @@ async function runTrialEndingSoonJob() {
     // invocation the same day (cron overlap, manual retry) matches zero rows
     // here and skips, never double-sending.
     const claim = await prisma.operator.updateMany({
-      where: { id, trialEndingSoonEmailSentAt: null, trialCapReachedAt: null },
+      where: { id, trialEndingSoonEmailSentAt: null, trialCapReachedAt: null, guaranteeEndsAt: null },
       data: { trialEndingSoonEmailSentAt: new Date() },
     });
     if (claim.count === 0) {
@@ -179,7 +180,7 @@ async function runTrialEndingSoonJob() {
 
     try {
       const operator = await prisma.operator.findUniqueOrThrow({ where: { id } });
-      const endDate = trialBackstopDate(operator.createdAt);
+      const endDate = new Date(operator.createdAt.getTime() + LEGACY_TRIAL_DAYS * ONE_DAY_MS);
       const daysRemaining = Math.max(1, Math.ceil((endDate.getTime() - Date.now()) / ONE_DAY_MS));
       const trialEndDate = endDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
       const token = await createLoginToken(prisma, id);

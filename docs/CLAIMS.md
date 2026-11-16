@@ -15,7 +15,33 @@ possible, so the trial terms (`FREE_CANDIDATE_CAP`/`TRIAL_DAYS_BACKSTOP`) are co
 pass. There are no paying customers on the monthly interval at the time of this change, so this is a
 clean cutover, not a migration.
 
+## The 30-day guarantee (November 16, 2026) — supersedes the 60-day backstop
+
+**Approved wording (sales script, verbatim):** "You put down $149 to set it up. Nothing else charges until
+we've put 20 screened applicants in your Sheet. If we can't get you 20 in the first 30 days, we refund the
+$149, and you owe nothing. Once you have your 20, it's $4,788 for the year. One price for every location."
+
+What changed, for every signup confirmed on or after this release:
+- **No 60-day clock.** The subscription only ever starts from the candidate cap: 72 hours after the 20th
+  screened candidate (unchanged mechanism, `scheduleTrialEndForCandidateCap`).
+- **Day 30 without 20:** the $149 (and anything else charged) is refunded and the subscription is canceled
+  immediately (`honorGuarantee`, `src/lib/activation.ts`; run daily by `/api/jobs/reconcile-trials`). The
+  operator gets one email ("We've refunded your $149.").
+- `GUARANTEE_DAYS` (30) sets `Operator.guaranteeEndsAt` at checkout confirmation.
+  `TRIAL_DAYS_BACKSTOP` is now `GUARANTEE_DAYS + 3` (33): Stripe's own trial only exists as a safety net
+  behind the daily job. If Stripe ever ends a trial first, `applyStripeStatus` refunds and cancels anyway.
+- **Canceling yourself before day 30** still doesn't refund the $149. The refund is for AFRA not delivering
+  20, not a cancel-for-any-reason guarantee. Never call it a "money-back guarantee" without that scope.
+- **Legacy operators** (signed up before this release, `guaranteeEndsAt` null) keep their original 60-day
+  trial and the 7-day "trial ending soon" email; nothing about their subscription is changed.
+- **Phone signups:** the Stripe Payment Link (`plink_1UEFYvDG3GjLuRJ6pvuZuArC`) still has a 60-day trial
+  configured in the Stripe dashboard. It must be updated (33 days) or retired, and a phone signup's
+  `guaranteeEndsAt` only gets set if it lands through `confirmFoundingPayment`.
+
 ## Trial end timing (October 6, 2026)
+
+*November 2026: the "or at 60 days" parts below apply to legacy signups only — see the 30-day guarantee
+above.*
 
 **The subscription starts 72 hours after the 20th screened candidate, or at 60 days, whichever comes
 first.** Reaching the cap no longer ends the trial on the spot: `scheduleTrialEndForCandidateCap`
@@ -68,9 +94,9 @@ Fixed September 2026 — see the canonical claims table below for the corrected 
 |---|---|---|
 | Price | $4,788/year — about $399/month — every location included | Flat, recurring, covers all locations. Standard, ongoing pricing — not an introductory or limited-time rate. The monthly figure is kept as an anchor alongside the real (annual) price and interval — never state the monthly figure alone, since that's not what the card is actually charged. |
 | Setup fee | $149, charged today, at checkout | September 2026: AFRA can't float the ManyChat Pro cost (~$39/mo) that's due before an operator's own subscription generates revenue, so both signup paths now charge this identically at checkout — phone (Stripe Payment Link `plink_1UEFYvDG3GjLuRJ6pvuZuArC`) and web (`createFoundingCheckout`, `SETUP_FEE_CENTS` in `src/lib/billing.ts`). Not part of the trial mechanism — it's charged immediately regardless of trial status. The welcome email (`sendWelcomeAwaitingSetupEmail`) states it'll be refunded if AFRA's own setup is at fault on the onboarding call — a founder-discretion remedy for a specific failure, not a blanket refund policy; don't generalize it into "money-back" language elsewhere. |
-| Billing disclosure | Any copy that mentions the trial or the price must disclose the $149 setup fee charged at signup. Where a surface states when the subscription starts: 3 days after the 20th screened candidate, or at 60 days, whichever comes first. | Facts as implemented (October 2026), see "Billing disclosure — facts from code" below. Never say or imply nothing is charged at signup ("no setup fee," "nothing charged until the trial ends," "card never touched," "$0 today"). |
-| The trial | $149 to set up. Nothing more until 20 screened candidates or 60 days. (Exact timing, where a surface states when the charge happens: 3 days after the 20th screened candidate, or at 60 days.) | Whichever comes first. **October 7, 2026:** customer-facing copy no longer calls the trial "free" (the $149 is charged on day one); the Terms still use the defined term "Free Trial" (§5(c)), which is legal text, not marketing. A card is required to start (Stripe's default for subscription-mode Checkout). The $149 setup fee above is charged immediately; the $4,788/yr subscription itself charges nothing further until the trial ends. `FREE_CANDIDATE_CAP` / `TRIAL_DAYS_BACKSTOP` in `src/lib/billing.ts` — unchanged by the September 2026 interval change; the trial mechanism doesn't depend on the subscription's interval. "Screened" means passed your screening (`Candidate.stage` reaching `"screened"` or beyond) — a candidate who doesn't pass never counts against the free 20. **October 6, 2026:** the subscription starts 72 hours after the 20th screened candidate (or at 60 days) — see "Trial end timing". |
-| Cancel anytime | You can cancel any time. During the trial, nothing further is owed beyond the $149 setup fee already charged at signup. After the trial, canceling stops the next renewal but does not end early or refund the year already paid for — you keep access through the end of that year. | Self-serve, from the dashboard (`cancelSubscriptionAction`, behind a confirm step that states the consequence) — a real Stripe cancellation, not a support-ticket process. Mechanism (`cancelBilling`, `src/lib/activation.ts`): an `active` subscription is set to `cancel_at_period_end` (access continues, `Operator.subscriptionCancelAt` shows the end date); `trialing`/`past_due` cancel immediately. Before September 14, 2026 every cancel was immediate, which made this row false for paid operators. The "stop paying immediately" reading was accurate under the monthly interval; it is NOT accurate under annual and must not be implied. The $149 setup fee (added after this section was last written) is separately non-refundable except the founder-discretion remedy described in the Setup fee row above — don't let "nothing is owed" language imply the setup fee itself was never charged. `content/legal/terms.md` §5(b), §6 and §7(c) corrected for the setup fee September 14, 2026 (`LEGAL_DOC_VERSION` 2026-09-14). |
+| Billing disclosure | Any copy that mentions the trial or the price must disclose the $149 setup fee charged at signup. Where a surface states when the subscription starts: 3 days after the 20th screened candidate. Where a surface states the guarantee: if we can't get you 20 screened candidates in the first 30 days, we refund the $149 and cancel. | November 2026: the "or at 60 days" clause is retired for new signups (see the 30-day guarantee section). Facts as implemented (October 2026), see "Billing disclosure — facts from code" below. Never say or imply nothing is charged at signup ("no setup fee," "nothing charged until the trial ends," "card never touched," "$0 today"). |
+| The trial | $149 to set up. Nothing more until 20 screened candidates. No 20 in your first 30 days: we refund the $149. (Exact timing, where a surface states when the charge happens: 3 days after the 20th screened candidate.) | November 16, 2026: replaces "or 60 days" (legacy signups keep it). **October 7, 2026:** customer-facing copy no longer calls the trial "free" (the $149 is charged on day one); the Terms still use the defined term "Free Trial" (§5(c)), which is legal text, not marketing. A card is required to start (Stripe's default for subscription-mode Checkout). The $149 setup fee above is charged immediately; the $4,788/yr subscription itself charges nothing further until the trial ends. `FREE_CANDIDATE_CAP` / `TRIAL_DAYS_BACKSTOP` in `src/lib/billing.ts` — unchanged by the September 2026 interval change; the trial mechanism doesn't depend on the subscription's interval. "Screened" means passed your screening (`Candidate.stage` reaching `"screened"` or beyond) — a candidate who doesn't pass never counts against the free 20. **October 6, 2026:** the subscription starts 72 hours after the 20th screened candidate (or at 60 days) — see "Trial end timing". |
+| Cancel anytime | You can cancel any time. During the trial, nothing further is owed beyond the $149 setup fee already charged at signup (refunded automatically only if we haven't reached 20 screened candidates by day 30). After the trial, canceling stops the next renewal but does not end early or refund the year already paid for — you keep access through the end of that year. | Self-serve, from the dashboard (`cancelSubscriptionAction`, behind a confirm step that states the consequence) — a real Stripe cancellation, not a support-ticket process. Mechanism (`cancelBilling`, `src/lib/activation.ts`): an `active` subscription is set to `cancel_at_period_end` (access continues, `Operator.subscriptionCancelAt` shows the end date); `trialing`/`past_due` cancel immediately. Before September 14, 2026 every cancel was immediate, which made this row false for paid operators. The "stop paying immediately" reading was accurate under the monthly interval; it is NOT accurate under annual and must not be implied. The $149 setup fee (added after this section was last written) is separately non-refundable except the founder-discretion remedy described in the Setup fee row above — don't let "nothing is owed" language imply the setup fee itself was never charged. `content/legal/terms.md` §5(b), §6 and §7(c) corrected for the setup fee September 14, 2026 (`LEGAL_DOC_VERSION` 2026-09-14). |
 | Structural pricing advantage (landing page) | "One flat rate: no per-location fees, no per-seat charges. Most platforms charge per location; AFRA doesn't." | Punctuation updated in the August 2026 redesign pass (em-dash removed site-wide from customer-facing copy; substance unchanged). Static, location-agnostic — the landing page doesn't know an operator's location count yet. Describes the flat-vs-per-location *structure*, never a fabricated savings dollar amount or a named-competitor comparison. |
 | Per-location reflection (wizard, post location-count) | "Across your {bucket} locations, that's as low as ~${X}/location/month" | Personalized, decided 2026-08-01. `X` = `perLocationMonthlyDollars()` in `src/lib/qualification.ts`, which as of the September 2026 annual repricing divides `ANNUAL_PRICE_CENTS` by 12 *before* dividing by location count — this stays a MONTHLY-equivalent per-location figure even though the underlying price is annual (do not remove the /12; that's the exact bug this note exists to prevent). Computed off each location bucket's *upper* bound (honest floor — the true per-location cost for anyone in that bucket is at or below `X`). Suppressed entirely for the 1-2 location bucket, where the framing is weakest. Never fired on the landing page (no location count known there) — wizard step 4 only. |
 | Renewal | Recurring annual subscription, billed to the card on file until canceled | Standard subscription renewal — no separate renewal conversation. Retired: the old one-time-charge "we'll reach out before your year is up" language and its backing TODO in `billing.ts` — a subscription (annual or otherwise) is the renewal mechanism, Stripe renews it natively. We email a reminder about 30 days before each annual renewal (renewal notice, below). See `content/legal/terms.md` §7(a). |
@@ -79,7 +105,7 @@ Fixed September 2026 — see the canonical claims table below for the corrected 
 | Core outcome | Candidates are screened against your criteria, then book straight into your calendar | AFRA never books an interview itself — no calendar integration exists (confirmed in the Phase 1 audit: `UnbuiltCalendarProvider` throws, the live ManyChat flow has no scheduling node). The candidate books, using the operator's own booking link — required at onboarding step 7 specifically so this claim is true for every operator. |
 | Screening capability | Candidates are screened against the operator's own criteria before reaching them. Do not claim scoring, ranking, grading, or "top candidates." | Knockout qualification is automated and operator-specific (`evaluateDisqualification`, `src/lib/screeningQuestions.ts`); competency answers are stored as raw free text and read manually. No AI grading exists in this repo. |
 | Brand name | sandoitchi — always lowercase, including at the start of a sentence, in headings, metadata, alt text, and internal docs | sandoitchi's own styling. Never capitalize it; `git grep -n "S[a]ndoitchi"` should return nothing. |
-| Proof | **One Instagram story. 58 applicants. 4 hires. 3 days.** / sandoitchi, Dallas. $0 in ads. ~$4,000 in value.* — short form (stat strips, badges, meta/OG description): "sandoitchi: 58 applicants, 4 hires, 3 days, $0 in ads." | Approved verbatim (October 2026); sandoitchi approved being named publicly with these figures. Raw pilot figures — never describe these as "qualified," never render 58 as a percentage. **No retention claims in public copy** ("stayed," "retained," percentages). See sourcing note below. |
+| Proof | **7 hires in two weeks.** / One Instagram post and a story. 38 applicants. sandoitchi, Houston. $0 in ads. — short form (stat strips, badges, meta/OG description): "sandoitchi: 7 hires in two weeks from one post and a story. $0 in ads." | November 2026: replaces the Dallas pilot figures (58 applicants, 4 hires, 3 days) to match the sales script. **Public use of the Houston figures by name needs sandoitchi's approval before this ships** (the Dallas approval doesn't carry over). Raw figures — never "qualified," never a percentage, no retention claims. See sourcing note below. |
 | Cost anchor | **Pays for itself at five hires.*** / Every open shift gets covered at overtime. AFRA fills it in days, not weeks. | Approved verbatim (October 2026). Sits directly beside the $4,788/year price on the landing page's pricing card. Not added to billing, legal, dashboard, email, or checkout surfaces. |
 | Footnote | *Est. from time-to-fill and overtime at $20/hr, per NRA and Black Box 2025 benchmarks. Results vary. | Required once, in small muted text, on any page that shows a line ending in "*" (the ~$4,000 value and the five-hires anchor are both estimates). |
 | Delivery status | Describe what AFRA does structurally (screens applicants, feeds candidates into your existing process). Never state or imply that the self-serve platform currently has real operators running through it live, or that a real candidate has gone end-to-end via a live Instagram DM through a real ManyChat flow. | As of September 2026, the delivery chain is proven only as far as: a curl request to `/api/manychat/webhook` correctly creates/rejects a `Candidate`. No operator has ever connected a real, confirmed ManyChat flow end-to-end (`ChannelConnection.status` has never reached `"connected"` for any real operator). The sandoitchi proof numbers (58 applicants/4 hires/3 days; 58% completion/10 qualified in 7 days) are from the original *manual* pilot, true and usable as-is, and are a separate claim from "the current platform is live" — don't let copy blend the two. Structural/mechanism claims ("it runs on the Instagram you already use," "candidates get screened") are fine since that's what the code does when exercised; volume or liveness claims about the current customer base are not, until this changes. |
@@ -116,8 +142,9 @@ through and replaced, not deleted, so the next person reading this sees a decisi
 - Stating the monthly figure ($399/mo) *alone*, without the real annual price and interval — the anchor
   framing ("$4,788/year — about $399/month") is required precisely so nobody reads the monthly number as
   what their card is actually charged.
-- "30-day money-back guarantee" / "paid from day one" — structurally incompatible with an unpaid trial
-  (you cannot refund a charge that was never made); the trial itself is the risk reversal now
+- "30-day money-back guarantee" (unscoped) / "paid from day one" — still retired as worded. The November
+  2026 guarantee is narrower: it refunds the $149 setup fee only if AFRA hasn't reached 20 screened
+  candidates in 30 days. State it that way, never as a general money-back promise.
 - "we'll reach out before your year is up" / any renewal-notice-call framing — a subscription renews
   itself; there is no annual renewal conversation to have
 - "$1,990 first year" / any two-tier price, "10 founding operators" / "first 10 only" / any spot count,
@@ -154,16 +181,20 @@ Verified October 2026 against the code; copy must describe exactly this.
   has charged, cancel is at period end with access through the paid year (`atPeriodEnd =
   billingStatus === "active"`, `src/lib/activation.ts:403`; `cancelSubscription`,
   `src/lib/billing.ts:256-263`).
-- **Refunds:** no refund is implemented anywhere in code. Terms §5(b): the setup fee is non-refundable
-  except at AFRA's written discretion; §7(c): no partial refund after the subscription charges. The
-  welcome email's "$149 comes back if setup is broken on our end" is the one approved, founder-discretion
-  remedy (see the Setup fee row). The 30-day money-back guarantee stays retired.
+- **Refunds (November 2026):** the guarantee refund is implemented: `honorGuarantee`
+  (`src/lib/activation.ts`) refunds every succeeded charge on the customer (`refundAllCharges`,
+  `src/lib/billing.ts`, idempotency-keyed per charge) and cancels the subscription, once per operator
+  (`guaranteeRefundedAt` claim). Terms §5(b)/§5(c) describe it. Otherwise the setup fee is still not
+  refunded by canceling, and §7(c) still allows no partial refund after the subscription charges.
 
 ## Proof stat — sourcing note (not customer-facing)
 
-- **Location:** sandoitchi, Dallas, TX — one location.
-- **Figure:** 58 applicants, 4 front-of-house hires, 3 days, sourced from a single Instagram story,
-  $0 ad spend. Hires figure and public naming approved October 2026.
+- **Current figure (November 2026):** sandoitchi, Houston, TX — one location. 38 applicants and 7 hires
+  over about two weeks (Oct 23 – Nov 9, 2026), from one organic Instagram post and story, $0 ad spend.
+  Source: the location's hiring Google Sheet and its cell edit history ("Reached Out?" / "Hired?").
+  Public naming with these figures: **pending sandoitchi's approval.**
+- **Previous figure (retired from the site):** sandoitchi, Dallas, TX — 58 applicants, 4 front-of-house
+  hires, 3 days, from a single Instagram story, $0 ad spend. Approved October 2026.
 - **Value estimates:** "~$4,000 in value" and "pays for itself at five hires" ($4,788/yr) are estimates
   from time-to-fill and overtime at $20/hr per NRA and Black Box 2025 benchmarks, as supplied with the
   approved copy. Always footnoted on-page.
@@ -260,7 +291,8 @@ Every marketing claim with a real commitment behind it has a corresponding Terms
 | Claim | ToS clause |
 |---|---|
 | $149 setup fee, charged at checkout, not refunded by canceling | §5(b), §6, §7(c) |
-| First 20 screened candidates free, 60-day cap | §5(c) |
+| No 20 screened candidates in 30 days: $149 refunded and canceled | §5(b), §5(c) |
+| Nothing more until 20 screened candidates (subscription starts 3 days after the 20th) | §5(c) |
 | Cancel any time, no subscription charge during the trial | §5, §6, §7 |
 | $4,788/year, recurring until canceled | §5, §7 |
 | Self-serve cancellation; canceling after the trial keeps access through the paid year | §7(c) |

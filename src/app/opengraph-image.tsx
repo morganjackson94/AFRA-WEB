@@ -8,20 +8,23 @@ import { join } from "node:path";
 // needs its footnote, and a footnote can't live on a share image. Fonts are
 // committed static TTFs (src/assets/fonts) so nothing is fetched at build.
 
-export const alt = "One Instagram story. 58 applicants. 4 hires. 3 days.";
+export const alt = "7 hires in two weeks. One post and a story.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Wrap units: each number stays on the same line as its noun ("3 days.").
+// Wrap units: each number stays on the same line as its noun ("7 hires").
 const HEADLINE: { lead?: string; text: string }[] = [
+  { lead: "7", text: "hires" },
+  { text: "in" },
+  { text: "two" },
+  { text: "weeks." },
   { text: "One" },
-  { text: "Instagram" },
+  { text: "post" },
+  { text: "and" },
+  { text: "a" },
   { text: "story." },
-  { lead: "58", text: "applicants." },
-  { lead: "4", text: "hires." },
-  { lead: "3", text: "days." },
 ];
-const SUBLINE = "sandoitchi, Dallas · $0 in ads";
+const SUBLINE = "sandoitchi, Houston · 38 applicants · $0 in ads";
 
 // Colors come from the site's own tokens in globals.css rather than being
 // retyped here, so the card can't drift from the page.
@@ -60,7 +63,7 @@ export default async function Image() {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* Word-per-item so "58" can carry the amber accent, as on the page. */}
+          {/* Word-per-item so "7" can carry the amber accent, as on the page. */}
           <div
             style={{
               display: "flex",
@@ -76,7 +79,7 @@ export default async function Image() {
             {HEADLINE.map((w, i) => (
               <div key={i} style={{ display: "flex", marginRight: 26 }}>
                 {w.lead && (
-                  <span style={{ marginRight: 26, color: w.lead === "58" ? accent : bg }}>{w.lead}</span>
+                  <span style={{ marginRight: 26, color: w.lead === "7" ? accent : bg }}>{w.lead}</span>
                 )}
                 <span>{w.text}</span>
               </div>

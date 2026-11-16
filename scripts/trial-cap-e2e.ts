@@ -79,7 +79,7 @@ async function main() {
   try {
     console.log(`Test clock ${clock.id}, frozen at ${iso(clock.frozen_time)}`);
 
-    // Customer + annual subscription with the real 60-day trial, the same
+    // Customer + annual subscription with the real (33-day) trial, the same
     // shape createFoundingCheckout produces (minus the hosted page).
     const customer = await stripe.customers.create({ email, test_clock: clock.id, payment_method: "pm_card_visa" });
     const pm = (await stripe.customers.listPaymentMethods(customer.id)).data[0];
@@ -92,7 +92,7 @@ async function main() {
       trial_period_days: TRIAL_DAYS_BACKSTOP,
       metadata: { plan: "founding_annual", e2e: "trial-cap" },
     });
-    console.log(`Subscription ${sub.id}: status=${sub.status}, trial_end=${iso(sub.trial_end)} (60-day backstop)`);
+    console.log(`Subscription ${sub.id}: status=${sub.status}, trial_end=${iso(sub.trial_end)} (Stripe trial end)`);
 
     const { operator } = await provision(
       prisma,
